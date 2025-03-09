@@ -43,53 +43,42 @@
 - **文書美編測試**：呂宜蓁
 
 ## 專案結構
-NtubProject/ # 主專案資料夾
+NtubProject/ # 主專案資料夾  
+├── service/ # 服務層，處理業務邏輯、CRUD 操作  
+│ ├── flightService.py # 航班相關 API  
+│ ├── userService.py # 使用者相關 API  
+│ └── init.py  
+├── model/ # 資料模型（ORM 對應、Schema 定義）  
+│ ├── flightModel.py # 航班資料模型  
+│ ├── userModel.py # 使用者資料模型  
+│ └── init.py  
+├── static/ # 靜態資源（JS、CSS、圖片）  
+│ ├── scripts.js  
+│ ├── styles.css  
+│ └── logo.png  
+├── templates/ # 前端模板（HTML）  
+│ ├── base.html # 頁面基底  
+│ ├── index.html # 首頁  
+│ ├── flight.html # 航班查詢頁  
+│ └── user.html # 使用者管理頁  
+├── config/ # 設定檔案  
+│ ├── prodConfig.json # 正式環境設定  
+│ ├── devConfig.json # 開發環境設定  
+│ └── init.py  
+├── logs/ # 日誌紀錄  
+│ ├── API.log # API 請求日誌  
+│ ├── Error.log # 錯誤日誌  
+│ └── Cron.log # 排程日誌  
+├── tests/ # 測試程式  
+│ ├── test_flight.py # 航班功能測試  
+│ ├── test_user.py # 使用者功能測試  
+│ └── init.py  
+├── app.py # 主程式（後端 Flask 啟動入口）  
+├── requirements.txt # 依賴套件列表（pip install -r requirements.txt）  
+├── Dockerfile # Docker 容器設定  
+├── .gitignore # Git 忽略清單  
+└── README.md # 專案說明文件  
 
-├── service/ # 服務層，處理業務邏輯、CRUD 操作
-│ ├── flightService.py # 航班相關 API
-│ ├── userService.py # 使用者相關 API
-│ └── init.py
-
-├── model/ # 資料模型（ORM 對應、Schema 定義）
-│ ├── flightModel.py # 航班資料模型
-│ ├── userModel.py # 使用者資料模型
-│ └── init.py
-
-├── static/ # 靜態資源（JS、CSS、圖片）
-│ ├── scripts.js
-│ ├── styles.css
-│ └── logo.png
-
-├── templates/ # 前端模板（HTML）
-│ ├── base.html # 頁面基底
-│ ├── index.html # 首頁
-│ ├── flight.html # 航班查詢頁
-│ └── user.html # 使用者管理頁
-
-├── config/ # 設定檔案
-│ ├── prodConfig.json # 正式環境設定
-│ ├── devConfig.json # 開發環境設定
-│ └── init.py
-
-├── logs/ # 日誌紀錄
-│ ├── API.log # API 請求日誌
-│ ├── Error.log # 錯誤日誌
-│ └── Cron.log # 排程日誌
-
-├── tests/ # 測試程式
-│ ├── test_flight.py # 航班功能測試
-│ ├── test_user.py # 使用者功能測試
-│ └── init.py
-
-├── app.py # 主程式（後端 Flask 啟動入口）
-
-├── requirements.txt # 依賴套件列表（pip install -r requirements.txt）
-
-├── Dockerfile # Docker 容器設定
-
-├── .gitignore # Git 忽略清單
-
-└── README.md # 專案說明文件
 
 ## 功能列表
 
