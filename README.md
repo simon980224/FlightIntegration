@@ -53,25 +53,25 @@
 
 NtubProject/   
 ├── service/   
-|└── example.py  
+｜└── example.py  
 ├── model/   
-|└── example.py   
+｜└── example.py   
 ├── static/  
-|├── scripts.js  
-|└── styles.css   
+｜├── scripts.js  
+｜└── styles.css   
 ├── img/   
-|├── templates/   
-|    ├── base.html  
-|    ├── index.html   
-|    └── example.html   
+｜├── templates/   
+｜    ├── base.html  
+｜    ├── index.html   
+｜    └── example.html   
 ├── config/   
-|├── prodConfig.json   
-|└── devConfig.json   
+｜├── prodConfig.json   
+｜└── devConfig.json   
 ├── logs/   
-|├── API.log   
-|└── Cron.log   
+｜├── API.log   
+｜└── Cron.log   
 ├── tests/   
-|└── example.py   
+｜└── example.py   
 ├── app.py   
 ├── requirements.txt   
 ├── Dockerfile   
