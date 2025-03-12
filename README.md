@@ -51,34 +51,34 @@
 
 ## 專案結構
 
-NtubProject/
-├── service/
+NtubProject/   
+├── service/   
 |└── example.py  
-├── model/
-|├── example.py
-├── static/
+├── model/   
+|└── example.py   
+├── static/  
 |├── scripts.js  
-|├── styles.css
-|├── img/
-├── templates/
-|├── base.html
-|├── index.html
-|├── example.html
-├── config/
-|├── prodConfig.json
-|├── devConfig.json
-├── logs/
-|├── API.log
-|└── Cron.log
-├── tests/
-|├── example.py
-├── app.py
-├── requirements.txt
-├── Dockerfile
-├── .dockerignore
-├── git
-├── .gitignore
-└── README.md
+|└── styles.css   
+├── img/   
+|├── templates/   
+|    ├── base.html  
+|    ├── index.html   
+|    └── example.html   
+├── config/   
+|├── prodConfig.json   
+|└── devConfig.json   
+├── logs/   
+|├── API.log   
+|└── Cron.log   
+├── tests/   
+|└── example.py   
+├── app.py   
+├── requirements.txt   
+├── Dockerfile   
+├── .dockerignore   
+├── git   
+├── .gitignore   
+└── README.md  
 
 ## 功能列表
 
