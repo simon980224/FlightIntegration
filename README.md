@@ -58,12 +58,12 @@ NtubProject/
 ｜└── example.py   
 ├── static/  
 ｜├── scripts.js  
-｜└── styles.css   
-├── img/   
-｜├── templates/   
-｜    ├── base.html  
-｜    ├── index.html   
-｜    └── example.html   
+｜├── styles.css   
+｜└── img/   
+├── templates/   
+｜├── base.html  
+｜├── index.html   
+｜└── example.html   
 ├── config/   
 ｜├── prodConfig.json   
 ｜└── devConfig.json   
