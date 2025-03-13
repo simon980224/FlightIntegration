@@ -66,7 +66,7 @@ NtubProject/
 ｜└── example.html   
 ├── config/   
 ｜├── prodConfig.json   
-｜└── devConfig.json   
+｜└── stagingConfig.json   
 ├── logs/   
 ｜├── API.log   
 ｜└── Cron.log   
