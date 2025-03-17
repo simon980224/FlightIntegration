@@ -1,0 +1,25 @@
+.result-container {
+    margin-top: 20px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    background-color: white;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: center;
+}
+
+th {
+    background-color: #4CAF50;
+    color: white;
+}
+
+tbody tr:nth-child(even) {
+    background-color: #f2f2f2;
+}
