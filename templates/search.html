@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>飛機航班整合系統</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>搜尋航班</h1>
+        
+        <!-- 出發日期 -->
+        <div class="form-group">
+            <label for="departure-date">預計出發日期：</label>
+            <input type="date" id="departure-date" min="2025-01-01" max="2025-12-31">
+        </div>
+
+        <!-- 出發地 -->
+        <div class="form-group">
+            <label for="departure-city">出發地：</label>
+            <select id="departure-city">
+                <option value="台北松山機場">台北松山機場</option>
+                <option value="高雄小港機場">高雄小港機場</option>
+                <option value="桃園國際機場">桃園國際機場</option>
+            </select>
+        </div>
+
+        <!-- 目的地 -->
+        <div class="form-group">
+            <label for="destination-city">目的地：</label>
+            <select id="destination-city">
+                <option value="日本羽田機場">日本羽田機場</option>
+                <option value="日本成田機場">日本成田機場</option>
+                <option value="韓國仁川機場">韓國仁川機場</option>
+            </select>
+        </div>
+
+        <!-- 航空公司 -->
+        <div class="form-group">
+            <label>航空公司：</label>
+            <label><input type="checkbox" id="china-airlines"> 華航</label>
+            <label><input type="checkbox" id="star-airlines"> 星宇</label>
+            <label><input type="checkbox" id="eva-airlines"> 長榮</label>
+        </div>
+
+        <!-- 機票價格範圍 -->
+        <div class="form-group">
+            <label>選擇機票價格範圍：</label>
+            <p id="price-range">NT$ 1000 - NT$ 10000</p>
+            <div class="slider-container">
+                <input type="range" id="min-price" min="1000" max="50000" step="1000" value="1000">
+                <input type="range" id="max-price" min="1000" max="50000" step="1000" value="10000">
+            </div>
+        </div>
+
+        <button onclick="submitForm()">查詢航班</button>
+
+        <!-- 顯示查詢結果 -->
+        <div class="result-container">
+            <h2>查詢結果</h2>
+            <table id="result-table">
+                <thead>
+                    <tr>
+                        <th>出發地</th>
+                        <th>目的地</th>
+                        <th>航空公司</th>
+                        <th>出發日期</th>
+                        <th>票價</th>
+                    </tr>
+                </thead>
+                <tbody id="result-body">
+                    <tr>
+                        <td colspan="5">請選擇條件後點擊查詢</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
