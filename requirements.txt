@@ -1,1 +1,5 @@
 # Requirements for the project
+Flask
+Flask-SQLAlchemy
+python-dotenv
+pyodbc
