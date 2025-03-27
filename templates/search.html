@@ -1,83 +1,124 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>飛機航班整合系統</title>
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="container">
-        <h1>搜尋航班</h1>
-        
-        <!-- 出發日期 -->
-        <div class="form-group">
-            <label for="departure-date">預計出發日期：</label>
-            <input type="date" id="departure-date" min="2025-01-01" max="2025-12-31">
-        </div>
-
-        <!-- 出發地 -->
-        <div class="form-group">
-            <label for="departure-city">出發地：</label>
-            <select id="departure-city">
-                <option value="台北松山機場">台北松山機場</option>
-                <option value="高雄小港機場">高雄小港機場</option>
-                <option value="桃園國際機場">桃園國際機場</option>
-            </select>
-        </div>
-
-        <!-- 目的地 -->
-        <div class="form-group">
-            <label for="destination-city">目的地：</label>
-            <select id="destination-city">
-                <option value="日本羽田機場">日本羽田機場</option>
-                <option value="日本成田機場">日本成田機場</option>
-                <option value="韓國仁川機場">韓國仁川機場</option>
-            </select>
-        </div>
-
-        <!-- 航空公司 -->
-        <div class="form-group">
-            <label>航空公司：</label>
-            <label><input type="checkbox" id="china-airlines"> 華航</label>
-            <label><input type="checkbox" id="star-airlines"> 星宇</label>
-            <label><input type="checkbox" id="eva-airlines"> 長榮</label>
-        </div>
-
-        <!-- 機票價格範圍 -->
-        <div class="form-group">
-            <label>選擇機票價格範圍：</label>
-            <p id="price-range">NT$ 1000 - NT$ 10000</p>
-            <div class="slider-container">
-                <input type="range" id="min-price" min="1000" max="50000" step="1000" value="1000">
-                <input type="range" id="max-price" min="1000" max="50000" step="1000" value="10000">
-            </div>
-        </div>
-
-        <button onclick="submitForm()">查詢航班</button>
-
-        <!-- 顯示查詢結果 -->
-        <div class="result-container">
-            <h2>查詢結果</h2>
-            <table id="result-table">
-                <thead>
-                    <tr>
-                        <th>出發地</th>
-                        <th>目的地</th>
-                        <th>航空公司</th>
-                        <th>出發日期</th>
-                        <th>票價</th>
-                    </tr>
-                </thead>
-                <tbody id="result-body">
-                    <tr>
-                        <td colspan="5">請選擇條件後點擊查詢</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+{% extends 'base.html' %}
+{% block content %}
+<div id="app" class="p-6">
+  <h1 class="text-2xl font-bold mb-4">飛機航班整合系統</h1>
+  <form @submit.prevent="searchFlights" class="space-y-4">
+    <div>
+      <label class="block mb-1 font-medium">預計出發日期</label>
+      <input type="date" v-model="filters.date" class="border p-2 rounded w-full" required>
     </div>
 
-    <script src="script.js"></script>
-</body>
-</html>
+    <div>
+      <label class="block mb-1 font-medium">預計出發時間</label>
+      <input type="time" v-model="filters.time" class="border p-2 rounded w-full">
+    </div>
+
+    <div>
+      <label class="block mb-1 font-medium">出發地</label>
+      <select v-model="filters.origin" class="border p-2 rounded w-full">
+        <option value="TPE">桃園機場 - TPE</option>
+        <option value="TSA">松山機場 - TSA</option>
+        <option value="RMQ">台中 - RMQ</option>
+        <option value="KHH">高雄 - KHH</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="block mb-1 font-medium">目的地</label>
+      <select v-model="filters.destination" class="border p-2 rounded w-full">
+        <option value="HND">東京(羽田機場) - HND</option>
+        <option value="NRT">東京(成田機場) - NRT</option>
+        <option value="GMP">首爾(金浦機場) - GMP</option>
+        <option value="ICN">首爾(仁川機場) - ICN</option>
+      </select>
+    </div>
+
+    <div>
+      <label class="block mb-1 font-medium">航空公司</label>
+      <div class="space-y-1">
+        <div><input type="checkbox" value="中華航空" v-model="filters.airlines"> 中華航空</div>
+        <div><input type="checkbox" value="星宇航空" v-model="filters.airlines"> 星宇航空</div>
+        <div><input type="checkbox" value="長榮航空" v-model="filters.airlines"> 長榮航空</div>
+        <div><input type="checkbox" value="立榮航空" v-model="filters.airlines"> 立榮航空</div>
+        <div><input type="checkbox" @change="selectAllAirlines" :checked="allSelected"> 全選</div>
+      </div>
+    </div>
+
+    <!-- <div>
+      <label class="block mb-1 font-medium">機票價格範圍: {{ filters.priceMin }} - {{ filters.priceMax }}</label>
+      <input type="range" min="0" max="10000" step="100" v-model.number="filters.priceMin" @input="validatePrice" class="w-full">
+      <input type="range" min="0" max="10000" step="100" v-model.number="filters.priceMax" @input="validatePrice" class="w-full">
+    </div> -->
+
+    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">查詢航班</button>
+  </form>
+</div>
+  <!-- <div class="mt-8">
+    <h2 class="text-xl font-bold mb-2">查詢結果</h2>
+    <div v-if="results.length === 0">尚無資料</div>
+    <ul v-else class="space-y-2">
+      <li v-for="flight in results" :key="flight.id" class="border p-4 rounded">
+        <div>航班: {{ flight.flight_number }}</div>
+        <div>航空公司: {{ flight.airline }}</div>
+        <div>出發: {{ flight.origin }} - {{ flight.departure_time }}</div>
+        <div>抵達: {{ flight.destination }} - {{ flight.arrival_time }}</div>
+        <div>價格: ${{ flight.price }}</div>
+      </li>
+    </ul>
+  </div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/vue@2"></script> -->
+<!-- <script>
+  new Vue({
+    el: '#app',
+    data: {
+      filters: {
+        date: '',
+        time: '',
+        origin: 'TPE',
+        destination: 'HND',
+        airlines: [],
+        priceMin: 0,
+        priceMax: 10000,
+      },
+      allAirlines: ['中華航空', '星宇航空', '長榮航空', '立榮航空'],
+      results: []
+    },
+    computed: {
+      allSelected() {
+        return this.filters.airlines.length === this.allAirlines.length;
+      }
+    },
+    methods: {
+      validatePrice() {
+        if (this.filters.priceMin > this.filters.priceMax) {
+          const temp = this.filters.priceMin;
+          this.filters.priceMin = this.filters.priceMax;
+          this.filters.priceMax = temp;
+        }
+      },
+      selectAllAirlines(event) {
+        if (event.target.checked) {
+          this.filters.airlines = [...this.allAirlines];
+        } else {
+          this.filters.airlines = [];
+        }
+      },
+      searchFlights() {
+        // 這裡使用 Jinja2 後端資料過濾的方式，因此模擬 fetch 結果 (之後會串後端)
+        fetch('/search_flights', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(this.filters)
+        })
+        .then(res => res.json())
+        .then(data => {
+          this.results = data;
+        });
+      }
+    }
+  });
+</script> -->
+{% endblock %}
