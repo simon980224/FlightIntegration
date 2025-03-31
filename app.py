@@ -13,10 +13,10 @@ conn_str = (
 )
 
 # 撈取 Flight 資料
-def get_data():
+def get_flight_data():
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM Flight")
+    cursor.execute("SELECT Flight_Id, Airline_Id, Scheduled_Departure_Airport_Id, Scheduled_Arrival_Airport_Id, Arrival_Departure_Airport_Id, Arrival_Arrival_Airport_Id, Scheduled_Departure_Time, Scheduled_Arrival_Time, Arrival_Departure_Time, Arrival_Arrival_Time, Status FROM Flight")
     columns = [column[0] for column in cursor.description]
     rows = cursor.fetchall()
     data = [dict(zip(columns, row)) for row in rows]
@@ -28,7 +28,7 @@ def get_data():
 def get_airport_data():
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM Airport")
+    cursor.execute("SELECT Airport_Id, Airport_Name, Airport_Name_ZH, IS_Domestic, Url, Contact_Info, City_Id FROM Airport")
     columns = [column[0] for column in cursor.description]
     rows = cursor.fetchall()
     data = [dict(zip(columns, row)) for row in rows]
@@ -39,7 +39,7 @@ def get_airport_data():
 def get_airline_data():
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()
-    cursor.execute("SELECT * FROM Airline")
+    cursor.execute("SELECT Airline_Id, Airline_Name, Airline_Name_ZH, IS_Domestic, Url, Contact_Info FROM Airline")
     columns = [column[0] for column in cursor.description]
     rows = cursor.fetchall()
     data = [dict(zip(columns, row)) for row in rows]
@@ -50,7 +50,7 @@ def get_airline_data():
 # 頁面 index：同時顯示兩組資料
 @app.route('/')
 def index():
-    flight_data = get_data()
+    flight_data = get_flight_data()
     airport_data = get_airport_data()
     airline_data = get_airline_data()
     return render_template('index.html', title='首頁', flight_data=flight_data, airport_data=airport_data, airline_data=airline_data)
