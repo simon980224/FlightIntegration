@@ -1,9 +1,9 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request
 import pyodbc
 
 app = Flask(__name__)
 
-# MSSQL 資料庫連線設定
+# 資料庫連線設定
 conn_str = (
     "DRIVER={ODBC Driver 17 for SQL Server};"
     "SERVER=140.131.114.241;"
@@ -16,7 +16,7 @@ conn_str = (
 def get_flight_data():
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()
-    cursor.execute("SELECT Flight_Id, Airline_Id, Scheduled_Departure_Airport_Id, Scheduled_Arrival_Airport_Id, Arrival_Departure_Airport_Id, Arrival_Arrival_Airport_Id, Scheduled_Departure_Time, Scheduled_Arrival_Time, Arrival_Departure_Time, Arrival_Arrival_Time, Status FROM Flight")
+    cursor.execute("SELECT * FROM Flight")
     columns = [column[0] for column in cursor.description]
     rows = cursor.fetchall()
     data = [dict(zip(columns, row)) for row in rows]
@@ -28,7 +28,7 @@ def get_flight_data():
 def get_airport_data():
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()
-    cursor.execute("SELECT Airport_Id, Airport_Name, Airport_Name_ZH, IS_Domestic, Url, Contact_Info, City_Id FROM Airport")
+    cursor.execute("SELECT Airport_Id, Airport_Name_ZH FROM Airport")
     columns = [column[0] for column in cursor.description]
     rows = cursor.fetchall()
     data = [dict(zip(columns, row)) for row in rows]
@@ -36,10 +36,11 @@ def get_airport_data():
     conn.close()
     return data
 
+# 撈取 Airline 資料
 def get_airline_data():
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()
-    cursor.execute("SELECT Airline_Id, Airline_Name, Airline_Name_ZH, IS_Domestic, Url, Contact_Info FROM Airline")
+    cursor.execute("SELECT Airline_Id, Airline_Name_ZH FROM Airline")
     columns = [column[0] for column in cursor.description]
     rows = cursor.fetchall()
     data = [dict(zip(columns, row)) for row in rows]
@@ -47,13 +48,12 @@ def get_airline_data():
     conn.close()
     return data
 
-# 頁面 index：同時顯示兩組資料
 @app.route('/')
 def index():
-    flight_data = get_flight_data()
-    airport_data = get_airport_data()
-    airline_data = get_airline_data()
-    return render_template('index.html', title='首頁', flight_data=flight_data, airport_data=airport_data, airline_data=airline_data)
+    return render_template('index.html', title='首頁',
+                           flight_data=get_flight_data(),
+                           airport_data=get_airport_data(),
+                           airline_data=get_airline_data())
 
 @app.route('/search', methods=['GET', 'POST'])
 def search():
@@ -61,70 +61,80 @@ def search():
     airline_data = get_airline_data()
     flights = []
 
+    form_data = {
+        'from_airport': '',
+        'to_airport': '',
+        'flight_range': '',
+        'airline_ids': [],
+        'sort_field': request.form.get('sort_field', 'Scheduled_Departure_Time'),
+        'sort_order': request.form.get('sort_order', 'asc')
+    }
+
     if request.method == 'POST':
-        from_id = request.form.get('from_airport') or None
-        to_id = request.form.get('to_airport') or None
-        dep_time = request.form.get('departure_time') or None
-        arr_time = request.form.get('arrival_time') or None
-        airline_id = request.form.get('airline_id') or None
+        form_data['from_airport'] = request.form.get('from_airport', '')
+        form_data['to_airport'] = request.form.get('to_airport', '')
+        form_data['flight_range'] = request.form.get('flight_range', '')
+        form_data['airline_ids'] = request.form.getlist('airline_ids')
 
-        conn = pyodbc.connect(conn_str)
-        cursor = conn.cursor()
+        from_id = form_data['from_airport']
+        to_id = form_data['to_airport']
+        flight_range = form_data['flight_range']
+        airline_ids = form_data['airline_ids']
+        sort_field = form_data['sort_field']
+        sort_order = form_data['sort_order']
 
-        query = """
-            SELECT f.Flight_Id, f.Scheduled_Departure_Time, f.Scheduled_Arrival_Time,
-                   f.Status,
-                   a1.Airport_Name_ZH AS From_Airport,
-                   a2.Airport_Name_ZH AS To_Airport,
-                   al.Airline_Name_ZH
-            FROM Flight f
-            JOIN Airport a1 ON f.Scheduled_Departure_Airport_Id = a1.Airport_Id
-            JOIN Airport a2 ON f.Scheduled_Arrival_Airport_Id = a2.Airport_Id
-            JOIN Airline al ON f.Airline_Id = al.Airline_Id
-            WHERE 1=1
-        """
+        if from_id or to_id or flight_range or airline_ids:
+            conn = pyodbc.connect(conn_str)
+            cursor = conn.cursor()
 
-        params = []
+            query = """
+                SELECT f.Scheduled_Departure_Time, f.Scheduled_Arrival_Time, f.Status,
+                       a1.Airport_Name_ZH AS From_Airport,
+                       a2.Airport_Name_ZH AS To_Airport,
+                       al.Airline_Name_ZH
+                FROM Flight f
+                JOIN Airport a1 ON f.Scheduled_Departure_Airport_Id = a1.Airport_Id
+                JOIN Airport a2 ON f.Scheduled_Arrival_Airport_Id = a2.Airport_Id
+                JOIN Airline al ON f.Airline_Id = al.Airline_Id
+                WHERE 1=1
+            """
+            params = []
 
-        if from_id:
-            query += " AND f.Scheduled_Departure_Airport_Id = ?"
-            params.append(from_id)
+            if from_id:
+                query += " AND f.Scheduled_Departure_Airport_Id = ?"
+                params.append(from_id)
 
-        if to_id:
-            query += " AND f.Scheduled_Arrival_Airport_Id = ?"
-            params.append(to_id)
+            if to_id:
+                query += " AND f.Scheduled_Arrival_Airport_Id = ?"
+                params.append(to_id)
 
-        if dep_time:
-            dep_time = dep_time.replace('T', ' ')
-            query += " AND f.Scheduled_Departure_Time >= ?"
-            params.append(dep_time)
+            if flight_range:
+                cleaned_range = flight_range.replace("年", "-").replace("月", "-").replace("日", "")
+                cleaned_range = cleaned_range.replace(" 至 ", " to ").replace("—", "to").replace("－", "to")
+                if 'to' in cleaned_range:
+                    dep_date, arr_date = cleaned_range.split(' to ')
+                    query += " AND CONVERT(date, f.Scheduled_Departure_Time) >= ?"
+                    query += " AND CONVERT(date, f.Scheduled_Arrival_Time) <= ?"
+                    params += [dep_date.strip(), arr_date.strip()]
 
-        if arr_time:
-            arr_time = arr_time.replace('T', ' ')
-            query += " AND f.Scheduled_Arrival_Time <= ?"
-            params.append(arr_time)
+            if airline_ids:
+                query += f" AND f.Airline_Id IN ({','.join(['?']*len(airline_ids))})"
+                params += airline_ids
 
-        if airline_id:
-            query += " AND f.Airline_Id = ?"
-            params.append(airline_id)
+            if sort_field in ['Scheduled_Departure_Time', 'Scheduled_Arrival_Time']:
+                query += f" ORDER BY f.{sort_field} {'ASC' if sort_order == 'asc' else 'DESC'}"
 
-        sort_by = request.form.get('sort_by')
-
-        if sort_by == 'asc':
-            query += " ORDER BY f.Scheduled_Departure_Time ASC"
-        elif sort_by == 'desc':
-            query += " ORDER BY f.Scheduled_Departure_Time DESC"
-
-        cursor.execute(query, params)
-        columns = [col[0] for col in cursor.description]
-        flights = [dict(zip(columns, row)) for row in cursor.fetchall()]
-        cursor.close()
-        conn.close()
+            cursor.execute(query, params)
+            columns = [col[0] for col in cursor.description]
+            flights = [dict(zip(columns, row)) for row in cursor.fetchall()]
+            cursor.close()
+            conn.close()
 
     return render_template('search.html',
                            airport_data=airport_data,
                            airline_data=airline_data,
-                           flights=flights)
+                           flights=flights,
+                           form_data=form_data)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
