@@ -1,140 +1,72 @@
-from flask import Flask, render_template, request
+from flask import Flask, render_template, request, jsonify
+from service import search_service
 import pyodbc
 
 app = Flask(__name__)
 
-# 資料庫連線設定
-conn_str = (
-    "DRIVER={ODBC Driver 17 for SQL Server};"
-    "SERVER=140.131.114.241;"
-    "DATABASE=114-FlightIntegration_DB;"
-    "UID=adminfid;"
-    "PWD=Flight_admin123@;"
-)
-
-# 撈取 Flight 資料
-def get_flight_data():
-    conn = pyodbc.connect(conn_str)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM Flight")
-    columns = [column[0] for column in cursor.description]
-    rows = cursor.fetchall()
-    data = [dict(zip(columns, row)) for row in rows]
-    cursor.close()
-    conn.close()
-    return data
-
-# 撈取 Airport 資料
-def get_airport_data():
-    conn = pyodbc.connect(conn_str)
-    cursor = conn.cursor()
-    cursor.execute("SELECT Airport_Id, Airport_Name_ZH FROM Airport")
-    columns = [column[0] for column in cursor.description]
-    rows = cursor.fetchall()
-    data = [dict(zip(columns, row)) for row in rows]
-    cursor.close()
-    conn.close()
-    return data
-
-# 撈取 Airline 資料
-def get_airline_data():
-    conn = pyodbc.connect(conn_str)
-    cursor = conn.cursor()
-    cursor.execute("SELECT Airline_Id, Airline_Name_ZH FROM Airline")
-    columns = [column[0] for column in cursor.description]
-    rows = cursor.fetchall()
-    data = [dict(zip(columns, row)) for row in rows]
-    cursor.close()
-    conn.close()
-    return data
-
+# 頁面 index：同時顯示三組資料
 @app.route('/')
 def index():
+    flight_data = search_service.get_flight_data()
+    airport_data = search_service.get_airport_data()
+    airline_data = search_service.get_airline_data()
     return render_template('index.html', title='首頁',
-                           flight_data=get_flight_data(),
-                           airport_data=get_airport_data(),
-                           airline_data=get_airline_data())
+                           flight_data=flight_data,
+                           airport_data=airport_data,
+                           airline_data=airline_data)
 
 @app.route('/search', methods=['GET', 'POST'])
 def search():
-    airport_data = get_airport_data()
-    airline_data = get_airline_data()
+    airport_data = search_service.get_airport_data()
+    airline_data = search_service.get_airline_data()
     flights = []
 
+    # ✅ 預設 form_data（避免第一次進入頁面時錯誤）
     form_data = {
-        'from_airport': '',
-        'to_airport': '',
-        'flight_range': '',
-        'airline_ids': [],
-        'sort_field': request.form.get('sort_field', 'Scheduled_Departure_Time'),
-        'sort_order': request.form.get('sort_order', 'asc')
+        "from_airport": "",
+        "to_airport": "",
+        "flight_range": "",
+        "airline_ids": [],
+        "sort_field": "",
+        "sort_order": ""
     }
 
     if request.method == 'POST':
-        form_data['from_airport'] = request.form.get('from_airport', '')
-        form_data['to_airport'] = request.form.get('to_airport', '')
-        form_data['flight_range'] = request.form.get('flight_range', '')
-        form_data['airline_ids'] = request.form.getlist('airline_ids')
+        from_id = request.form.get('from_airport') or ""
+        to_id = request.form.get('to_airport') or ""
+        flight_range = request.form.get('flight_range') or ""
+        airline_ids = request.form.getlist('airline_ids')  # 多選項
+        sort_field = request.form.get('sort_field') or ""
+        sort_order = request.form.get('sort_order') or ""
 
-        from_id = form_data['from_airport']
-        to_id = form_data['to_airport']
-        flight_range = form_data['flight_range']
-        airline_ids = form_data['airline_ids']
-        sort_field = form_data['sort_field']
-        sort_order = form_data['sort_order']
+        form_data = {
+            "from_airport": from_id,
+            "to_airport": to_id,
+            "flight_range": flight_range,
+            "airline_ids": airline_ids,
+            "sort_field": sort_field,
+            "sort_order": sort_order
+        }
 
-        if from_id or to_id or flight_range or airline_ids:
-            conn = pyodbc.connect(conn_str)
-            cursor = conn.cursor()
+        dep_time, arr_time = None, None
+        if " 至 " in flight_range:
+            dep_time, arr_time = flight_range.split(" 至 ")
 
-            query = """
-                SELECT f.Scheduled_Departure_Time, f.Scheduled_Arrival_Time, f.Status,
-                       a1.Airport_Name_ZH AS From_Airport,
-                       a2.Airport_Name_ZH AS To_Airport,
-                       al.Airline_Name_ZH
-                FROM Flight f
-                JOIN Airport a1 ON f.Scheduled_Departure_Airport_Id = a1.Airport_Id
-                JOIN Airport a2 ON f.Scheduled_Arrival_Airport_Id = a2.Airport_Id
-                JOIN Airline al ON f.Airline_Id = al.Airline_Id
-                WHERE 1=1
-            """
-            params = []
-
-            if from_id:
-                query += " AND f.Scheduled_Departure_Airport_Id = ?"
-                params.append(from_id)
-
-            if to_id:
-                query += " AND f.Scheduled_Arrival_Airport_Id = ?"
-                params.append(to_id)
-
-            if flight_range:
-                cleaned_range = flight_range.replace("年", "-").replace("月", "-").replace("日", "")
-                cleaned_range = cleaned_range.replace(" 至 ", " to ").replace("—", "to").replace("－", "to")
-                if 'to' in cleaned_range:
-                    dep_date, arr_date = cleaned_range.split(' to ')
-                    query += " AND CONVERT(date, f.Scheduled_Departure_Time) >= ?"
-                    query += " AND CONVERT(date, f.Scheduled_Arrival_Time) <= ?"
-                    params += [dep_date.strip(), arr_date.strip()]
-
-            if airline_ids:
-                query += f" AND f.Airline_Id IN ({','.join(['?']*len(airline_ids))})"
-                params += airline_ids
-
-            if sort_field in ['Scheduled_Departure_Time', 'Scheduled_Arrival_Time']:
-                query += f" ORDER BY f.{sort_field} {'ASC' if sort_order == 'asc' else 'DESC'}"
-
-            cursor.execute(query, params)
-            columns = [col[0] for col in cursor.description]
-            flights = [dict(zip(columns, row)) for row in cursor.fetchall()]
-            cursor.close()
-            conn.close()
+        flights = search_service.search_flights(
+            from_id=from_id,
+            to_id=to_id,
+            dep_time=dep_time,
+            arr_time=arr_time,
+            airline_id=None,  # 如果你已改成 airline_ids 就要支援 list
+            sort_by=sort_order  # 這裡依你 search_flights 的設計
+        )
 
     return render_template('search.html',
                            airport_data=airport_data,
                            airline_data=airline_data,
                            flights=flights,
-                           form_data=form_data)
+                           form_data=form_data)  # ✅ 傳進 template
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
