@@ -13,9 +13,7 @@ def get_flight_data():
     cursor = conn.cursor()
     cursor.execute("""
         SELECT Flight_Id, Airline_Id, Scheduled_Departure_Airport_Id, Scheduled_Arrival_Airport_Id,
-               Arrival_Departure_Airport_Id, Arrival_Arrival_Airport_Id,
-               Scheduled_Departure_Time, Scheduled_Arrival_Time,
-               Arrival_Departure_Time, Arrival_Arrival_Time, Status
+               Scheduled_Departure_Time, Scheduled_Arrival_Time, Status
         FROM Flight
     """)
     columns = [col[0] for col in cursor.description]
@@ -50,7 +48,7 @@ def get_airline_data():
     conn.close()
     return data
 
-def search_flights(from_id=None, to_id=None, dep_time=None, arr_time=None, airline_id=None, sort_by=None):
+def search_flights(from_id=None, to_id=None, dep_time=None, arr_time=None, airline_ids=None, sort_by=None, sort_order=None):
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()
 
@@ -78,23 +76,29 @@ def search_flights(from_id=None, to_id=None, dep_time=None, arr_time=None, airli
         params.append(to_id)
 
     if dep_time:
-        dep_time = dep_time.replace("T", " ")
-        query += " AND f.Scheduled_Departure_Time >= ?"
+        query += " AND CONVERT(date, f.Scheduled_Departure_Time) = ?"
         params.append(dep_time)
 
     if arr_time:
-        arr_time = arr_time.replace("T", " ")
-        query += " AND f.Scheduled_Arrival_Time <= ?"
+        query += " AND CONVERT(date, f.Scheduled_Arrival_Time) = ?"
         params.append(arr_time)
 
-    if airline_id:
-        query += " AND f.Airline_Id = ?"
-        params.append(airline_id)
+    if airline_ids:
+        placeholders = ','.join(['?'] * len(airline_ids))
+        query += f" AND f.Airline_Id IN ({placeholders})"
+        params.extend(airline_ids)
 
-    if sort_by == "asc":
-        query += " ORDER BY f.Scheduled_Departure_Time ASC"
-    elif sort_by == "desc":
-        query += " ORDER BY f.Scheduled_Departure_Time DESC"
+    if sort_by:
+        field_map = {
+            "Scheduled_Departure_Time": "f.Scheduled_Departure_Time",
+            "Scheduled_Arrival_Time": "f.Scheduled_Arrival_Time"
+        }
+        if sort_by in field_map:
+            order = sort_order.upper() if sort_order and sort_order.lower() in ["asc", "desc"] else "ASC"
+            query += f" ORDER BY {field_map[sort_by]} {order}"
+
+    print(">>> SQL 查詢語法：", query)
+    print(">>> 傳入參數：", params)
 
     cursor.execute(query, params)
     columns = [col[0] for col in cursor.description]

@@ -1,10 +1,10 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request
 from service import search_service
 import pyodbc
 
 app = Flask(__name__)
 
-# 頁面 index：同時顯示三組資料
+# 首頁顯示所有資料
 @app.route('/')
 def index():
     flight_data = search_service.get_flight_data()
@@ -15,17 +15,19 @@ def index():
                            airport_data=airport_data,
                            airline_data=airline_data)
 
+# 查詢頁
 @app.route('/search', methods=['GET', 'POST'])
 def search():
     airport_data = search_service.get_airport_data()
     airline_data = search_service.get_airline_data()
     flights = []
 
-    # ✅ 預設 form_data（避免第一次進入頁面時錯誤）
+    # 預設空的表單資料
     form_data = {
         "from_airport": "",
         "to_airport": "",
-        "flight_range": "",
+        "departure_date": "",
+        "arrival_date": "",
         "airline_ids": [],
         "sort_field": "",
         "sort_order": ""
@@ -34,39 +36,49 @@ def search():
     if request.method == 'POST':
         from_id = request.form.get('from_airport') or ""
         to_id = request.form.get('to_airport') or ""
-        flight_range = request.form.get('flight_range') or ""
-        airline_ids = request.form.getlist('airline_ids')  # 多選項
+        departure_date = request.form.get('departure_date') or ""
+        arrival_date = request.form.get('arrival_date') or ""
+        airline_ids = request.form.getlist('airline_ids') or []
         sort_field = request.form.get('sort_field') or ""
         sort_order = request.form.get('sort_order') or ""
 
+        # 更新表單資料（供渲染頁面使用）
         form_data = {
             "from_airport": from_id,
             "to_airport": to_id,
-            "flight_range": flight_range,
+            "departure_date": departure_date,
+            "arrival_date": arrival_date,
             "airline_ids": airline_ids,
             "sort_field": sort_field,
             "sort_order": sort_order
         }
 
-        dep_time, arr_time = None, None
-        if " 至 " in flight_range:
-            dep_time, arr_time = flight_range.split(" 至 ")
+        # ✅ 新增條件：只有當 from_id 和 to_id 都有值且相等時才阻止
+        block_search = from_id and to_id and from_id == to_id
 
-        flights = search_service.search_flights(
-            from_id=from_id,
-            to_id=to_id,
-            dep_time=dep_time,
-            arr_time=arr_time,
-            airline_id=None,  # 如果你已改成 airline_ids 就要支援 list
-            sort_by=sort_order  # 這裡依你 search_flights 的設計
-        )
+        if not block_search:
+            if not any([from_id, to_id, departure_date, arrival_date, airline_ids]):
+                print("✅ 無查詢條件，列出所有航班")
+                flights = search_service.search_flights()
+            else:
+                flights = search_service.search_flights(
+                    from_id=from_id,
+                    to_id=to_id,
+                    dep_time=departure_date,
+                    arr_time=arrival_date,
+                    airline_ids=airline_ids,
+                    sort_by=sort_field,
+                    sort_order=sort_order
+                )
+        else:
+            print("⚠️ 出發地與目的地不可相同，查詢取消")
+
 
     return render_template('search.html',
                            airport_data=airport_data,
                            airline_data=airline_data,
                            flights=flights,
-                           form_data=form_data)  # ✅ 傳進 template
-
+                           form_data=form_data)
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
