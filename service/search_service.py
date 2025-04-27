@@ -1,5 +1,6 @@
 import pyodbc
 
+# 資料庫連線設定
 conn_str = (
     "DRIVER={ODBC Driver 17 for SQL Server};"
     "SERVER=140.131.114.241;"
@@ -8,6 +9,7 @@ conn_str = (
     "PWD=Flight_admin123@;"
 )
 
+# 取得所有航班資料（首頁用）
 def get_flight_data():
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()
@@ -22,6 +24,7 @@ def get_flight_data():
     conn.close()
     return data
 
+# 取得所有機場資料
 def get_airport_data():
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()
@@ -35,6 +38,7 @@ def get_airport_data():
     conn.close()
     return data
 
+# 取得所有航空公司資料
 def get_airline_data():
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()
@@ -48,6 +52,7 @@ def get_airline_data():
     conn.close()
     return data
 
+# 查詢航班資料（支援多條件查詢）
 def search_flights(from_id=None, to_id=None, dep_time=None, arr_time=None, airline_ids=None, sort_by=None, sort_order=None):
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()
@@ -67,6 +72,17 @@ def search_flights(from_id=None, to_id=None, dep_time=None, arr_time=None, airli
 
     params = []
 
+    # 出發時間範圍條件（加防呆）
+    if dep_time and arr_time:
+        if dep_time > arr_time:
+            print("⚠️ 出發日大於抵達日，不進行查詢！")
+            cursor.close()
+            conn.close()
+            return []  # 直接回傳空資料，不送SQL
+        query += " AND f.Scheduled_Departure_Time BETWEEN ? AND ?"
+        params.append(dep_time + " 00:00:00")
+        params.append(arr_time + " 23:59:59")
+
     if from_id:
         query += " AND f.Scheduled_Departure_Airport_Id = ?"
         params.append(from_id)
@@ -75,19 +91,12 @@ def search_flights(from_id=None, to_id=None, dep_time=None, arr_time=None, airli
         query += " AND f.Scheduled_Arrival_Airport_Id = ?"
         params.append(to_id)
 
-    if dep_time:
-        query += " AND CONVERT(date, f.Scheduled_Departure_Time) = ?"
-        params.append(dep_time)
-
-    if arr_time:
-        query += " AND CONVERT(date, f.Scheduled_Arrival_Time) = ?"
-        params.append(arr_time)
-
     if airline_ids:
         placeholders = ','.join(['?'] * len(airline_ids))
         query += f" AND f.Airline_Id IN ({placeholders})"
         params.extend(airline_ids)
 
+    # 排序設定
     if sort_by:
         field_map = {
             "Scheduled_Departure_Time": "f.Scheduled_Departure_Time",
@@ -96,6 +105,8 @@ def search_flights(from_id=None, to_id=None, dep_time=None, arr_time=None, airli
         if sort_by in field_map:
             order = sort_order.upper() if sort_order and sort_order.lower() in ["asc", "desc"] else "ASC"
             query += f" ORDER BY {field_map[sort_by]} {order}"
+    else:
+        query += " ORDER BY f.Scheduled_Departure_Time ASC"
 
     print(">>> SQL 查詢語法：", query)
     print(">>> 傳入參數：", params)
