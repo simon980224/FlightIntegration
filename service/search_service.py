@@ -83,6 +83,16 @@ def search_flights(from_id=None, to_id=None, dep_time=None, arr_time=None, airli
         params.append(dep_time + " 00:00:00")
         params.append(arr_time + " 23:59:59")
 
+    elif dep_time:
+        query += " AND f.Scheduled_Departure_Time BETWEEN ? AND ?"
+        params.append(dep_time + " 00:00:00")
+        params.append(dep_time + " 23:59:59")
+
+    elif arr_time:
+        query += " AND f.Scheduled_Departure_Time BETWEEN ? AND ?"
+        params.append(arr_time + " 00:00:00")
+        params.append(arr_time + " 23:59:59")
+
     if from_id:
         query += " AND f.Scheduled_Departure_Airport_Id = ?"
         params.append(from_id)
@@ -107,9 +117,6 @@ def search_flights(from_id=None, to_id=None, dep_time=None, arr_time=None, airli
             query += f" ORDER BY {field_map[sort_by]} {order}"
     else:
         query += " ORDER BY f.Scheduled_Departure_Time ASC"
-
-    print(">>> SQL 查詢語法：", query)
-    print(">>> 傳入參數：", params)
 
     cursor.execute(query, params)
     columns = [col[0] for col in cursor.description]

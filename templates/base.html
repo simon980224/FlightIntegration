@@ -4,16 +4,81 @@
     <meta charset="UTF-8">
     <title>{% block title %}航班系統{% endblock %}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap 5 樣式 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap 5 JS 功能（含 modal） -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- 清新風格字體與樣式 -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        background-color: #fdfbf7;
+        color: #4e3f32;
+        font-family: 'Noto Serif TC', serif;
+      }
+      .navbar {
+        background-color: #fffaf5;
+        border-bottom: 1px solid #e0d8cc;
+        box-shadow: 0 2px 5px rgba(160, 140, 120, 0.1);
+      }
+      .navbar-brand, .nav-link {
+        color: #6e5644 !important;
+        font-weight: bold;
+        transition: all 0.3s ease-in-out;
+      }
+      .nav-link:hover {
+        color: #3d2f22 !important;
+        text-shadow: 0 0 4px rgba(100, 80, 60, 0.2);
+      }
+      .container {
+        background-color: #fefaf7; /* 奶茶色外框 */
+        border: 1px solid #e8ded4;
+        border-radius: 12px;
+        padding: 2rem;
+        box-shadow: 0 0 15px rgba(200, 180, 160, 0.12);
+        margin-top: 2rem;
+      }
+      .btn-primary {
+        background-color: #d5c3ad;
+        border: none;
+        color: #3d2f22;
+      }
+      .btn-primary:hover {
+        background-color: #cbb59e;
+        color: #1f1f1f;
+      }
+      .table {
+        color: #3d2f22;
+      }
+      .table thead {
+        background-color: #f1eae2;
+      }
+      label[for="airline_全選"] {
+        color: #6e5644 !important;
+        font-weight: bold;
+      }
+      /* 修正 checkbox 標籤可見度 */
+      .form-check-label {
+        color: #4e3f32 !important;
+      }
+      /* 修正全選按鈕樣式 */
+      .btn-outline-light {
+        color: #6e5644;
+        border-color: #d5c3ad;
+      }
+      .btn-outline-light:hover {
+        background-color: #e9dcc9;
+        color: #3d2f22;
+        border-color: #d5c3ad;
+      }
+    </style>
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <nav class="navbar navbar-expand-lg">
       <div class="container-fluid">
-        <a class="navbar-brand" href="/">航班系統</a>
-        <div class="collapse navbar-collapse">
+        <a class="navbar-brand" href="/">🛫航班查詢系統</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav ms-auto">
             <li class="nav-item"><a class="nav-link" href="/">首頁</a></li>
             <li class="nav-item"><a class="nav-link" href="/search">航班查詢</a></li>
@@ -22,7 +87,7 @@
       </div>
     </nav>
 
-    <div class="container mt-4">
+    <div class="container">
         {% block content %}{% endblock %}
     </div>
 </body>
