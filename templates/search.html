@@ -6,228 +6,110 @@
 <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/zh.js"></script>
 
-<style>
-  h2 {
-    text-align: center;
-    font-weight: bold;
-    margin-bottom: 2rem;
-    color: #5c4033;
-  }
-  label {
-    font-weight: 600;
-    color: #5c4033;
-    margin-bottom: 0.5rem;
-  }
-  .form-select,
-  .form-control {
-    border-radius: 10px;
-    border: 1px solid #d6a77a;
-    background-color: #fffdf9;
-    color: #4b3a2f;
-    padding: 0.6rem 1rem;
-    transition: border-color 0.3s, box-shadow 0.3s;
-  }
-  .form-select:focus,
-  .form-control:focus {
-    border-color: #c49366;
-    box-shadow: 0 0 0 0.2rem rgba(212, 162, 115, 0.25);
-  }
-  .btn-primary {
-    background-color: #d6a77a;
-    border: none;
-    color: #fff;
-    border-radius: 8px;
-    padding: 0.5rem 1.5rem;
-    transition: all 0.3s ease-in-out;
-  }
-  .btn-primary:hover {
-    background-color: #c49366;
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.1);
-  }
-  .btn-outline-light {
-    border: 1px solid #c8b8a4;
-    background-color: #f9f6f2;
-    color: #6e4b3a;
-    border-radius: 8px;
-    transition: all 0.3s ease-in-out;
-  }
-  .btn-outline-light:hover {
-    background-color: #ede3d8;
-    color: #4a3527;
-    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
-  }
-  .form-section {
-    background-color: #fffdf9;
-    border-radius: 12px;
-    padding: 2rem;
-    box-shadow: 0 2px 12px rgba(100, 80, 60, 0.05);
-    max-width: 900px;
-    margin: 0 auto 2rem auto;
-  }
-  .flight-card {
-    background-color: #fffdf9;
-    border: 1px solid #e7dbcf;
-    border-radius: 12px;
-    box-shadow: 0 1px 6px rgba(160, 130, 100, 0.1);
-    padding: 1.5rem;
-    margin-bottom: 1.5rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    max-width: 800px;
-    margin-left: auto;
-    margin-right: auto;
-    transition: all 0.3s ease-in-out;
-  }
-  .flight-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 4px 12px rgba(160, 130, 100, 0.2);
-  }
-  .flight-block {
-    text-align: center;
-    flex: 1 1 30%;
-    font-size: 1.2rem;
-    position: relative;
-  }
-  .flight-block .date {
-    font-size: 0.85rem;
-    color: #aa8c72;
-    margin-bottom: 0.3rem;
-  }
-  .flight-block .time {
-    font-size: 1.8rem;
-    font-weight: bold;
-    color: #a3622b;
-  }
-  .arrow {
-    font-size: 2rem;
-    color: #9c8571;
-    padding: 0 1rem;
-  }
-  .alert-warning {
-    background-color: #fdf0dd;
-    border-left: 4px solid #d89b5c;
-    color: #765338;
-    max-width: 700px;
-    margin: 1rem auto;
-    padding: 1rem;
-  }
-  .status-on-time {
-    color: green;
-    font-weight: bold;
-  }
-  .status-delayed {
-    color: red;
-    font-weight: bold;
-  }
-  .status-cancelled {
-    color: #c29500;
-    font-weight: bold;
-  }
-</style>
+<h2 class="text-center my-4">航班查詢</h2>
 
-<div class="container mt-4">
-  <h2>航班查詢</h2>
-
-  <div class="form-section">
-    <form method="POST" action="/search" id="searchForm" onsubmit="return validateDateRange();">
-      <input type="hidden" name="sort_field" id="sort_field" value="{{ form_data.sort_field }}">
-      <input type="hidden" name="sort_order" id="sort_order" value="{{ form_data.sort_order }}">
-
-      <div class="row mb-3">
-        <div class="col-md-6">
-          <label for="from_airport">出發地</label>
-          <select class="form-select" id="from_airport" name="from_airport">
-            <option value="">不限</option>
-            {% for airport in airport_data %}
-              <option value="{{ airport['Airport_Id'] }}" {% if form_data.from_airport == airport['Airport_Id'] %}selected{% endif %}>{{ airport['Airport_Name_ZH'] }}</option>
-            {% endfor %}
-          </select>
-        </div>
-        <div class="col-md-6">
-          <label for="to_airport">目的地</label>
-          <select class="form-select" id="to_airport" name="to_airport">
-            <option value="">不限</option>
-            {% for airport in airport_data %}
-              <option value="{{ airport['Airport_Id'] }}" {% if form_data.to_airport == airport['Airport_Id'] %}selected{% endif %}>{{ airport['Airport_Name_ZH'] }}</option>
-            {% endfor %}
-          </select>
-        </div>
-      </div>
-
-      <div class="row mb-3">
-        <div class="col-md-6">
-          <label for="departure_date">起飛日期</label>
-          <input type="text" class="form-control" id="departure_date" name="departure_date" value="{{ form_data.departure_date or '' }}">
-        </div>
-        <div class="col-md-6">
-          <label for="arrival_date">抵達日期</label>
-          <input type="text" class="form-control" id="arrival_date" name="arrival_date" value="{{ form_data.arrival_date or '' }}">
-        </div>
-      </div>
-
-      <div class="mb-3">
-        <label>航空公司</label>
-        <div class="mb-2">
-          <button type="button" class="btn btn-sm btn-outline-dark me-2" onclick="selectAllAirlines(true)">全選</button>
-          <button type="button" class="btn btn-sm btn-outline-dark" onclick="selectAllAirlines(false)">清除</button>
-        </div>
-        <div class="form-check form-check-inline">
-          {% for airline in airline_data %}
-            <div class="form-check form-check-inline">
-              <input class="form-check-input airline-checkbox" type="checkbox" name="airline_ids" value="{{ airline['Airline_Id'] }}" id="airline_{{ airline['Airline_Id'] }}" checked>
-              <label class="form-check-label me-3" for="airline_{{ airline['Airline_Id'] }}">{{ airline['Airline_Name_ZH'] }}</label>
-            </div>
+<div class="search-panel">
+  <form method="POST" action="/search" id="searchForm" onsubmit="return validateDateRange();">
+    <input type="hidden" name="sort_field" id="sort_field" value="{{ form_data.sort_field }}">
+    <input type="hidden" name="sort_order" id="sort_order" value="{{ form_data.sort_order }}">
+  
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <label for="from_airport">出發地</label>
+        <select class="form-select" id="from_airport" name="from_airport">
+          <option value="">不限</option>
+          {% for airport in airport_data %}
+            <option value="{{ airport['Airport_Id'] }}" {% if form_data.from_airport == airport['Airport_Id'] %}selected{% endif %}>{{ airport['Airport_Name_ZH'] }}</option>
           {% endfor %}
-        </div>
+        </select>
       </div>
-
-      <div class="text-center">
-        <button class="btn btn-primary px-5" type="submit" id="submitBtn">查詢</button>
-        <button class="btn btn-outline-light px-5" type="button" onclick="clearFilters()">清除條件</button>
+      <div class="col-md-6">
+        <label for="to_airport">目的地</label>
+        <select class="form-select" id="to_airport" name="to_airport">
+          <option value="">不限</option>
+          {% for airport in airport_data %}
+            <option value="{{ airport['Airport_Id'] }}" {% if form_data.to_airport == airport['Airport_Id'] %}selected{% endif %}>{{ airport['Airport_Name_ZH'] }}</option>
+          {% endfor %}
+        </select>
       </div>
-    </form>
+    </div>
+  
+    <div class="row mb-3">
+      <div class="col-md-6">
+        <label for="departure_date">起飛日期</label>
+        <input type="text" class="form-control" id="departure_date" name="departure_date" value="{{ form_data.departure_date or '' }}">
+      </div>
+      <div class="col-md-6">
+        <label for="arrival_date">抵達日期</label>
+        <input type="text" class="form-control" id="arrival_date" name="arrival_date" value="{{ form_data.arrival_date or '' }}">
+      </div>
+    </div>
+  
+    <div class="mb-3">
+      <label>航空公司</label>
+      <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+        <span id="airline_unlimited" class="badge airline-filter px-3 py-2 active" style="cursor: pointer;">不限</span>
+        {% for airline in airline_data %}
+          <div class="form-check form-check-inline">
+            <input class="form-check-input airline-checkbox" type="checkbox" name="airline_ids" value="{{ airline['Airline_Id'] }}" id="airline_{{ airline['Airline_Id'] }}" {% if airline['Airline_Id'] in form_data.airline_ids %}checked{% endif %}>
+            <label class="form-check-label me-2" for="airline_{{ airline['Airline_Id'] }}">{{ airline['Airline_Name_ZH'] }}</label>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+  
+    <div class="text-center">
+      <button class="btn btn-primary px-5" type="submit" id="submitBtn">查詢</button>
+      <button class="btn btn-outline-light px-5" type="button" onclick="clearFilters()">清除條件</button>
+    </div>
+  </form>
   </div>
-
+  
   {% if flights is defined %}
-    <h4 class="text-center mb-3">查詢結果：</h4>
-    {% if flights %}
-      {% for flight in flights %}
-        <div class="flight-card">
-          <div class="flight-block">
-            <div class="date">{{ flight['Scheduled_Departure_Time'].strftime('%Y-%m-%d') }}</div>
-            <div class="time">{{ flight['Scheduled_Departure_Time'].strftime('%H:%M') }}</div>
-            <div>{{ flight['From_Airport'] }}</div>
-          </div>
-          <div class="arrow">→</div>
-          <div class="flight-block">
-            <div class="date">{{ flight['Scheduled_Arrival_Time'].strftime('%Y-%m-%d') }}</div>
-            <div class="time">{{ flight['Scheduled_Arrival_Time'].strftime('%H:%M') }}</div>
-            <div>{{ flight['To_Airport'] }}</div>
-          </div>
-          <div class="flight-block">
-            <div class="date">狀態</div>
-            <div class="time">
-              {% set status = flight['Status'] | trim | lower %}
-              {% if status == 'on time' %}
-                 <span class="badge bg-success">準時</span>
-              {% elif status == 'delayed' %}
-                 <span class="badge bg-danger">延遲</span>
-              {% elif status == 'cancelled' %}
-                 <span class="badge bg-warning text-dark">已取消</span>
-              {% else %}
-                 <span class="badge bg-light text-dark">{{ flight['Status'] }}</span>
-              {% endif %}
-            </div>
+  <h4 class="text-center mb-3">查詢結果：</h4> 
+  {% for flight in flights %}
+  <div class="flight-ticket">
+    <div class="color-bar airline-{{ flight['Airline_Id'] | default('default') | lower }}"></div>
+    <div class="ticket-content">
+      <div class="ticket-top">
+        <div class="airline-name">{{ flight['Airline_Name_ZH'] }}</div>
+        <div class="flight-status text-end" style="min-width: 80px; text-align: right;">
+          {% set status = flight['Status'] | trim | lower %}
+          {% if status == 'on time' %}
+            <span class="badge bg-success">準時</span>
+          {% elif status == 'delayed' %}
+            <span class="badge bg-danger">延遲</span>
+          {% elif status == 'cancelled' %}
+            <span class="badge bg-warning text-dark">已取消</span>
+          {% else %}
+            <span class="badge bg-secondary">{{ flight['Status'] }}</span>
+          {% endif %}
+        </div>
+      </div>
+  
+      <div class="ticket-body">
+        <div class="location">
+          <div class="time">{{ flight['Scheduled_Departure_Time'].strftime('%H:%M') }}</div>
+          <div class="airport">{{ flight['From_Airport'] }}</div>
+          <div class="info">
+            出發日期：{{ flight['Scheduled_Departure_Time'].strftime('%Y-%m-%d') }}<br>
+            航班編號：{{ flight['Flight_Id'] }}
           </div>
         </div>
-      {% endfor %}
-    {% else %}
-      <div class="alert alert-warning">查無符合條件的航班</div>
-    {% endif %}
-  {% endif %}
+        <div class="plane-icon">✈</div>
+        <div class="location">
+          <div class="time">{{ flight['Scheduled_Arrival_Time'].strftime('%H:%M') }}</div>
+          <div class="airport">{{ flight['To_Airport'] }}</div>
+          <div class="info">
+            抵達日期：{{ flight['Scheduled_Arrival_Time'].strftime('%Y-%m-%d') }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>  
 </div>
+{% endfor %}
+{% endif %}
 
 <script>
 function validateDateRange() {
@@ -246,9 +128,41 @@ function clearFilters() {
   if (flatpickrInstance2) flatpickrInstance2.clear();
   document.querySelectorAll('input[name="airline_ids"]').forEach(cb => cb.checked = false);
 }
-function selectAllAirlines(status) {
-  document.querySelectorAll('input[name="airline_ids"]').forEach(cb => cb.checked = status);
-}
+document.addEventListener('DOMContentLoaded', function () {
+  const unlimitedBtn = document.getElementById('airline_unlimited');
+  const airlineCheckboxes = document.querySelectorAll('input[name="airline_ids"]');
+
+  // ✅ 初始化：如果有勾選任何航空 → 不限 inactive
+  const anyChecked = Array.from(airlineCheckboxes).some(cb => cb.checked);
+  if (anyChecked) {
+    unlimitedBtn.classList.remove('active');
+    unlimitedBtn.classList.add('inactive');
+  } else {
+    unlimitedBtn.classList.add('active');
+    unlimitedBtn.classList.remove('inactive');
+  }
+
+  // ✅ 點擊「不限」→ 取消所有 checkbox，恢復不限樣式
+  unlimitedBtn.addEventListener('click', function () {
+    airlineCheckboxes.forEach(cb => cb.checked = false);
+    this.classList.add('active');
+    this.classList.remove('inactive');
+  });
+
+  // ✅ 勾選任一航空公司 → 取消不限樣式（但保留使用者勾選）
+  airlineCheckboxes.forEach(cb => {
+    cb.addEventListener('change', () => {
+      const anyChecked = Array.from(airlineCheckboxes).some(c => c.checked);
+      if (anyChecked) {
+        unlimitedBtn.classList.remove('active');
+        unlimitedBtn.classList.add('inactive');
+      } else {
+        unlimitedBtn.classList.add('active');
+        unlimitedBtn.classList.remove('inactive');
+      }
+    });
+  });
+});
 window.addEventListener("DOMContentLoaded", function () {
   const today = new Date().toISOString().split("T")[0];
   const depInput = document.getElementById("departure_date");
