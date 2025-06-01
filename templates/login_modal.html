@@ -1,0 +1,244 @@
+<!-- 登入浮動視窗 -->
+<div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header border-0">
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <h2 class="modal-title text-center mb-4">登入 / 註冊</h2>
+        
+        {% with messages = get_flashed_messages() %}
+          {% if messages %}
+            {% for message in messages %}
+              <div class="alert alert-danger">{{ message }}</div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <!-- 登入表單 -->
+        <div id="loginForm">
+          <div class="mb-3">
+            <input type="text" class="form-control" id="username" name="username" placeholder="使用者名稱" required>
+          </div>
+          <div class="mb-3">
+            <input type="password" class="form-control" id="password" name="password" placeholder="密碼" required>
+          </div>
+          
+          <div class="d-flex justify-content-between align-items-center mb-4">
+            <div class="form-check">
+              <input type="checkbox" class="form-check-input" id="rememberMe">
+              <label class="form-check-label" for="rememberMe">記住我</label>
+            </div>
+            <a href="#" class="text-primary text-decoration-none">忘記密碼？</a>
+          </div>
+
+          <button type="button" class="btn btn-primary w-100 mb-3" id="loginBtn">登入</button>
+          <button type="button" class="btn btn-outline-primary w-100" id="registerBtn">註冊新帳號</button>
+
+          <div class="text-center mt-4">
+            <p class="text-muted">或使用以下方式登入</p>
+            <div class="social-login">
+              <button type="button" class="btn btn-outline-secondary social-btn">
+                <img src="https://cdn-icons-png.flaticon.com/512/124/124019.png" alt="LINE" class="social-icon">
+                LINE
+              </button>
+              <button type="button" class="btn btn-outline-secondary social-btn">
+                <img src="https://cdn-icons-png.flaticon.com/512/124/124010.png" alt="Facebook" class="social-icon">
+                Facebook
+              </button>
+              <button type="button" class="btn btn-outline-secondary social-btn">
+                <img src="https://cdn-icons-png.flaticon.com/512/2991/2991148.png" alt="Google" class="social-icon">
+                Google
+              </button>
+              <button type="button" class="btn btn-outline-secondary social-btn">
+                <img src="https://cdn-icons-png.flaticon.com/512/0/747.png" alt="Apple" class="social-icon">
+                Apple
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- 註冊表單 -->
+        <div id="registerForm" style="display: none;">
+          <div class="mb-3">
+            <input type="text" class="form-control" id="newUsername" name="newUsername" placeholder="使用者名稱" required>
+          </div>
+          <div class="mb-3">
+            <input type="password" class="form-control" id="newPassword" name="newPassword" placeholder="密碼" required>
+          </div>
+          <div class="mb-3">
+            <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="確認密碼" required>
+          </div>
+
+          <button type="button" class="btn btn-primary w-100 mb-3" id="submitRegisterBtn">註冊</button>
+          <button type="button" class="btn btn-outline-secondary w-100" id="backToLoginBtn">返回登入</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.modal-content {
+  border-radius: 20px;
+  border: none;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.modal-header {
+  padding: 1rem 1rem 0;
+}
+
+.modal-body {
+  padding: 2rem;
+}
+
+.modal-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #2A3B55;
+}
+
+.form-control {
+  padding: 0.8rem 1rem;
+  border: 2px solid #E1E8ED;
+  border-radius: 12px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.form-control:focus {
+  border-color: #6B8DE3;
+  box-shadow: 0 0 0 3px rgba(107, 141, 227, 0.1);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #6B8DE3 0%, #5C7AE5 100%);
+  border: none;
+  padding: 0.8rem;
+  font-weight: 600;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(107, 141, 227, 0.2);
+}
+
+.social-login {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin: 1rem 0;
+}
+
+.social-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.6rem;
+  border-radius: 12px;
+  font-size: 0.9rem;
+  border: 2px solid #E1E8ED;
+  transition: all 0.3s ease;
+}
+
+.social-btn:hover {
+  background: #F8FAFF;
+  border-color: #6B8DE3;
+}
+
+.social-icon {
+  width: 20px;
+  height: 20px;
+}
+
+.form-check-input:checked {
+  background-color: #6B8DE3;
+  border-color: #6B8DE3;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const loginForm = document.getElementById('loginForm');
+  const registerForm = document.getElementById('registerForm');
+  const registerBtn = document.getElementById('registerBtn');
+  const backToLoginBtn = document.getElementById('backToLoginBtn');
+  const loginBtn = document.getElementById('loginBtn');
+  const submitRegisterBtn = document.getElementById('submitRegisterBtn');
+
+  // 切換到註冊表單
+  registerBtn.addEventListener('click', function() {
+    loginForm.style.display = 'none';
+    registerForm.style.display = 'block';
+  });
+
+  // 返回登入表單
+  backToLoginBtn.addEventListener('click', function() {
+    registerForm.style.display = 'none';
+    loginForm.style.display = 'block';
+  });
+
+  // 處理登入
+  loginBtn.addEventListener('click', function() {
+    const username = document.getElementById('username').value;
+    const password = document.getElementById('password').value;
+    
+    fetch('/login', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: username,
+        password: password
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        window.location.href = '/profile';
+      } else {
+        alert(data.message);
+      }
+    });
+  });
+
+  // 處理註冊
+  submitRegisterBtn.addEventListener('click', function() {
+    const username = document.getElementById('newUsername').value;
+    const password = document.getElementById('newPassword').value;
+    const confirmPassword = document.getElementById('confirmPassword').value;
+
+    if (password !== confirmPassword) {
+      alert('密碼不一致');
+      return;
+    }
+
+    fetch('/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: username,
+        password: password
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        alert('註冊成功！請登入');
+        registerForm.style.display = 'none';
+        loginForm.style.display = 'block';
+      } else {
+        alert(data.message);
+      }
+    });
+  });
+});
+</script> 

@@ -1,0 +1,332 @@
+{% extends 'base.html' %}
+{% block title %}個人資料 - 航班查詢系統{% endblock %}
+
+{% block content %}
+<div class="profile-page">
+  <div class="profile-header">
+    <div class="profile-avatar">
+      <i class="fas fa-user-circle"></i>
+    </div>
+    <h1>{{ user.username }}</h1>
+    <p class="text-muted">{{ user.email }}</p>
+  </div>
+
+  <div class="profile-content">
+    <div class="row">
+      <!-- 個人資料卡片 -->
+      <div class="col-md-6 mb-4">
+        <div class="profile-card">
+          <div class="card-header">
+            <h3><i class="fas fa-user me-2"></i>基本資料</h3>
+            <button class="btn btn-link" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+              <i class="fas fa-edit"></i>
+            </button>
+          </div>
+          <div class="card-body">
+            <div class="info-item">
+              <label>姓名</label>
+              <p>{{ user.username }}</p>
+            </div>
+            <div class="info-item">
+              <label>電子郵件</label>
+              <p>{{ user.email }}</p>
+            </div>
+            <div class="info-item">
+              <label>加入時間</label>
+              <p>{{ user.created_at.strftime('%Y-%m-%d') }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 會員等級卡片 -->
+      <div class="col-md-6 mb-4">
+        <div class="profile-card">
+          <div class="card-header">
+            <h3><i class="fas fa-crown me-2"></i>會員等級</h3>
+          </div>
+          <div class="card-body">
+            <div class="membership-info">
+              <div class="membership-level">
+                <i class="fas fa-medal"></i>
+                <h4>一般會員</h4>
+              </div>
+              <div class="membership-progress">
+                <div class="progress">
+                  <div class="progress-bar" role="progressbar" style="width: 25%"></div>
+                </div>
+                <small class="text-muted">距離升級還需要 3000 點</small>
+              </div>
+              <div class="membership-points">
+                <i class="fas fa-coins"></i>
+                <div>
+                  <h5>1000 點</h5>
+                  <small class="text-muted">可用點數</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 最近訂票記錄 -->
+      <div class="col-12">
+        <div class="profile-card">
+          <div class="card-header">
+            <h3><i class="fas fa-ticket-alt me-2"></i>最近訂票記錄</h3>
+            <a href="/bookings" class="btn btn-link">查看全部</a>
+          </div>
+          <div class="card-body">
+            <div class="recent-bookings">
+              <!-- 如果沒有訂票記錄 -->
+              <div class="empty-state">
+                <i class="fas fa-plane"></i>
+                <p>您還沒有任何訂票記錄</p>
+                <a href="/search" class="btn btn-primary">立即訂票</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 編輯個人資料彈窗 -->
+<div class="modal fade" id="editProfileModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">編輯個人資料</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <form id="editProfileForm">
+          <div class="mb-3">
+            <label for="editUsername" class="form-label">使用者名稱</label>
+            <input type="text" class="form-control" id="editUsername" value="{{ user.username }}">
+          </div>
+          <div class="mb-3">
+            <label for="editEmail" class="form-label">電子郵件</label>
+            <input type="email" class="form-control" id="editEmail" value="{{ user.email }}" readonly>
+          </div>
+          <div class="mb-3">
+            <label for="editPassword" class="form-label">新密碼</label>
+            <input type="password" class="form-control" id="editPassword" placeholder="若不修改請留空">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+        <button type="button" class="btn btn-primary" id="saveProfileBtn">儲存變更</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.profile-page {
+  padding: 3rem 0;
+  background: linear-gradient(135deg, #F8FAFF 0%, #F3F6FF 100%);
+  min-height: calc(100vh - 76px);
+}
+
+.profile-header {
+  text-align: center;
+  margin-bottom: 3rem;
+}
+
+.profile-avatar {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 1.5rem;
+  background: linear-gradient(135deg, #6B8DE3 0%, #5C7AE5 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-avatar i {
+  font-size: 4rem;
+  color: white;
+}
+
+.profile-header h1 {
+  font-size: 2rem;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.profile-card {
+  background: white;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  height: 100%;
+}
+
+.profile-card .card-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #E1E8ED;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.profile-card .card-header h3 {
+  font-size: 1.2rem;
+  margin: 0;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+}
+
+.profile-card .card-header i {
+  color: var(--accent-blue);
+}
+
+.profile-card .card-body {
+  padding: 1.5rem;
+}
+
+.info-item {
+  margin-bottom: 1.5rem;
+}
+
+.info-item:last-child {
+  margin-bottom: 0;
+}
+
+.info-item label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.info-item p {
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.membership-info {
+  text-align: center;
+}
+
+.membership-level {
+  margin-bottom: 1.5rem;
+}
+
+.membership-level i {
+  font-size: 2.5rem;
+  color: #FFC107;
+  margin-bottom: 1rem;
+}
+
+.membership-level h4 {
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.membership-progress {
+  margin-bottom: 1.5rem;
+}
+
+.progress {
+  height: 8px;
+  border-radius: 4px;
+  background: #E1E8ED;
+  margin-bottom: 0.5rem;
+}
+
+.progress-bar {
+  background: linear-gradient(135deg, #6B8DE3 0%, #5C7AE5 100%);
+  border-radius: 4px;
+}
+
+.membership-points {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.membership-points i {
+  font-size: 2rem;
+  color: #FFC107;
+}
+
+.membership-points h5 {
+  margin: 0;
+  color: var(--text-primary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 0;
+}
+
+.empty-state i {
+  font-size: 4rem;
+  color: #E1E8ED;
+  margin-bottom: 1rem;
+}
+
+.empty-state p {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.modal-content {
+  border-radius: 20px;
+}
+
+.modal-header {
+  border-bottom: 1px solid #E1E8ED;
+}
+
+.modal-footer {
+  border-top: 1px solid #E1E8ED;
+}
+
+.btn-link {
+  color: var(--accent-blue);
+  text-decoration: none;
+}
+
+.btn-link:hover {
+  color: var(--primary-dark);
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const saveProfileBtn = document.getElementById('saveProfileBtn');
+  
+  saveProfileBtn.addEventListener('click', function() {
+    const username = document.getElementById('editUsername').value;
+    const password = document.getElementById('editPassword').value;
+    
+    fetch('/update-profile', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        username: username,
+        password: password
+      })
+    })
+    .then(response => response.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();
+      } else {
+        alert(data.message);
+      }
+    });
+  });
+});
+</script>
+{% endblock %} 
