@@ -1,18 +1,22 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from service import search_service
-from models.user import User
 import pyodbc
 from functools import wraps
 import os
+import datetime
 
 app = Flask(__name__)
 app.secret_key = 'your-development-secret-key'
+
+# 固定的使用者憑證
+FIXED_USERNAME = 'admin'
+FIXED_PASSWORD = '12345'
 
 # 登入要求裝飾器
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'user_id' not in session:
+        if 'username' not in session:
             flash('請先登入')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
@@ -84,7 +88,12 @@ def search():
                          flights=flights,
                          form_data=form_data)
 
-# 登入
+# 登入頁面
+@app.route('/login', methods=['GET'])
+def login_page():
+    return render_template('login_modal.html')
+
+# 登入處理
 @app.route('/login', methods=['POST'])
 def login():
     data = request.json
@@ -94,39 +103,19 @@ def login():
     if not username or not password:
         return jsonify({'success': False, 'message': '請輸入使用者名稱和密碼'})
     
-    conn = pyodbc.connect(search_service.conn_str)
-    user = User.get_by_username(conn, username)
+    if username == FIXED_USERNAME and password == FIXED_PASSWORD:
+        session['username'] = username
+        return jsonify({'success': True, 'message': '登入成功'})
     
-    if not user or not user.check_password(password):
-        return jsonify({'success': False, 'message': '使用者名稱或密碼錯誤'})
-    
-    session['user_id'] = user.id
-    session['username'] = user.username
-    
-    return jsonify({'success': True, 'message': '登入成功'})
+    return jsonify({'success': False, 'message': '使用者名稱或密碼錯誤'})
 
-# 註冊
+# 註冊（已停用，返回提示訊息）
 @app.route('/register', methods=['POST'])
 def register():
-    data = request.json
-    username = data.get('username')
-    password = data.get('password')
-    
-    if not username or not password:
-        return jsonify({'success': False, 'message': '請輸入使用者名稱和密碼'})
-    
-    conn = pyodbc.connect(search_service.conn_str)
-    
-    # 檢查使用者名稱是否已存在
-    if User.get_by_username(conn, username):
-        return jsonify({'success': False, 'message': '使用者名稱已存在'})
-    
-    # 創建新用戶
-    user = User(username=username)
-    user.set_password(password)
-    user.save(conn)
-    
-    return jsonify({'success': True, 'message': '註冊成功'})
+    return jsonify({
+        'success': False, 
+        'message': '此系統使用固定帳號，無法註冊新帳號。\n請使用以下帳號登入：\n帳號：YiZhen\n密碼：yzzz918kk'
+    })
 
 # 登出
 @app.route('/logout')
@@ -138,9 +127,16 @@ def logout():
 @app.route('/profile')
 @login_required
 def profile():
-    conn = pyodbc.connect(search_service.conn_str)
-    user = User.get_by_id(conn, session['user_id'])
-    return render_template('profile.html', user=user)
+    # 固定的會員資料
+    user_data = {
+        'username': 'Admin',
+        'email': '12345@example.com',
+        'created_at': datetime.datetime(2024, 1, 1),
+        'membership_level': '一般會員',
+        'points': 1000,
+        'points_to_upgrade': 3000
+    }
+    return render_template('profile.html', user=user_data)
 
 # 我的訂票頁面
 @app.route('/bookings')
@@ -148,41 +144,14 @@ def profile():
 def bookings():
     return render_template('bookings.html')
 
-# 更新個人資料
+# 更新個人資料（已停用，返回提示訊息）
 @app.route('/update-profile', methods=['POST'])
 @login_required
 def update_profile():
-    data = request.json
-    username = data.get('username')
-    password = data.get('password')
-    
-    if not username:
-        return jsonify({'success': False, 'message': '使用者名稱不能為空'})
-    
-    conn = pyodbc.connect(search_service.conn_str)
-    user = User.get_by_id(conn, session['user_id'])
-    
-    if not user:
-        return jsonify({'success': False, 'message': '找不到使用者'})
-    
-    # 檢查新的使用者名稱是否已被其他用戶使用
-    existing_user = User.get_by_username(conn, username)
-    if existing_user and existing_user.id != user.id:
-        return jsonify({'success': False, 'message': '使用者名稱已存在'})
-    
-    user.username = username
-    if password:
-        user.set_password(password)
-    
-    try:
-        user.save(conn)
-        session['username'] = username
-        return jsonify({'success': True, 'message': '資料更新成功'})
-    except Exception as e:
-        return jsonify({'success': False, 'message': str(e)})
+    return jsonify({
+        'success': False, 
+        'message': '此系統使用固定帳號，無法修改個人資料。'
+    })
 
 if __name__ == '__main__':
-    # 建立資料表
-    conn = pyodbc.connect(search_service.conn_str)
-    User.create_table(conn)
     app.run(host='0.0.0.0', port=5001, debug=True)

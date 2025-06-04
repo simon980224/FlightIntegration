@@ -305,27 +305,10 @@ document.addEventListener('DOMContentLoaded', function() {
   const saveProfileBtn = document.getElementById('saveProfileBtn');
   
   saveProfileBtn.addEventListener('click', function() {
-    const username = document.getElementById('editUsername').value;
-    const password = document.getElementById('editPassword').value;
-    
-    fetch('/update-profile', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username: username,
-        password: password
-      })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        location.reload();
-      } else {
-        alert(data.message);
-      }
-    });
+        alert('此為固定帳號，無法修改個人資料。');
+        // 關閉模態框
+        const modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
+        modal.hide();
   });
 });
 </script>

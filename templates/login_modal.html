@@ -40,7 +40,13 @@
             <p class="text-muted">或使用以下方式登入</p>
             <div class="social-login">
               <button type="button" class="btn btn-outline-secondary social-btn">
-                <img src="https://cdn-icons-png.flaticon.com/512/124/124019.png" alt="LINE" class="social-icon">
+                <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <rect width="24" height="24" rx="4" fill="#00B900"/>
+                  <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="white" 
+                    style="font-family: 'Helvetica Neue', Arial, sans-serif; font-weight: 900; font-size: 7.5px; letter-spacing: 0.5px;">
+                    LINE
+                  </text>
+                </svg>
                 LINE
               </button>
               <button type="button" class="btn btn-outline-secondary social-btn">
@@ -148,7 +154,13 @@
 
 .social-btn:hover {
   background: #F8FAFF;
-  border-color: #6B8DE3;
+  border-color: #00B900;
+}
+
+.social-btn svg {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
 }
 
 .social-icon {
@@ -156,89 +168,79 @@
   height: 20px;
 }
 
+.social-btn:hover svg rect {
+  fill: #00B900;
+}
+
 .form-check-input:checked {
   background-color: #6B8DE3;
   border-color: #6B8DE3;
+}
+
+@font-face {
+  font-family: 'LINE Font';
+  src: local('Helvetica Neue Bold'), local('Arial Black');
+  font-weight: 900;
+}
+
+.social-btn svg text {
+  font-family: 'LINE Font', 'Helvetica Neue', Arial, sans-serif;
 }
 </style>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-  const loginForm = document.getElementById('loginForm');
-  const registerForm = document.getElementById('registerForm');
-  const registerBtn = document.getElementById('registerBtn');
-  const backToLoginBtn = document.getElementById('backToLoginBtn');
-  const loginBtn = document.getElementById('loginBtn');
-  const submitRegisterBtn = document.getElementById('submitRegisterBtn');
+    const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
+    const registerBtn = document.getElementById('registerBtn');
+    const backToLoginBtn = document.getElementById('backToLoginBtn');
+    const loginBtn = document.getElementById('loginBtn');
+    const submitRegisterBtn = document.getElementById('submitRegisterBtn');
 
-  // 切換到註冊表單
-  registerBtn.addEventListener('click', function() {
-    loginForm.style.display = 'none';
-    registerForm.style.display = 'block';
-  });
-
-  // 返回登入表單
-  backToLoginBtn.addEventListener('click', function() {
-    registerForm.style.display = 'none';
-    loginForm.style.display = 'block';
-  });
-
-  // 處理登入
-  loginBtn.addEventListener('click', function() {
-    const username = document.getElementById('username').value;
-    const password = document.getElementById('password').value;
-    
-    fetch('/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username: username,
-        password: password
-      })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        window.location.href = '/profile';
-      } else {
-        alert(data.message);
-      }
+    // 切換到註冊表單
+    registerBtn.addEventListener('click', function() {
+        loginForm.style.display = 'none';
+        registerForm.style.display = 'block';
     });
-  });
 
-  // 處理註冊
-  submitRegisterBtn.addEventListener('click', function() {
-    const username = document.getElementById('newUsername').value;
-    const password = document.getElementById('newPassword').value;
-    const confirmPassword = document.getElementById('confirmPassword').value;
-
-    if (password !== confirmPassword) {
-      alert('密碼不一致');
-      return;
-    }
-
-    fetch('/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        username: username,
-        password: password
-      })
-    })
-    .then(response => response.json())
-    .then(data => {
-      if (data.success) {
-        alert('註冊成功！請登入');
+    // 返回登入表單
+    backToLoginBtn.addEventListener('click', function() {
         registerForm.style.display = 'none';
         loginForm.style.display = 'block';
-      } else {
-        alert(data.message);
-      }
     });
-  });
+
+    // 處理登入
+    loginBtn.addEventListener('click', function() {
+        const username = document.getElementById('username').value;
+        const password = document.getElementById('password').value;
+        
+        fetch('/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, password })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // 登入成功
+                alert('登入成功！');
+                window.location.href = '/profile';
+            } else {
+                // 登入失敗
+                alert(data.message || '帳號或密碼錯誤！');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('登入時發生錯誤，請稍後再試！');
+        });
+    });
+
+    // 處理註冊（因為帳密已寫死，所以顯示提示訊息）
+    submitRegisterBtn.addEventListener('click', function() {
+        alert('此系統使用固定帳號，無法註冊新帳號。\n請使用以下帳號登入：\n帳號：admin\n密碼：12345');
+    });
 });
 </script> 
