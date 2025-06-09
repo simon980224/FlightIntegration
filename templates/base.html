@@ -12,6 +12,9 @@
   <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
+  <!-- SweetAlert2 -->
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
   <!-- 全站樣式 -->
   <style>
     :root {
@@ -471,6 +474,7 @@
     .page-title {
       font-size: 2.5rem;
       background: linear-gradient(45deg, var(--primary-color), var(--accent-color));
+      background-clip: text;
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       margin-bottom: 2rem;
@@ -763,15 +767,20 @@
 </head>
 <body>
   <nav class="navbar navbar-expand-lg">
-    <div class="container-fluid">
-      <a class="navbar-brand" href="/">🛫航班查詢系統</a>
+    <div class="container">
+      <a class="navbar-brand" href="/">
+        <i class="fas fa-plane-departure me-2"></i>航班查詢系統
+      </a>
       <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
         <span class="navbar-toggler-icon"></span>
       </button>
       <div class="collapse navbar-collapse" id="navbarNav">
+        <ul class="navbar-nav">
+          <li class="nav-item"><a class="nav-link" href="/"><i class="fas fa-home me-1"></i>首頁</a></li>
+          <li class="nav-item"><a class="nav-link" href="/search"><i class="fas fa-search me-1"></i>航班查詢</a></li>
+          <li class="nav-item"><a class="nav-link" href="/ticket"><i class="fas fa-ticket-alt me-1"></i>訂票</a></li>
+        </ul>
         <ul class="navbar-nav ms-auto">
-          <li class="nav-item"><a class="nav-link" href="/">首頁</a></li>
-          <li class="nav-item"><a class="nav-link" href="/search">航班查詢</a></li>
           {% if session.get('username') %}
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
@@ -779,7 +788,7 @@
               </a>
               <ul class="dropdown-menu dropdown-menu-end">
                 <li><a class="dropdown-item" href="/profile"><i class="fas fa-user me-2"></i>個人資料</a></li>
-                <li><a class="dropdown-item" href="/bookings"><i class="fas fa-ticket-alt me-2"></i>我的訂票</a></li>
+                <li><a class="dropdown-item" href="/bookings"><i class="fas fa-list me-2"></i>我的訂票</a></li>
                 <li><hr class="dropdown-divider"></li>
                 <li><a class="dropdown-item" href="/logout"><i class="fas fa-sign-out-alt me-2"></i>登出</a></li>
               </ul>

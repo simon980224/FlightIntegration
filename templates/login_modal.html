@@ -225,16 +225,39 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.success) {
                 // 登入成功
-                alert('登入成功！');
-                window.location.href = '/profile';
+                Swal.fire({
+                    title: '登入成功！',
+                    text: '歡迎回來',
+                    icon: 'success',
+                    showConfirmButton: false,
+                    timer: 1500,
+                    position: 'top',
+                    backdrop: false
+                }).then(() => {
+                    window.location.href = '/profile';
+                });
             } else {
                 // 登入失敗
-                alert(data.message || '帳號或密碼錯誤！');
+                Swal.fire({
+                    title: '登入失敗',
+                    text: data.message || '帳號或密碼錯誤！',
+                    icon: 'error',
+                    confirmButtonText: '確定',
+                    position: 'top',
+                    backdrop: false
+                });
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('登入時發生錯誤，請稍後再試！');
+            Swal.fire({
+                title: '發生錯誤',
+                text: '登入時發生錯誤，請稍後再試！',
+                icon: 'error',
+                confirmButtonText: '確定',
+                position: 'top',
+                backdrop: false
+            });
         });
     });
 

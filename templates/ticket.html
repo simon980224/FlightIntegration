@@ -1,0 +1,273 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid p-0">
+  <!-- 背景圖片區域 -->
+  <div class="bg-image">
+    <div class="mask">
+      <div class="container py-5">
+        <div class="row justify-content-center">
+          <div class="col-md-8">
+            <!-- 搜尋卡片 -->
+            <div class="card search-card">
+              <div class="card-body p-4">
+                <h3 class="card-title text-center mb-4">
+                  <i class="fas fa-ticket-alt me-2"></i>訂票系統
+                </h3>
+
+                <form action="/search" method="GET" class="needs-validation" novalidate>
+                  <!-- 航程類型選擇 -->
+                  <div class="mb-4">
+                    <div class="btn-group w-100" role="group">
+                      <input type="radio" class="btn-check" name="tripType" id="roundTrip" value="roundTrip" checked>
+                      <label class="btn btn-outline-light" for="roundTrip">來回</label>
+                      
+                      <input type="radio" class="btn-check" name="tripType" id="oneWay" value="oneWay">
+                      <label class="btn btn-outline-light" for="oneWay">單程</label>
+                    </div>
+                  </div>
+
+                  <!-- 出發地和目的地 -->
+                  <div class="row mb-4">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                      <div class="form-group">
+                        <input type="text" class="form-control custom-input" name="departure" placeholder="輸入出發地" required>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group">
+                        <input type="text" class="form-control custom-input" name="arrival" placeholder="輸入目的地" required>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 日期選擇 -->
+                  <div class="row mb-4">
+                    <div class="col-md-6 mb-3 mb-md-0">
+                      <div class="form-group">
+                        <input type="date" class="form-control custom-input" name="departDate" required>
+                      </div>
+                    </div>
+
+                    <div class="col-md-6">
+                      <div class="form-group">
+                        <input type="date" class="form-control custom-input" name="returnDate">
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 乘客選擇 -->
+                  <div class="mb-4">
+                    <button type="button" class="btn btn-outline-light w-100 text-start passenger-select" data-bs-toggle="dropdown">
+                      <span>1 旅客, 經濟艙</span>
+                      <i class="fas fa-chevron-down float-end mt-1"></i>
+                    </button>
+                    <div class="dropdown-menu p-3 passenger-dropdown">
+                      <div class="mb-3">
+                        <label class="form-label">乘客</label>
+                        <div class="input-group">
+                          <button type="button" class="btn btn-outline-light" onclick="decreasePassengers()">-</button>
+                          <input type="number" class="form-control text-center" id="passengerCount" name="passengers" value="1" min="1" max="9" readonly>
+                          <button type="button" class="btn btn-outline-light" onclick="increasePassengers()">+</button>
+                        </div>
+                      </div>
+                      <div>
+                        <label class="form-label">艙等</label>
+                        <select class="form-select custom-select" name="cabinClass">
+                          <option value="ECONOMY">經濟艙</option>
+                          <option value="BUSINESS">商務艙</option>
+                          <option value="FIRST">頭等艙</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 航空公司選擇 -->
+                  <div class="mb-4">
+                    <label class="form-label d-block">
+                      <i class="fas fa-plane me-2"></i>航空公司選擇
+                    </label>
+                    <div class="d-flex flex-wrap gap-2">
+                      <input type="checkbox" class="btn-check" id="allAirlines" name="airline" value="ALL" checked>
+                      <label class="btn btn-outline-light" for="allAirlines">不限航空</label>
+
+                      <input type="checkbox" class="btn-check" id="china" name="airline" value="CI">
+                      <label class="btn btn-outline-light" for="china">華信航空</label>
+
+                      <input type="checkbox" class="btn-check" id="eva" name="airline" value="BR">
+                      <label class="btn btn-outline-light" for="eva">長榮航空</label>
+
+                      <input type="checkbox" class="btn-check" id="starlux" name="airline" value="JX">
+                      <label class="btn btn-outline-light" for="starlux">星宇航空</label>
+                    </div>
+                  </div>
+
+                  <!-- 搜尋按鈕 -->
+                  <button type="submit" class="btn btn-light btn-lg w-100">
+                    <i class="fas fa-search me-2"></i>搜尋航班
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 自訂樣式 -->
+<style>
+.bg-image {
+  background-image: url('https://source.unsplash.com/1600x900/?airplane,sky');
+  background-size: cover;
+  background-position: center;
+  min-height: calc(100vh - 56px);
+  position: relative;
+}
+
+.mask {
+  background: rgba(0, 0, 0, 0.6);
+  width: 100%;
+  height: 100%;
+  position: absolute;
+  top: 0;
+  left: 0;
+}
+
+.search-card {
+  background: rgba(33, 37, 41, 0.8);
+  backdrop-filter: blur(10px);
+  border: none;
+  border-radius: 1rem;
+  color: white;
+}
+
+.form-label {
+  color: #fff;
+  font-weight: 500;
+}
+
+.custom-input {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+}
+
+.custom-input:focus {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.5);
+  color: white;
+  box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.1);
+}
+
+.custom-input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.btn-outline-light {
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.btn-outline-light:hover,
+.btn-check:checked + .btn-outline-light {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.8);
+}
+
+.btn-light {
+  background-color: rgba(255, 255, 255, 0.9);
+  border: none;
+  font-weight: 500;
+}
+
+.btn-light:hover {
+  background-color: #fff;
+}
+
+.passenger-select {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.passenger-dropdown {
+  background-color: rgba(33, 37, 41, 0.95);
+  border: none;
+  border-radius: 0.5rem;
+  min-width: 250px;
+}
+
+.passenger-dropdown .form-label {
+  color: white;
+}
+
+.passenger-dropdown .form-control {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.passenger-dropdown .form-select {
+  background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+}
+
+.form-control::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+</style>
+
+<!-- JavaScript -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  // 監聽單程/來回選擇
+  document.querySelectorAll('input[name="tripType"]').forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      const returnDateInput = document.querySelector('input[name="returnDate"]');
+      const returnDateGroup = returnDateInput.closest('.form-group');
+      if (this.value === 'oneWay') {
+        returnDateInput.disabled = true;
+        returnDateInput.required = false;
+        returnDateGroup.style.opacity = '0.5';
+      } else {
+        returnDateInput.disabled = false;
+        returnDateInput.required = true;
+        returnDateGroup.style.opacity = '1';
+      }
+    });
+  });
+
+  // 表單驗證
+  const forms = document.querySelectorAll('.needs-validation');
+  Array.from(forms).forEach(function(form) {
+    form.addEventListener('submit', function(event) {
+      if (!form.checkValidity()) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      form.classList.add('was-validated');
+    }, false);
+  });
+});
+
+// 乘客數量控制
+function increasePassengers() {
+  const input = document.getElementById('passengerCount');
+  if (input.value < 9) {
+    input.value = parseInt(input.value) + 1;
+  }
+}
+
+function decreasePassengers() {
+  const input = document.getElementById('passengerCount');
+  if (input.value > 1) {
+    input.value = parseInt(input.value) - 1;
+  }
+}
+</script>
+{% endblock %} 

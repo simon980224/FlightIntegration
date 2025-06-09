@@ -131,7 +131,7 @@ def profile():
     user_data = {
         'username': 'Admin',
         'email': '12345@example.com',
-        'created_at': datetime.datetime(2024, 1, 1),
+        'created_at': datetime.datetime(2025, 1, 1),
         'membership_level': '一般會員',
         'points': 1000,
         'points_to_upgrade': 3000
@@ -142,16 +142,28 @@ def profile():
 @app.route('/bookings')
 @login_required
 def bookings():
-    return render_template('bookings.html')
+    return render_template('booking.html')
 
-# 更新個人資料（已停用，返回提示訊息）
-@app.route('/update-profile', methods=['POST'])
+# 訂票頁面
+@app.route('/booking/<flight_id>')
 @login_required
-def update_profile():
+def booking(flight_id):
+    # 這裡之後可以加入獲取航班資訊的邏輯
+    return render_template('booking.html')
+
+# 處理訂票
+@app.route('/booking/<flight_id>', methods=['POST'])
+@login_required
+def process_booking(flight_id):
+    # 這裡之後可以加入處理訂票的邏輯
     return jsonify({
-        'success': False, 
-        'message': '此系統使用固定帳號，無法修改個人資料。'
+        'success': True,
+        'message': '訂票成功'
     })
+
+@app.route('/ticket')
+def ticket():
+    return render_template('ticket.html')
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

@@ -1,0 +1,496 @@
+{% extends 'base.html' %}
+{% block title %}訂票 - 航班查詢系統{% endblock %}
+
+{% block content %}
+<div class="booking-page">
+  <div class="booking-header">
+    <h2>訂票資訊</h2>
+    <p class="text-muted">請確認航班資訊並填寫訂票資料</p>
+  </div>
+
+  <div class="booking-container">
+    <div class="row">
+      <!-- 左側：航班資訊 -->
+      <div class="col-lg-4">
+        <div class="flight-info-card">
+          <div class="card-header">
+            <h3><i class="fas fa-info-circle me-2"></i>航班資訊</h3>
+          </div>
+          <div class="card-body">
+            <div class="airline-info">
+              <div class="airline-logo">
+                <i class="fas fa-plane"></i>
+              </div>
+              <div class="airline-name">華信航空</div>
+            </div>
+            
+            <div class="flight-route">
+              <div class="route-point departure">
+                <div class="time">14:30</div>
+                <div class="city">台北松山</div>
+                <div class="date">2024-03-15</div>
+              </div>
+              <div class="route-line">
+                <i class="fas fa-plane"></i>
+              </div>
+              <div class="route-point arrival">
+                <div class="time">16:00</div>
+                <div class="city">金門</div>
+                <div class="date">2024-03-15</div>
+              </div>
+            </div>
+
+            <div class="flight-details">
+              <div class="detail-item">
+                <span class="label">航班編號</span>
+                <span class="value">AE381</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">飛行時間</span>
+                <span class="value">1小時30分</span>
+              </div>
+              <div class="detail-item">
+                <span class="label">艙等</span>
+                <span class="value">經濟艙</span>
+              </div>
+            </div>
+
+            <div class="price-info">
+              <div class="price-label">票價</div>
+              <div class="price-value">NT$ 2,880</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 右側：訂票表單 -->
+      <div class="col-lg-8">
+        <div class="booking-form-card">
+          <div class="card-header">
+            <h3><i class="fas fa-ticket-alt me-2"></i>訂票資料</h3>
+          </div>
+          <div class="card-body">
+            <form id="bookingForm">
+              <!-- 聯絡人資訊 -->
+              <div class="section-title">聯絡人資訊</div>
+              <div class="row mb-4">
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>姓名</label>
+                    <input type="text" class="form-control" placeholder="請輸入姓名">
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>電話</label>
+                    <input type="tel" class="form-control" placeholder="請輸入電話">
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>Email</label>
+                    <input type="email" class="form-control" placeholder="請輸入Email">
+                  </div>
+                </div>
+              </div>
+
+              <!-- 乘客資訊 -->
+              <div class="section-title">乘客資訊</div>
+              <div class="passenger-info mb-4">
+                <div class="passenger-card">
+                  <div class="passenger-header">
+                    乘客 1 <span class="badge bg-primary">成人</span>
+                  </div>
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="form-group">
+                        <label>姓名（中文）</label>
+                        <input type="text" class="form-control" placeholder="請輸入中文姓名">
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-group">
+                        <label>姓名（英文）</label>
+                        <input type="text" class="form-control" placeholder="請輸入英文姓名">
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-group">
+                        <label>身分證字號</label>
+                        <input type="text" class="form-control" placeholder="請輸入身分證字號">
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="form-group">
+                        <label>出生日期</label>
+                        <input type="date" class="form-control">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- 付款資訊 -->
+              <div class="section-title">付款資訊</div>
+              <div class="row mb-4">
+                <div class="col-md-6">
+                  <div class="form-group">
+                    <label>付款方式</label>
+                    <select class="form-select">
+                      <option value="">請選擇付款方式</option>
+                      <option value="credit_card">信用卡</option>
+                      <option value="line_pay">LINE Pay</option>
+                      <option value="bank_transfer">銀行轉帳</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div class="booking-summary">
+                <div class="summary-item">
+                  <span>機票費用</span>
+                  <span>NT$ 2,880</span>
+                </div>
+                <div class="summary-item">
+                  <span>稅金與費用</span>
+                  <span>NT$ 300</span>
+                </div>
+                <div class="summary-total">
+                  <span>總金額</span>
+                  <span>NT$ 3,180</span>
+                </div>
+              </div>
+
+              <div class="form-check mb-4">
+                <input type="checkbox" class="form-check-input" id="agreeTerms">
+                <label class="form-check-label" for="agreeTerms">
+                  我同意<a href="#" class="text-primary">服務條款</a>和<a href="#" class="text-primary">隱私政策</a>
+                </label>
+              </div>
+
+              <button type="submit" class="btn btn-primary btn-lg w-100">
+                確認訂票
+              </button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+.booking-page {
+  padding: 3rem 0;
+  background: linear-gradient(135deg, #F8FAFF 0%, #F3F6FF 100%);
+  min-height: calc(100vh - 76px);
+}
+
+.booking-header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.booking-header h2 {
+  font-size: 2rem;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.booking-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.flight-info-card,
+.booking-form-card {
+  background: white;
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+  height: 100%;
+  margin-bottom: 2rem;
+}
+
+.card-header {
+  padding: 1.5rem;
+  border-bottom: 1px solid #E1E8ED;
+  background: white;
+}
+
+.card-header h3 {
+  font-size: 1.2rem;
+  margin: 0;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+}
+
+.card-header i {
+  color: var(--accent-blue);
+}
+
+.card-body {
+  padding: 1.5rem;
+}
+
+.airline-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.airline-logo {
+  width: 50px;
+  height: 50px;
+  background: linear-gradient(135deg, #6B8DE3 0%, #5C7AE5 100%);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.5rem;
+}
+
+.airline-name {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.flight-route {
+  position: relative;
+  padding: 2rem 0;
+  margin-bottom: 2rem;
+}
+
+.route-point {
+  text-align: center;
+  margin-bottom: 1rem;
+}
+
+.route-point .time {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.route-point .city {
+  font-size: 1rem;
+  color: var(--text-primary);
+  margin: 0.5rem 0;
+}
+
+.route-point .date {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.route-line {
+  position: relative;
+  height: 2px;
+  background: #E1E8ED;
+  margin: 2rem 0;
+}
+
+.route-line i {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: var(--accent-blue);
+  background: white;
+  padding: 0.5rem;
+}
+
+.flight-details {
+  margin-bottom: 2rem;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #E1E8ED;
+}
+
+.detail-item:last-child {
+  border-bottom: none;
+}
+
+.detail-item .label {
+  color: var(--text-secondary);
+}
+
+.detail-item .value {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.price-info {
+  text-align: center;
+  padding: 1rem;
+  background: #F8FAFF;
+  border-radius: 12px;
+}
+
+.price-label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.price-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--accent-blue);
+}
+
+.section-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1.5rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #E1E8ED;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+  display: block;
+}
+
+.form-control,
+.form-select {
+  padding: 0.8rem 1rem;
+  border: 2px solid #E1E8ED;
+  border-radius: 12px;
+  font-size: 1rem;
+  transition: all 0.3s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--accent-blue);
+  box-shadow: 0 0 0 3px rgba(107, 141, 227, 0.1);
+}
+
+.passenger-card {
+  background: #F8FAFF;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.passenger-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.booking-summary {
+  background: #F8FAFF;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin: 2rem 0;
+}
+
+.summary-item {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  color: var(--text-secondary);
+}
+
+.summary-total {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid #E1E8ED;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-size: 1.2rem;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, #6B8DE3 0%, #5C7AE5 100%);
+  border: none;
+  padding: 1rem;
+  font-weight: 600;
+  border-radius: 12px;
+  transition: all 0.3s ease;
+}
+
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(107, 141, 227, 0.2);
+}
+
+@media (max-width: 768px) {
+  .booking-container {
+    padding: 0 0.5rem;
+  }
+  
+  .flight-info-card,
+  .booking-form-card {
+    margin-bottom: 1rem;
+  }
+  
+  .route-point .time {
+    font-size: 1.2rem;
+  }
+  
+  .price-value {
+    font-size: 1.2rem;
+  }
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  const form = document.getElementById('bookingForm');
+  
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    // 檢查是否同意條款
+    const agreeTerms = document.getElementById('agreeTerms');
+    if (!agreeTerms.checked) {
+      Swal.fire({
+        title: '請同意條款',
+        text: '您必須同意服務條款和隱私政策才能繼續',
+        icon: 'warning',
+        confirmButtonText: '確定'
+      });
+      return;
+    }
+    
+    // 這裡之後可以加入表單驗證和提交邏輯
+    Swal.fire({
+      title: '訂票成功！',
+      text: '您的訂票已完成，感謝您的訂購',
+      icon: 'success',
+      confirmButtonText: '確定'
+    }).then((result) => {
+      if (result.isConfirmed) {
+        // 這裡之後可以加入跳轉到訂票成功頁面的邏輯
+        // window.location.href = '/booking-success';
+      }
+    });
+  });
+});
+</script>
+{% endblock %} 
