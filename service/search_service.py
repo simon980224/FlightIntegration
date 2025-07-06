@@ -55,11 +55,12 @@ def get_flight_data(from_id=None, to_id=None, dep_time=None, arr_time=None, airl
         query = """
 SELECT 
     F.Flight_Id,
-    AL.Airline_Name_ZH AS Airline_Name,
+    AL.Airline_Name_ZH AS Airline_Name_ZH,
     FAP.Airport_Name_ZH AS From_Airport,
     TAP.Airport_Name_ZH AS To_Airport,
     F.D_Time,
-    F.A_Time
+    F.A_Time,
+    F.Status
 FROM 
     Flight F
 JOIN 

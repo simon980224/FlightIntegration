@@ -77,14 +77,16 @@ def flight_search():
         d_time = request.form.get('departure_date')
         a_time = request.form.get('arrival_date')
         airline_ids = request.form.getlist('airline_ids')
-        flights_data = search_service.search_flights(
+        flights_data = search_service.get_flight_data(
             from_id=d_airport_id,
             to_id=a_airport_id,
             dep_time=d_time,
             arr_time=a_time,
             airline_ids=airline_ids,
         )
-    return flights_data,200
+        return jsonify(flights_data)
+    
+    return jsonify({'success': False, 'error': 'Invalid request method.'}), 405
 
 # 註冊（已停用，返回提示訊息）
 @app.route('/register', methods=['POST'])
