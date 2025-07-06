@@ -1,6 +1,7 @@
 {% extends 'base.html' %}
 {% block title %}航班查詢系統{% endblock %}
 {% block content %}
+{% set form_data = form_data if form_data is defined else {} %}
 
 <!-- Bootstrap 5 CDN -->
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -17,9 +18,9 @@
         <div class="card-body">
           <h2 class="card-title text-center mb-3">航班查詢</h2>
           <p class="text-center text-muted mb-4">輕鬆查詢航班資訊，規劃您的完美旅程</p>
-          <form method="POST" action="/search" id="searchForm" onsubmit="return validateDateRange();">
-            <input type="hidden" name="sort_field" id="sort_field" value="{{ form_data.sort_field }}">
-            <input type="hidden" name="sort_order" id="sort_order" value="{{ form_data.sort_order }}">
+          <form method="POST" action="/flight/search" id="searchForm">
+            <input type="hidden" name="sort_field" id="sort_field" value="">
+            <input type="hidden" name="sort_order" id="sort_order" value="">
             <div class="row mb-3">
               <div class="col-md-6 mb-3 mb-md-0">
                 <label for="from_airport" class="form-label">
@@ -27,8 +28,8 @@
                 </label>
                 <select class="form-select" id="from_airport" name="from_airport">
                   <option value="">選擇出發機場</option>
-                  {% for airport in airport_data %}
-                    <option value="{{ airport['Airport_Id'] }}" {% if form_data.from_airport == airport['Airport_Id'] %}selected{% endif %}>{{ airport['Airport_Name_ZH'] }}</option>
+                  {% for airport in airport_data.data %}
+                    <option value="{{ airport['Airport_Id'] }}">{{ airport['Airport_Name_ZH'] }}</option>
                   {% endfor %}
                 </select>
               </div>
@@ -38,8 +39,8 @@
                 </label>
                 <select class="form-select" id="to_airport" name="to_airport">
                   <option value="">選擇目的機場</option>
-                  {% for airport in airport_data %}
-                    <option value="{{ airport['Airport_Id'] }}" {% if form_data.to_airport == airport['Airport_Id'] %}selected{% endif %}>{{ airport['Airport_Name_ZH'] }}</option>
+                  {% for airport in airport_data.data %}
+                    <option value="{{ airport['Airport_Id'] }}">{{ airport['Airport_Name_ZH'] }}</option>
                   {% endfor %}
                 </select>
               </div>
@@ -49,13 +50,13 @@
                 <label for="departure_date" class="form-label">
                   <i class="fas fa-calendar-alt"></i> 起飛日期
                 </label>
-                <input type="text" class="form-control" id="departure_date" name="departure_date" value="{{ form_data.departure_date or '' }}" placeholder="選擇起飛日期">
+                <input type="text" class="form-control" id="departure_date" name="departure_date" placeholder="選擇起飛日期">
               </div>
               <div class="col-md-6">
                 <label for="arrival_date" class="form-label">
                   <i class="fas fa-calendar-alt"></i> 抵達日期
                 </label>
-                <input type="text" class="form-control" id="arrival_date" name="arrival_date" value="{{ form_data.arrival_date or '' }}" placeholder="選擇抵達日期">
+                <input type="text" class="form-control" id="arrival_date" name="arrival_date" placeholder="選擇抵達日期">
               </div>
             </div>
             <div class="mb-3">
@@ -66,9 +67,9 @@
                 <span id="airline_unlimited" class="btn btn-outline-primary btn-sm active">
                   <i class="fas fa-globe"></i> 不限航空
                 </span>
-                {% for airline in airline_data %}
+                {% for airline in airline_data.data %}
                   <div class="form-check form-check-inline">
-                    <input class="form-check-input airline-checkbox" type="checkbox" name="airline_ids" value="{{ airline['Airline_Id'] }}" id="airline_{{ airline['Airline_Id'] }}" {% if airline['Airline_Id'] in form_data.airline_ids %}checked{% endif %}>
+                    <input class="form-check-input airline-checkbox" type="checkbox" name="airline_ids" value="{{ airline['Airline_Id'] }}" id="airline_{{ airline['Airline_Id'] }}">
                     <label class="form-check-label" for="airline_{{ airline['Airline_Id'] }}">{{ airline['Airline_Name_ZH'] }}</label>
                   </div>
                 {% endfor %}
@@ -85,44 +86,7 @@
           </form>
         </div>
       </div>
-      {% if flights is defined %}
-      <div class="mt-5">
-        {% for flight in flights %}
-        <div class="card mb-3">
-          <div class="card-header d-flex justify-content-between align-items-center bg-light">
-            <div class="fw-bold">{{ flight['Airline_Name_ZH'] }}</div>
-            {% set status = flight['Status'] | trim | lower %}
-            {% if status == 'on time' %}
-              <span class="badge bg-success"><i class="fas fa-check-circle"></i> 準時</span>
-            {% elif status == 'delayed' %}
-              <span class="badge bg-warning text-dark"><i class="fas fa-clock"></i> 延誤</span>
-            {% elif status == 'cancelled' %}
-              <span class="badge bg-danger"><i class="fas fa-times-circle"></i> 已取消</span>
-            {% else %}
-              <span class="badge bg-secondary"><i class="fas fa-question-circle"></i> {{ flight['Status'] }}</span>
-            {% endif %}
-          </div>
-          <div class="card-body">
-            <div class="row align-items-center">
-              <div class="col-md-5 text-center mb-2 mb-md-0">
-                <div class="fs-4 fw-bold">{{ flight['Scheduled_Departure_Time'].strftime('%H:%M') }}</div>
-                <div class="text-muted">{{ flight['From_Airport'] }}</div>
-                <div class="small">{{ flight['Scheduled_Departure_Time'].strftime('%Y-%m-%d') }}</div>
-              </div>
-              <div class="col-md-2 text-center">
-                <i class="fas fa-plane fa-2x text-primary"></i>
-              </div>
-              <div class="col-md-5 text-center">
-                <div class="fs-4 fw-bold">{{ flight['Scheduled_Arrival_Time'].strftime('%H:%M') }}</div>
-                <div class="text-muted">{{ flight['To_Airport'] }}</div>
-                <div class="small">{{ flight['Scheduled_Arrival_Time'].strftime('%Y-%m-%d') }}</div>
-              </div>
-            </div>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-      {% endif %}
+      <div id="flight-results" class="mt-5"></div>
     </div>
   </div>
 </div>
@@ -145,21 +109,21 @@ function clearFilters() {
   if (flatpickrInstance2) flatpickrInstance2.clear();
   document.querySelectorAll('input[name="airline_ids"]').forEach(cb => cb.checked = false);
   document.getElementById('airline_unlimited').classList.add('active');
+  const resultsContainer = document.getElementById('flight-results');
+  if (resultsContainer) {
+      resultsContainer.innerHTML = '';
+  }
 }
 
 document.addEventListener('DOMContentLoaded', function () {
   const unlimitedBtn = document.getElementById('airline_unlimited');
   const airlineCheckboxes = document.querySelectorAll('input[name="airline_ids"]');
-  const anyChecked = Array.from(airlineCheckboxes).some(cb => cb.checked);
-  if (anyChecked) {
-    unlimitedBtn.classList.remove('active');
-  } else {
-    unlimitedBtn.classList.add('active');
-  }
+  
   unlimitedBtn.addEventListener('click', function () {
     airlineCheckboxes.forEach(cb => cb.checked = false);
     this.classList.add('active');
   });
+
   airlineCheckboxes.forEach(cb => {
     cb.addEventListener('change', () => {
       const anyChecked = Array.from(airlineCheckboxes).some(c => c.checked);
@@ -170,14 +134,91 @@ document.addEventListener('DOMContentLoaded', function () {
       }
     });
   });
+
+  const searchForm = document.getElementById('searchForm');
+  searchForm.addEventListener('submit', function(event) {
+    event.preventDefault(); 
+    if (!validateDateRange()) {
+        return;
+    }
+
+    const submitBtn = document.getElementById('submitBtn');
+    const originalBtnText = submitBtn.innerHTML;
+    submitBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 查詢中...`;
+    submitBtn.disabled = true;
+
+    const formData = new FormData(searchForm);
+    const resultsContainer = document.getElementById('flight-results');
+
+    fetch('/flight/search', {
+      method: 'POST',
+      body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+      resultsContainer.innerHTML = ''; 
+      if (data.success && data.data.length > 0) {
+        data.data.forEach(flight => {
+          const depTime = new Date(flight.D_Time);
+          const arrTime = new Date(flight.A_Time);
+
+          let statusBadge = '';
+          const status = flight.Status.trim().toLowerCase();
+          if (status === 'on time') {
+            statusBadge = `<span class="badge bg-success"><i class="fas fa-check-circle"></i> 準時</span>`;
+          } else if (status === 'delayed') {
+            statusBadge = `<span class="badge bg-warning text-dark"><i class="fas fa-clock"></i> 延誤</span>`;
+          } else if (status === 'cancelled') {
+            statusBadge = `<span class="badge bg-danger"><i class="fas fa-times-circle"></i> 已取消</span>`;
+          } else {
+            statusBadge = `<span class="badge bg-secondary"><i class="fas fa-question-circle"></i> ${flight.Status}</span>`;
+          }
+
+          const flightCard = `
+            <div class="card mb-3">
+              <div class="card-header d-flex justify-content-between align-items-center bg-light">
+                <div class="fw-bold">${flight.Airline_Name_ZH}</div>
+                ${statusBadge}
+              </div>
+              <div class="card-body">
+                <div class="row align-items-center">
+                  <div class="col-md-5 text-center mb-2 mb-md-0">
+                    <div class="fs-4 fw-bold">${depTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
+                    <div class="text-muted">${flight.From_Airport}</div>
+                    <div class="small">${depTime.toISOString().split('T')[0]}</div>
+                  </div>
+                  <div class="col-md-2 text-center">
+                    <i class="fas fa-plane fa-2x text-primary"></i>
+                  </div>
+                  <div class="col-md-5 text-center">
+                    <div class="fs-4 fw-bold">${arrTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
+                    <div class="text-muted">${flight.To_Airport}</div>
+                    <div class="small">${arrTime.toISOString().split('T')[0]}</div>
+                  </div>
+                </div>
+              </div>
+            </div>`;
+          resultsContainer.insertAdjacentHTML('beforeend', flightCard);
+        });
+      } else if (data.success && data.data.length === 0) {
+        resultsContainer.innerHTML = '<div class="alert alert-info text-center">找不到符合條件的航班。</div>';
+      } 
+      else {
+        resultsContainer.innerHTML = `<div class="alert alert-danger text-center">查詢時發生錯誤: ${data.error || '未知錯誤'}</div>`;
+      }
+    })
+    .catch(error => {
+      resultsContainer.innerHTML = `<div class="alert alert-danger text-center">無法連線至伺服器，請稍後再試。</div>`;
+      console.error('Fetch Error:', error);
+    })
+    .finally(() => {
+        submitBtn.innerHTML = originalBtnText;
+        submitBtn.disabled = false;
+    });
+  });
 });
 
 window.addEventListener("DOMContentLoaded", function () {
-  const today = new Date().toISOString().split("T")[0];
-  const depInput = document.getElementById("departure_date");
-  const arrInput = document.getElementById("arrival_date");
-  if (!depInput.value) depInput.value = today;
-  if (!arrInput.value) arrInput.value = today;
   flatpickrInstance1 = flatpickr("#departure_date", { locale: "zh", dateFormat: "Y-m-d", altInput: true, altFormat: "Y年m月d日" });
   flatpickrInstance2 = flatpickr("#arrival_date", { locale: "zh", dateFormat: "Y-m-d", altInput: true, altFormat: "Y年m月d日" });
   updateToAirportOptions();
