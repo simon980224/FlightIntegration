@@ -1,269 +1,203 @@
-<!-- 登入浮動視窗 -->
+<!-- 登入/註冊模態框 -->
 <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
     <div class="modal-content">
-      <div class="modal-header border-0">
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title" id="loginModalLabel">
+          <i class="fas fa-sign-in-alt me-2"></i>登入 / 註冊
+        </h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
       </div>
       <div class="modal-body">
-        <h2 class="modal-title text-center mb-4">登入 / 註冊</h2>
-        
-        {% with messages = get_flashed_messages() %}
-          {% if messages %}
-            {% for message in messages %}
-              <div class="alert alert-danger">{{ message }}</div>
-            {% endfor %}
-          {% endif %}
-        {% endwith %}
-
         <!-- 登入表單 -->
         <div id="loginForm">
-          <div class="mb-3">
-            <input type="text" class="form-control" id="username" name="username" placeholder="使用者名稱" required>
-          </div>
-          <div class="mb-3">
-            <input type="password" class="form-control" id="password" name="password" placeholder="密碼" required>
-          </div>
-          
-          <div class="d-flex justify-content-between align-items-center mb-4">
-            <div class="form-check">
-              <input type="checkbox" class="form-check-input" id="rememberMe">
-              <label class="form-check-label" for="rememberMe">記住我</label>
+          <form id="loginFormElement">
+            <div class="mb-3">
+              <label for="loginUsername" class="form-label">
+                <i class="fas fa-user me-2"></i>使用者名稱
+              </label>
+              <input type="text" class="form-control" id="loginUsername" name="username" required>
             </div>
-            <a href="#" class="text-primary text-decoration-none">忘記密碼？</a>
-          </div>
-
-          <button type="button" class="btn btn-primary w-100 mb-3" id="loginBtn">登入</button>
-          <button type="button" class="btn btn-outline-primary w-100" id="registerBtn">註冊新帳號</button>
-
-          <div class="text-center mt-4">
-            <p class="text-muted">或使用以下方式登入</p>
-            <div class="social-login">
-              <button type="button" class="btn btn-outline-secondary social-btn">
-                <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                  <rect width="24" height="24" rx="4" fill="#00B900"/>
-                  <text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" fill="white" 
-                    style="font-family: 'Helvetica Neue', Arial, sans-serif; font-weight: 900; font-size: 7.5px; letter-spacing: 0.5px;">
-                    LINE
-                  </text>
-                </svg>
-                LINE
-              </button>
-              <button type="button" class="btn btn-outline-secondary social-btn">
-                <img src="https://cdn-icons-png.flaticon.com/512/124/124010.png" alt="Facebook" class="social-icon">
-                Facebook
-              </button>
-              <button type="button" class="btn btn-outline-secondary social-btn">
-                <img src="https://cdn-icons-png.flaticon.com/512/2991/2991148.png" alt="Google" class="social-icon">
-                Google
-              </button>
-              <button type="button" class="btn btn-outline-secondary social-btn">
-                <img src="https://cdn-icons-png.flaticon.com/512/0/747.png" alt="Apple" class="social-icon">
-                Apple
+            <div class="mb-3">
+              <label for="loginPassword" class="form-label">
+                <i class="fas fa-lock me-2"></i>密碼
+              </label>
+              <input type="password" class="form-control" id="loginPassword" name="password" required>
+            </div>
+            <div class="d-grid">
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-sign-in-alt me-2"></i>登入
               </button>
             </div>
+          </form>
+          <hr class="my-3">
+          <div class="text-center">
+            <p class="text-muted mb-2">還沒有帳號？</p>
+            <button type="button" class="btn btn-outline-primary" onclick="showRegisterForm()">
+              <i class="fas fa-user-plus me-2"></i>立即註冊
+            </button>
           </div>
         </div>
 
         <!-- 註冊表單 -->
         <div id="registerForm" style="display: none;">
-          <div class="mb-3">
-            <input type="text" class="form-control" id="newUsername" name="newUsername" placeholder="使用者名稱" required>
+          <form id="registerFormElement">
+            <div class="mb-3">
+              <label for="registerUsername" class="form-label">
+                <i class="fas fa-user me-2"></i>使用者名稱
+              </label>
+              <input type="text" class="form-control" id="registerUsername" name="username" required>
+            </div>
+            <div class="mb-3">
+              <label for="registerEmail" class="form-label">
+                <i class="fas fa-envelope me-2"></i>電子郵件
+              </label>
+              <input type="email" class="form-control" id="registerEmail" name="email" required>
+            </div>
+            <div class="mb-3">
+              <label for="registerPassword" class="form-label">
+                <i class="fas fa-lock me-2"></i>密碼
+              </label>
+              <input type="password" class="form-control" id="registerPassword" name="password" required>
+            </div>
+            <div class="mb-3">
+              <label for="confirmPassword" class="form-label">
+                <i class="fas fa-lock me-2"></i>確認密碼
+              </label>
+              <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
+            </div>
+            <div class="d-grid">
+              <button type="submit" class="btn btn-success">
+                <i class="fas fa-user-plus me-2"></i>註冊
+              </button>
+            </div>
+          </form>
+          <hr class="my-3">
+          <div class="text-center">
+            <p class="text-muted mb-2">已有帳號？</p>
+            <button type="button" class="btn btn-outline-secondary" onclick="showLoginForm()">
+              <i class="fas fa-sign-in-alt me-2"></i>返回登入
+            </button>
           </div>
-          <div class="mb-3">
-            <input type="password" class="form-control" id="newPassword" name="newPassword" placeholder="密碼" required>
-          </div>
-          <div class="mb-3">
-            <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="確認密碼" required>
-          </div>
-
-          <button type="button" class="btn btn-primary w-100 mb-3" id="submitRegisterBtn">註冊</button>
-          <button type="button" class="btn btn-outline-secondary w-100" id="backToLoginBtn">返回登入</button>
         </div>
       </div>
     </div>
   </div>
 </div>
 
-<style>
-.modal-content {
-  border-radius: 20px;
-  border: none;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-}
-
-.modal-header {
-  padding: 1rem 1rem 0;
-}
-
-.modal-body {
-  padding: 2rem;
-}
-
-.modal-title {
-  font-size: 1.5rem;
-  font-weight: 600;
-  color: #2A3B55;
-}
-
-.form-control {
-  padding: 0.8rem 1rem;
-  border: 2px solid #E1E8ED;
-  border-radius: 12px;
-  font-size: 1rem;
-  transition: all 0.3s ease;
-}
-
-.form-control:focus {
-  border-color: #6B8DE3;
-  box-shadow: 0 0 0 3px rgba(107, 141, 227, 0.1);
-}
-
-.btn-primary {
-  background: linear-gradient(135deg, #6B8DE3 0%, #5C7AE5 100%);
-  border: none;
-  padding: 0.8rem;
-  font-weight: 600;
-  border-radius: 12px;
-  transition: all 0.3s ease;
-}
-
-.btn-primary:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(107, 141, 227, 0.2);
-}
-
-.social-login {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-  margin: 1rem 0;
-}
-
-.social-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  padding: 0.6rem;
-  border-radius: 12px;
-  font-size: 0.9rem;
-  border: 2px solid #E1E8ED;
-  transition: all 0.3s ease;
-}
-
-.social-btn:hover {
-  background: #F8FAFF;
-  border-color: #00B900;
-}
-
-.social-btn svg {
-  width: 20px;
-  height: 20px;
-  flex-shrink: 0;
-}
-
-.social-icon {
-  width: 20px;
-  height: 20px;
-}
-
-.social-btn:hover svg rect {
-  fill: #00B900;
-}
-
-.form-check-input:checked {
-  background-color: #6B8DE3;
-  border-color: #6B8DE3;
-}
-
-@font-face {
-  font-family: 'LINE Font';
-  src: local('Helvetica Neue Bold'), local('Arial Black');
-  font-weight: 900;
-}
-
-.social-btn svg text {
-  font-family: 'LINE Font', 'Helvetica Neue', Arial, sans-serif;
-}
-</style>
-
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const loginForm = document.getElementById('loginForm');
-    const registerForm = document.getElementById('registerForm');
-    const registerBtn = document.getElementById('registerBtn');
-    const backToLoginBtn = document.getElementById('backToLoginBtn');
-    const loginBtn = document.getElementById('loginBtn');
-    const submitRegisterBtn = document.getElementById('submitRegisterBtn');
+function showRegisterForm() {
+  document.getElementById('loginForm').style.display = 'none';
+  document.getElementById('registerForm').style.display = 'block';
+}
 
-    // 切換到註冊表單
-    registerBtn.addEventListener('click', function() {
-        loginForm.style.display = 'none';
-        registerForm.style.display = 'block';
-    });
+function showLoginForm() {
+  document.getElementById('registerForm').style.display = 'none';
+  document.getElementById('loginForm').style.display = 'block';
+}
 
-    // 返回登入表單
-    backToLoginBtn.addEventListener('click', function() {
-        registerForm.style.display = 'none';
-        loginForm.style.display = 'block';
-    });
+// 登入表單提交
+document.getElementById('loginFormElement').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const formData = {
+    username: document.getElementById('loginUsername').value,
+    password: document.getElementById('loginPassword').value
+  };
 
-    // 處理登入
-    loginBtn.addEventListener('click', function() {
-        const username = document.getElementById('username').value;
-        const password = document.getElementById('password').value;
-        
-        fetch('/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ username, password })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // 登入成功
-                Swal.fire({
-                    title: '登入成功！',
-                    text: '歡迎回來',
-                    icon: 'success',
-                    showConfirmButton: false,
-                    timer: 1500,
-                    position: 'top',
-                    backdrop: false
-                }).then(() => {
-                    window.location.href = '/profile';
-                });
-            } else {
-                // 登入失敗
-                Swal.fire({
-                    title: '登入失敗',
-                    text: data.message || '帳號或密碼錯誤！',
-                    icon: 'error',
-                    confirmButtonText: '確定',
-                    position: 'top',
-                    backdrop: false
-                });
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            Swal.fire({
-                title: '發生錯誤',
-                text: '登入時發生錯誤，請稍後再試！',
-                icon: 'error',
-                confirmButtonText: '確定',
-                position: 'top',
-                backdrop: false
-            });
-        });
+  fetch('/login', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(formData)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      Swal.fire({
+        icon: 'success',
+        title: '登入成功！',
+        text: data.message,
+        timer: 2000,
+        showConfirmButton: false
+      }).then(() => {
+        location.reload();
+      });
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: '登入失敗',
+        text: data.message
+      });
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    Swal.fire({
+      icon: 'error',
+      title: '發生錯誤',
+      text: '請稍後再試'
     });
+  });
+});
 
-    // 處理註冊（因為帳密已寫死，所以顯示提示訊息）
-    submitRegisterBtn.addEventListener('click', function() {
-        alert('此系統使用固定帳號，無法註冊新帳號。\n請使用以下帳號登入：\n帳號：admin\n密碼：12345');
+// 註冊表單提交
+document.getElementById('registerFormElement').addEventListener('submit', function(e) {
+  e.preventDefault();
+  
+  const password = document.getElementById('registerPassword').value;
+  const confirmPassword = document.getElementById('confirmPassword').value;
+  
+  if (password !== confirmPassword) {
+    Swal.fire({
+      icon: 'error',
+      title: '密碼不符',
+      text: '請確認密碼輸入正確'
     });
+    return;
+  }
+
+  const formData = {
+    username: document.getElementById('registerUsername').value,
+    email: document.getElementById('registerEmail').value,
+    password: password
+  };
+
+  fetch('/register', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(formData)
+  })
+  .then(response => response.json())
+  .then(data => {
+    if (data.success) {
+      Swal.fire({
+        icon: 'success',
+        title: '註冊成功！',
+        text: data.message,
+        timer: 2000,
+        showConfirmButton: false
+      }).then(() => {
+        showLoginForm();
+      });
+    } else {
+      Swal.fire({
+        icon: 'error',
+        title: '註冊失敗',
+        text: data.message
+      });
+    }
+  })
+  .catch(error => {
+    console.error('Error:', error);
+    Swal.fire({
+      icon: 'error',
+      title: '發生錯誤',
+      text: '請稍後再試'
+    });
+  });
 });
 </script> 

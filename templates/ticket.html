@@ -1,273 +1,195 @@
-{% extends "base.html" %}
-
+{% extends 'base.html' %}
+{% block title %}票券 - 航班查詢系統{% endblock %}
 {% block content %}
-<div class="container-fluid p-0">
-  <!-- 背景圖片區域 -->
-  <div class="bg-image">
-    <div class="mask">
-      <div class="container py-5">
-        <div class="row justify-content-center">
-          <div class="col-md-8">
-            <!-- 搜尋卡片 -->
-            <div class="card search-card">
-              <div class="card-body p-4">
-                <h3 class="card-title text-center mb-4">
-                  <i class="fas fa-ticket-alt me-2"></i>訂票系統
-                </h3>
 
-                <form action="/search" method="GET" class="needs-validation" novalidate>
-                  <!-- 航程類型選擇 -->
-                  <div class="mb-4">
-                    <div class="btn-group w-100" role="group">
-                      <input type="radio" class="btn-check" name="tripType" id="roundTrip" value="roundTrip" checked>
-                      <label class="btn btn-outline-light" for="roundTrip">來回</label>
-                      
-                      <input type="radio" class="btn-check" name="tripType" id="oneWay" value="oneWay">
-                      <label class="btn btn-outline-light" for="oneWay">單程</label>
-                    </div>
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-lg-8">
+      <!-- 頁面標題 -->
+      <div class="text-center mb-5">
+        <h1 class="display-5 fw-bold text-primary">
+          <i class="fas fa-ticket-alt me-3"></i>票券資訊
+        </h1>
+        <p class="lead text-muted">查看您的航班票券詳細資訊</p>
+      </div>
+
+      <!-- 票券卡片 -->
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-primary text-white">
+          <div class="d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+              <i class="fas fa-plane me-2"></i>航班資訊
+            </h5>
+            <span class="badge bg-success fs-6">已確認</span>
+          </div>
+        </div>
+        <div class="card-body p-4">
+          <!-- 航空公司資訊 -->
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <div class="d-flex align-items-center">
+                <div class="me-3">
+                  <i class="fas fa-plane fa-2x text-primary"></i>
+                </div>
+                <div>
+                  <h6 class="mb-1 fw-bold">中華航空</h6>
+                  <small class="text-muted">航班編號：CI123</small>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6 text-end">
+              <div class="text-muted">
+                <small>訂票日期：2024-03-15</small><br>
+                <small>票券編號：TKT-2024-001</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- 航班路線 -->
+          <div class="row align-items-center mb-4">
+            <div class="col-md-5 text-center">
+              <div class="mb-2">
+                <h4 class="fw-bold mb-1">14:30</h4>
+                <p class="text-muted mb-1">台北桃園機場</p>
+                <small class="text-muted">2024-03-20</small>
+              </div>
+            </div>
+            <div class="col-md-2 text-center">
+              <div class="position-relative">
+                <hr class="border-2 border-primary">
+                <i class="fas fa-plane fa-2x text-primary position-absolute top-50 start-50 translate-middle bg-white px-2"></i>
+              </div>
+              <small class="text-muted">飛行時間：2小時15分</small>
+            </div>
+            <div class="col-md-5 text-center">
+              <div class="mb-2">
+                <h4 class="fw-bold mb-1">16:45</h4>
+                <p class="text-muted mb-1">東京成田機場</p>
+                <small class="text-muted">2024-03-20</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- 乘客資訊 -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <h6 class="fw-bold mb-3">
+                <i class="fas fa-user me-2"></i>乘客資訊
+              </h6>
+              <div class="table-responsive">
+                <table class="table table-bordered">
+                  <thead class="table-light">
+                    <tr>
+                      <th>姓名</th>
+                      <th>艙等</th>
+                      <th>座位</th>
+                      <th>票價</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>王小明</td>
+                      <td><span class="badge bg-primary">經濟艙</span></td>
+                      <td>12A</td>
+                      <td>NT$ 12,500</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <!-- 費用明細 -->
+          <div class="row">
+            <div class="col-md-8">
+              <h6 class="fw-bold mb-3">
+                <i class="fas fa-calculator me-2"></i>費用明細
+              </h6>
+              <div class="table-responsive">
+                <table class="table table-borderless">
+                  <tbody>
+                    <tr>
+                      <td>機票費用</td>
+                      <td class="text-end">NT$ 11,500</td>
+                    </tr>
+                    <tr>
+                      <td>機場稅</td>
+                      <td class="text-end">NT$ 500</td>
+                    </tr>
+                    <tr>
+                      <td>燃油附加費</td>
+                      <td class="text-end">NT$ 300</td>
+                    </tr>
+                    <tr>
+                      <td>服務費</td>
+                      <td class="text-end">NT$ 200</td>
+                    </tr>
+                    <tr class="border-top">
+                      <td class="fw-bold">總計</td>
+                      <td class="text-end fw-bold text-primary fs-5">NT$ 12,500</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="card bg-light border-0">
+                <div class="card-body text-center">
+                  <h6 class="fw-bold mb-3">QR Code</h6>
+                  <div class="bg-white p-3 rounded">
+                    <i class="fas fa-qrcode fa-4x text-muted"></i>
                   </div>
-
-                  <!-- 出發地和目的地 -->
-                  <div class="row mb-4">
-                    <div class="col-md-6 mb-3 mb-md-0">
-                      <div class="form-group">
-                        <input type="text" class="form-control custom-input" name="departure" placeholder="輸入出發地" required>
-                      </div>
-                    </div>
-
-                    <div class="col-md-6">
-                      <div class="form-group">
-                        <input type="text" class="form-control custom-input" name="arrival" placeholder="輸入目的地" required>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 日期選擇 -->
-                  <div class="row mb-4">
-                    <div class="col-md-6 mb-3 mb-md-0">
-                      <div class="form-group">
-                        <input type="date" class="form-control custom-input" name="departDate" required>
-                      </div>
-                    </div>
-
-                    <div class="col-md-6">
-                      <div class="form-group">
-                        <input type="date" class="form-control custom-input" name="returnDate">
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 乘客選擇 -->
-                  <div class="mb-4">
-                    <button type="button" class="btn btn-outline-light w-100 text-start passenger-select" data-bs-toggle="dropdown">
-                      <span>1 旅客, 經濟艙</span>
-                      <i class="fas fa-chevron-down float-end mt-1"></i>
-                    </button>
-                    <div class="dropdown-menu p-3 passenger-dropdown">
-                      <div class="mb-3">
-                        <label class="form-label">乘客</label>
-                        <div class="input-group">
-                          <button type="button" class="btn btn-outline-light" onclick="decreasePassengers()">-</button>
-                          <input type="number" class="form-control text-center" id="passengerCount" name="passengers" value="1" min="1" max="9" readonly>
-                          <button type="button" class="btn btn-outline-light" onclick="increasePassengers()">+</button>
-                        </div>
-                      </div>
-                      <div>
-                        <label class="form-label">艙等</label>
-                        <select class="form-select custom-select" name="cabinClass">
-                          <option value="ECONOMY">經濟艙</option>
-                          <option value="BUSINESS">商務艙</option>
-                          <option value="FIRST">頭等艙</option>
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- 航空公司選擇 -->
-                  <div class="mb-4">
-                    <label class="form-label d-block">
-                      <i class="fas fa-plane me-2"></i>航空公司選擇
-                    </label>
-                    <div class="d-flex flex-wrap gap-2">
-                      <input type="checkbox" class="btn-check" id="allAirlines" name="airline" value="ALL" checked>
-                      <label class="btn btn-outline-light" for="allAirlines">不限航空</label>
-
-                      <input type="checkbox" class="btn-check" id="china" name="airline" value="CI">
-                      <label class="btn btn-outline-light" for="china">華信航空</label>
-
-                      <input type="checkbox" class="btn-check" id="eva" name="airline" value="BR">
-                      <label class="btn btn-outline-light" for="eva">長榮航空</label>
-
-                      <input type="checkbox" class="btn-check" id="starlux" name="airline" value="JX">
-                      <label class="btn btn-outline-light" for="starlux">星宇航空</label>
-                    </div>
-                  </div>
-
-                  <!-- 搜尋按鈕 -->
-                  <button type="submit" class="btn btn-light btn-lg w-100">
-                    <i class="fas fa-search me-2"></i>搜尋航班
-                  </button>
-                </form>
+                  <small class="text-muted mt-2 d-block">掃描此 QR Code 辦理登機</small>
+                </div>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      <!-- 重要提醒 -->
+      <div class="card shadow-sm border-0 mb-4">
+        <div class="card-header bg-warning text-dark">
+          <h6 class="mb-0">
+            <i class="fas fa-exclamation-triangle me-2"></i>重要提醒
+          </h6>
+        </div>
+        <div class="card-body">
+          <ul class="list-unstyled mb-0">
+            <li class="mb-2">
+              <i class="fas fa-clock text-primary me-2"></i>
+              請於起飛前 2 小時抵達機場辦理登機手續
+            </li>
+            <li class="mb-2">
+              <i class="fas fa-id-card text-primary me-2"></i>
+              請攜帶有效身分證件（護照或身分證）
+            </li>
+            <li class="mb-2">
+              <i class="fas fa-suitcase text-primary me-2"></i>
+              托運行李重量限制：20公斤，手提行李：7公斤
+            </li>
+            <li>
+              <i class="fas fa-phone text-primary me-2"></i>
+              如有問題請聯繫客服專線：0800-123-456
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- 操作按鈕 -->
+      <div class="d-flex justify-content-center gap-3">
+        <button class="btn btn-primary">
+          <i class="fas fa-download me-2"></i>下載票券
+        </button>
+        <button class="btn btn-outline-primary">
+          <i class="fas fa-print me-2"></i>列印票券
+        </button>
+        <button class="btn btn-outline-secondary" onclick="history.back()">
+          <i class="fas fa-arrow-left me-2"></i>返回
+        </button>
+      </div>
     </div>
   </div>
 </div>
 
-<!-- 自訂樣式 -->
-<style>
-.bg-image {
-  background-image: url('https://source.unsplash.com/1600x900/?airplane,sky');
-  background-size: cover;
-  background-position: center;
-  min-height: calc(100vh - 56px);
-  position: relative;
-}
-
-.mask {
-  background: rgba(0, 0, 0, 0.6);
-  width: 100%;
-  height: 100%;
-  position: absolute;
-  top: 0;
-  left: 0;
-}
-
-.search-card {
-  background: rgba(33, 37, 41, 0.8);
-  backdrop-filter: blur(10px);
-  border: none;
-  border-radius: 1rem;
-  color: white;
-}
-
-.form-label {
-  color: #fff;
-  font-weight: 500;
-}
-
-.custom-input {
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-  border-radius: 0.5rem;
-  padding: 0.75rem 1rem;
-}
-
-.custom-input:focus {
-  background-color: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.5);
-  color: white;
-  box-shadow: 0 0 0 0.25rem rgba(255, 255, 255, 0.1);
-}
-
-.custom-input::placeholder {
-  color: rgba(255, 255, 255, 0.5);
-}
-
-.btn-outline-light {
-  border-color: rgba(255, 255, 255, 0.5);
-}
-
-.btn-outline-light:hover,
-.btn-check:checked + .btn-outline-light {
-  background-color: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.8);
-}
-
-.btn-light {
-  background-color: rgba(255, 255, 255, 0.9);
-  border: none;
-  font-weight: 500;
-}
-
-.btn-light:hover {
-  background-color: #fff;
-}
-
-.passenger-select {
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-}
-
-.passenger-dropdown {
-  background-color: rgba(33, 37, 41, 0.95);
-  border: none;
-  border-radius: 0.5rem;
-  min-width: 250px;
-}
-
-.passenger-dropdown .form-label {
-  color: white;
-}
-
-.passenger-dropdown .form-control {
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-}
-
-.passenger-dropdown .form-select {
-  background-color: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  color: white;
-}
-
-.form-control::-webkit-calendar-picker-indicator {
-  filter: invert(1);
-}
-</style>
-
-<!-- JavaScript -->
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  // 監聽單程/來回選擇
-  document.querySelectorAll('input[name="tripType"]').forEach(function(radio) {
-    radio.addEventListener('change', function() {
-      const returnDateInput = document.querySelector('input[name="returnDate"]');
-      const returnDateGroup = returnDateInput.closest('.form-group');
-      if (this.value === 'oneWay') {
-        returnDateInput.disabled = true;
-        returnDateInput.required = false;
-        returnDateGroup.style.opacity = '0.5';
-      } else {
-        returnDateInput.disabled = false;
-        returnDateInput.required = true;
-        returnDateGroup.style.opacity = '1';
-      }
-    });
-  });
-
-  // 表單驗證
-  const forms = document.querySelectorAll('.needs-validation');
-  Array.from(forms).forEach(function(form) {
-    form.addEventListener('submit', function(event) {
-      if (!form.checkValidity()) {
-        event.preventDefault();
-        event.stopPropagation();
-      }
-      form.classList.add('was-validated');
-    }, false);
-  });
-});
-
-// 乘客數量控制
-function increasePassengers() {
-  const input = document.getElementById('passengerCount');
-  if (input.value < 9) {
-    input.value = parseInt(input.value) + 1;
-  }
-}
-
-function decreasePassengers() {
-  const input = document.getElementById('passengerCount');
-  if (input.value > 1) {
-    input.value = parseInt(input.value) - 1;
-  }
-}
-</script>
 {% endblock %} 
