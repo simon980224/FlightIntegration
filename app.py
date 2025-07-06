@@ -64,7 +64,7 @@ def flight():
         airline_data = {"data": airline_data["data"]}
     if flight_data["success"]:
         flight_data = {"data": flight_data["data"]}
-    return render_template('search.html',
+    return render_template('flight.html',
                          airport_data=airport_data,
                          airline_data=airline_data,
                          flight_data=flight_data)
