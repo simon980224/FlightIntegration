@@ -1,8 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
 from service import search_service
-import pyodbc
 from functools import wraps
-import os
 import datetime
 
 app = Flask(__name__)
@@ -25,13 +23,7 @@ def login_required(f):
 # 首頁
 @app.route('/')
 def index():
-    flight_data = search_service.get_flight_data()
-    airport_data = search_service.get_airport_data()
-    airline_data = search_service.get_airline_data()
-    return render_template('index.html', title='首頁',
-                           flight_data=flight_data,
-                           airport_data=airport_data,
-                           airline_data=airline_data)
+    return render_template('index.html', title='首頁')
 
 # 查詢頁面
 @app.route('/search', methods=['GET', 'POST'])
