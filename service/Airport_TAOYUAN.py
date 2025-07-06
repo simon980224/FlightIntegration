@@ -6,104 +6,10 @@ def connect_db():
     return pyodbc.connect(
         "Driver={ODBC Driver 17 for SQL Server};"
         "Server=140.131.114.241;"
-        "Database=114-FlightIntegration_DB;"
+        "Database=114-FlightIntegration_DB;" 
         "UID=adminfid;"
         "PWD=Flight_admin123@;"
     )
-
-# def insert_airline(cursor, ACode, AName):
-#     airline_name = AName or ''
-#     cursor.execute("""
-#         IF NOT EXISTS (SELECT 1 FROM Airline WHERE Airline_Id = ?)
-#         INSERT INTO Airline (Airline_Id, Airline_Name, Airline_Name_ZH, IS_Domestic, Url, Contact_Info)
-#         VALUES (?, '', ?, '', '', '')
-#     """, ACode, ACode, airline_name)
-
-# def insert_airport(cursor, Airport_Id, Airport_Name, Airport_Name_ZH):
-#     airport_name = Airport_Name or ''
-#     airport_name_zh = Airport_Name_ZH or ''
-#     cursor.execute("""
-#         IF NOT EXISTS (SELECT 1 FROM Airport WHERE Airport_Id = ?)
-#         INSERT INTO Airport (
-#             Airport_Id, Airport_Name, Airport_Name_ZH,
-#             IS_Domestic, Url, Contact_Info, City_Id
-#         )
-#         VALUES (?, ?, ?, '', '', '', '')
-#     """, Airport_Id, Airport_Id, airport_name, airport_name_zh)
-
-# def insert_flight(cursor, data):
-#     flight_id = data.get("id") or ''
-#     airline_id = data.get("ACode") or ''
-#     departure_airport_id = data.get("CityCode") or ''
-#     arrival_airport_id = data.get("StopCityCode") or "UNKNOWN"
-
-#     fmt = "%Y/%m/%d %H:%M:%S"
-#     try:
-#         scheduled_departure = datetime.strptime(data["ODate"] + " " + data["OTime"], fmt)
-#     except:
-#         scheduled_departure = datetime.now()
-#     try:
-#         arrival_departure = datetime.strptime(data["RDate"] + " " + data["RTime"], fmt)
-#     except:
-#         arrival_departure = scheduled_departure
-
-#     # 給定 NOT NULL 欄位的預設值
-#     scheduled_arrival = scheduled_departure
-#     arrival_arrival = arrival_departure
-#     status = data.get("CurrentStatus") or ''
-
-#     cursor.execute("SELECT 1 FROM Flight WHERE Flight_Id = ?", flight_id)
-#     if cursor.fetchone():
-#         print(f"⏩ 已存在，略過：{flight_id}")
-#         return "skip"
-
-#     cursor.execute("""
-#         INSERT INTO Flight (
-#             Flight_Id,
-#             Airline_Id,
-#             Scheduled_Departure_Airport_Id,
-#             Scheduled_Arrival_Airport_Id,
-#             Arrival_Departure_Airport_Id,
-#             Arrival_Arrival_Airport_Id,
-#             Scheduled_Departure_Time,
-#             Scheduled_Arrival_Time,
-#             Arrival_Departure_Time,
-#             Arrival_Arrival_Time,
-#             Status
-#         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-#     """, (
-#         flight_id,
-#         airline_id,
-#         departure_airport_id,
-#         arrival_airport_id,
-#         departure_airport_id,
-#         arrival_airport_id,
-#         scheduled_departure,
-#         scheduled_arrival,
-#         arrival_departure,
-#         arrival_arrival,
-#         status
-#     ))
-#     print(f"✅ 成功寫入：{data.get('flightCode')}")
-#     return "ok"
-
-def process_flight_data(flight_data):
-    conn = connect_db()
-    cursor = conn.cursor()
-    try:
-        insert_airline(cursor, flight_data["ACode"], flight_data["AName"])
-        insert_airport(cursor, flight_data["CityCode"], flight_data["CityEname"], flight_data["CityName"])
-        if flight_data.get("StopCityCode"):
-            insert_airport(cursor, flight_data["StopCityCode"], flight_data["StopEname"], flight_data["StopCname"])
-        result = insert_flight(cursor, flight_data)
-        conn.commit()
-        return result
-    except Exception as e:
-        print("❌ 寫入失敗：", e)
-        return "fail"
-    finally:
-        cursor.close()
-        conn.close()
 
 def query_today_departures():
     today_str = datetime.now().strftime("%Y/%m/%d")
@@ -120,7 +26,7 @@ def query_today_departures():
     headers = {
         "accept": "application/json, text/plain, */*",
         "content-type": "application/json",
-        "origin": "https://www.taoyuan-airport.com",
+        "origin": "https://www.taoyuan-airport.com",    
         "referer": "https://www.taoyuan-airport.com/flight_depart",
         "user-agent": (
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -141,29 +47,119 @@ def query_today_departures():
         )
 
         flights = resp.json()
-        print(flights)
         print("✅ 回傳筆數：", len(flights))
         if not flights:
             print("⚠ 沒有資料")
             return
 
-        success, skip, fail = 0, 0, 0
+        airlines = set()
+        airports = set()
+        flight_rows = []
 
-        for i, flight in enumerate(flights, start=1):
-            print(f"\n📦 第 {i} 筆航班：{flight.get('flightCode')}")
-            result = process_flight_data(flight)
-            if result == "ok":
-                success += 1
-            elif result == "skip":
-                skip += 1
+        fmt = "%Y/%m/%d %H:%M:%S"
+
+        for flight in flights:
+            Flight_Id = flight.get("id") or ''
+            Airline_Id = flight.get("ACode") or ''
+            Airline_Name_ZH = flight.get("AName") or ''
+            iflyprint1Status = flight.get("CurrentStatus") or '0'
+            Status = 1 if iflyprint1Status == '已飛' else iflyprint1Status
+
+            # ✅ 修正後：出發是 TPE，到達是 CityCode（目的地）
+            D_Airport_Id = 'TPE'
+            A_Airport_Id = flight.get("CityCode") or 'UNKNOWN'
+
+            # 出發／到達機場名稱
+            D_Airport_Name = "Taoyuan"
+            D_Airport_Name_ZH = "桃園國際機場"
+            A_Airport_Name = flight.get("CityEname") or ''
+            A_Airport_Name_ZH = flight.get("CityName") or ''
+
+            # 時間處理
+            fmt = "%Y/%m/%d %H:%M:%S"
+            try:
+                D_Time = datetime.strptime(flight["ODate"] + " " + flight["OTime"], fmt)
+            except:
+                D_Time = datetime.now()
+            try:
+                A_Time = datetime.strptime(flight["RDate"] + " " + flight["RTime"], fmt)
+            except:
+                A_Time = None
+
+            # 資料彙整
+            airlines.add((Airline_Id, Airline_Name_ZH))
+            airports.add((D_Airport_Id, D_Airport_Name, D_Airport_Name_ZH))
+            airports.add((A_Airport_Id, A_Airport_Name, A_Airport_Name_ZH))
+
+            flight_rows.append((
+                Flight_Id, Airline_Id, D_Airport_Id, A_Airport_Id,
+                D_Time, A_Time, Status
+            ))
+
+        
+
+        # 寫入資料庫
+        conn = connect_db()
+        cursor = conn.cursor()
+
+        # Airline insert if not exists
+
+        for aid, aname_zh in airlines:
+            cursor.execute("""
+                IF NOT EXISTS (SELECT 1 FROM Airline WHERE Airline_Id = ?)
+                BEGIN
+                    INSERT INTO Airline (Airline_Id, Airline_Name, Airline_Name_ZH)
+                    VALUES (?, '', ?)
+                END
+                ELSE
+                BEGIN
+                    UPDATE Airline
+                    SET 
+                        Airline_Name_ZH = CASE 
+                            WHEN Airline_Name_ZH IS NULL OR Airline_Name_ZH = '' 
+                            THEN ? ELSE Airline_Name_ZH 
+                        END
+                    WHERE Airline_Id = ?
+                END
+            """, aid, aid, aname_zh, aname_zh, aid)
+
+
+
+
+        # Airport insert if not exists
+        for apid, ename, zhname in airports:
+            cursor.execute("""
+                IF NOT EXISTS (SELECT 1 FROM Airport WHERE Airport_Id = ?)
+                INSERT INTO Airport (Airport_Id, Airport_Name, Airport_Name_ZH)
+                VALUES (?, ?, NULL)
+            """, apid, apid, ename)
+
+        # Flight insert or update
+        insert_rows = []
+        update_rows = []
+
+        for row in flight_rows:
+            cursor.execute("SELECT 1 FROM Flight WHERE Flight_Id = ?", row[0])
+            if cursor.fetchone():
+                update_rows.append(row)
             else:
-                fail += 1
+                insert_rows.append(row)
+        if insert_rows:
+            cursor.executemany("""
+                INSERT INTO Flight (
+                    Flight_Id, Airline_Id, D_Airport_Id, A_Airport_Id,
+                    D_Time, A_Time, Status
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            """, insert_rows)
+        
+        conn.commit()
+        cursor.close()
+        conn.close()
 
-        print(f"\n📊 結果總結：成功 {success} 筆，略過 {skip} 筆，失敗 {fail} 筆")
+        print(f"\n📊 資料庫更新結果：新增 {len(insert_rows)} 筆，更新 {len(update_rows)} 筆")
 
     except Exception as e:
-        print("查詢失敗：", e)
-    
+        print("❌ 查詢或寫入失敗：", e)
 
 if __name__ == "__main__":
     query_today_departures()
