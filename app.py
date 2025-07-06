@@ -20,66 +20,6 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# 首頁
-@app.route('/')
-def index():
-    return render_template('index.html', title='首頁')
-
-# 查詢頁面
-@app.route('/search', methods=['GET', 'POST'])
-def search():
-    airport_data = search_service.get_airport_data()
-    airline_data = search_service.get_airline_data()
-    flights = []
-    form_data = {}
-
-    if request.method == 'POST':
-        # 獲取表單數據
-        from_id = request.form.get('from_airport')
-        to_id = request.form.get('to_airport')
-        departure_date = request.form.get('departure_date')
-        arrival_date = request.form.get('arrival_date')
-        airline_ids = request.form.getlist('airline_ids')
-        sort_field = request.form.get('sort_field')
-        sort_order = request.form.get('sort_order')
-
-        # 保存表單數據用於回顯
-        form_data = {
-            'from_airport': from_id,
-            'to_airport': to_id,
-            'departure_date': departure_date,
-            'arrival_date': arrival_date,
-            'airline_ids': airline_ids,
-            'sort_field': sort_field,
-            'sort_order': sort_order
-        }
-
-        # 新增條件：只有當 from_id 和 to_id 都有值且相等時才阻止
-        block_search = from_id and to_id and from_id == to_id
-
-        if not block_search:
-            if not any([from_id, to_id, departure_date, arrival_date, airline_ids]):
-                print("✅ 無查詢條件，列出所有航班")
-                flights = search_service.search_flights()
-            else:
-                flights = search_service.search_flights(
-                    from_id=from_id,
-                    to_id=to_id,
-                    dep_time=departure_date,
-                    arr_time=arrival_date,
-                    airline_ids=airline_ids,
-                    sort_by=sort_field,
-                    sort_order=sort_order
-                )
-        else:
-            print("⚠️ 出發地與目的地不可相同，查詢取消")
-
-    return render_template('search.html',
-                         airport_data=airport_data,
-                         airline_data=airline_data,
-                         flights=flights,
-                         form_data=form_data)
-
 # 登入頁面
 @app.route('/login', methods=['GET'])
 def login_page():
@@ -101,6 +41,78 @@ def login():
     
     return jsonify({'success': False, 'message': '使用者名稱或密碼錯誤'})
 
+# 登出
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('index'))
+
+# 首頁
+@app.route('/')
+def index():
+    return render_template('index.html', title='首頁')
+
+# 查詢頁面
+@app.route('/search', methods=['GET', 'POST'])
+def search():
+    airport_data = search_service.get_airport_data()
+    airline_data = search_service.get_airline_data()
+    if airport_data["success"]:
+        airport_data = {"data": airport_data["data"]}
+    if airline_data["success"]:
+        airline_data = {"data": airline_data["data"]}
+    # 預設查詢
+    # flight_data = search_service.get_flight_data()
+    flights = []
+    form_data = {}
+
+    # if request.method == 'POST':
+    #     # 獲取表單數據
+    #     from_id = request.form.get('from_airport')
+    #     to_id = request.form.get('to_airport')
+    #     departure_date = request.form.get('departure_date')
+    #     arrival_date = request.form.get('arrival_date')
+    #     airline_ids = request.form.getlist('airline_ids')
+    #     sort_field = request.form.get('sort_field')
+    #     sort_order = request.form.get('sort_order')
+
+    #     # 保存表單數據用於回顯
+    #     form_data = {
+    #         'from_airport': from_id,
+    #         'to_airport': to_id,
+    #         'departure_date': departure_date,
+    #         'arrival_date': arrival_date,
+    #         'airline_ids': airline_ids,
+    #         'sort_field': sort_field,
+    #         'sort_order': sort_order
+    #     }
+
+    #     # 新增條件：只有當 from_id 和 to_id 都有值且相等時才阻止
+    #     block_search = from_id and to_id and from_id == to_id
+
+    #     if not block_search:
+    #         if not any([from_id, to_id, departure_date, arrival_date, airline_ids]):
+    #             print("✅ 無查詢條件，列出所有航班")
+    #             flights = search_service.search_flights()
+    #         else:
+    #             flights = search_service.search_flights(
+    #                 from_id=from_id,
+    #                 to_id=to_id,
+    #                 dep_time=departure_date,
+    #                 arr_time=arrival_date,
+    #                 airline_ids=airline_ids,
+    #                 sort_by=sort_field,
+    #                 sort_order=sort_order
+    #             )
+    #     else:
+    #         print("⚠️ 出發地與目的地不可相同，查詢取消")
+
+    return render_template('search.html',
+                         airport_data=airport_data,
+                         airline_data=airline_data,
+                         flights=flights,
+                         form_data=form_data)
+
 # 註冊（已停用，返回提示訊息）
 @app.route('/register', methods=['POST'])
 def register():
@@ -108,12 +120,6 @@ def register():
         'success': False, 
         'message': '此系統使用固定帳號，無法註冊新帳號。\n請使用以下帳號登入：\n帳號：YiZhen\n密碼：yzzz918kk'
     })
-
-# 登出
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('index'))
 
 # 個人資料頁面
 @app.route('/profile')
