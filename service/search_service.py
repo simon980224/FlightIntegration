@@ -14,8 +14,8 @@ def get_flight_data():
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT Flight_Id, Airline_Id, Scheduled_Departure_Airport_Id, Scheduled_Arrival_Airport_Id,
-               Scheduled_Departure_Time, Scheduled_Arrival_Time, Status
+        SELECT Flight_Id, Airline_Id, D_Airport_Id, A_Airport_Id,
+               D_Time, A_Time, Status
         FROM Flight
     """)
     columns = [col[0] for col in cursor.description]
@@ -29,7 +29,7 @@ def get_airport_data():
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT Airport_Id, Airport_Name, Airport_Name_ZH, IS_Domestic, Url, Contact_Info, City_Id
+        SELECT Airport_Id, Airport_Name, Airport_Name_ZH
         FROM Airport
     """)
     columns = [col[0] for col in cursor.description]
@@ -43,7 +43,7 @@ def get_airline_data():
     conn = pyodbc.connect(conn_str)
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT Airline_Id, Airline_Name, Airline_Name_ZH, IS_Domestic, Url, Contact_Info
+        SELECT Airline_Id, Airline_Name, Airline_Name_ZH
         FROM Airline
     """)
     columns = [col[0] for col in cursor.description]
@@ -58,14 +58,14 @@ def search_flights(from_id=None, to_id=None, dep_time=None, arr_time=None, airli
     cursor = conn.cursor()
 
     query = """
-        SELECT f.Flight_Id, f.Scheduled_Departure_Time, f.Scheduled_Arrival_Time,
+        SELECT f.Flight_Id, f.D_Time, f.A_Time,
                f.Status,
                a1.Airport_Name_ZH AS From_Airport,
                a2.Airport_Name_ZH AS To_Airport,
                al.Airline_Name_ZH
         FROM Flight f
-        JOIN Airport a1 ON f.Scheduled_Departure_Airport_Id = a1.Airport_Id
-        JOIN Airport a2 ON f.Scheduled_Arrival_Airport_Id = a2.Airport_Id
+        JOIN Airport a1 ON f.D_Airport_Id = a1.Airport_Id
+        JOIN Airport a2 ON f.A_Airport_Id = a2.Airport_Id
         JOIN Airline al ON f.Airline_Id = al.Airline_Id
         WHERE 1=1
     """
@@ -79,26 +79,26 @@ def search_flights(from_id=None, to_id=None, dep_time=None, arr_time=None, airli
             cursor.close()
             conn.close()
             return []  # 直接回傳空資料，不送SQL
-        query += " AND f.Scheduled_Departure_Time BETWEEN ? AND ?"
+        query += " AND f.D_Time BETWEEN ? AND ?"
         params.append(dep_time + " 00:00:00")
         params.append(arr_time + " 23:59:59")
 
     elif dep_time:
-        query += " AND f.Scheduled_Departure_Time BETWEEN ? AND ?"
+        query += " AND f.D_Time BETWEEN ? AND ?"
         params.append(dep_time + " 00:00:00")
         params.append(dep_time + " 23:59:59")
 
     elif arr_time:
-        query += " AND f.Scheduled_Departure_Time BETWEEN ? AND ?"
+        query += " AND f.D_Time BETWEEN ? AND ?"
         params.append(arr_time + " 00:00:00")
         params.append(arr_time + " 23:59:59")
 
     if from_id:
-        query += " AND f.Scheduled_Departure_Airport_Id = ?"
+        query += " AND f.D_Airport_Id = ?"
         params.append(from_id)
 
     if to_id:
-        query += " AND f.Scheduled_Arrival_Airport_Id = ?"
+        query += " AND f.A_Airport_Id = ?"
         params.append(to_id)
 
     if airline_ids:
@@ -109,8 +109,8 @@ def search_flights(from_id=None, to_id=None, dep_time=None, arr_time=None, airli
     # 排序設定
     if sort_by:
         field_map = {
-            "Scheduled_Departure_Time": "f.Scheduled_Departure_Time",
-            "Scheduled_Arrival_Time": "f.Scheduled_Arrival_Time"
+            "D_Time": "f.D_Time",
+            "A_Time": "f.A_Time"
         }
         if sort_by in field_map:
             order = sort_order.upper() if sort_order and sort_order.lower() in ["asc", "desc"] else "ASC"

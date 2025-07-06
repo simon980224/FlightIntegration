@@ -560,6 +560,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const unlimitedBtn = document.getElementById('airline_unlimited');
   const airlineCheckboxes = document.querySelectorAll('input[name="airline_ids"]');
 
+  // 初始化狀態：檢查是否有任何航空公司被選中
   const anyChecked = Array.from(airlineCheckboxes).some(cb => cb.checked);
   if (anyChecked) {
     unlimitedBtn.classList.remove('active');
@@ -567,11 +568,15 @@ document.addEventListener('DOMContentLoaded', function () {
     unlimitedBtn.classList.add('active');
   }
 
+  // 點擊「不限航空」按鈕時，取消所有航空公司選擇
   unlimitedBtn.addEventListener('click', function () {
     airlineCheckboxes.forEach(cb => cb.checked = false);
     this.classList.add('active');
+    // 可以選擇性地自動提交表單或顯示提示
+    console.log('已選擇「不限航空」，將顯示所有航空公司的航班');
   });
 
+  // 當任何航空公司被選中或取消選中時，更新「不限航空」按鈕狀態
   airlineCheckboxes.forEach(cb => {
     cb.addEventListener('change', () => {
       const anyChecked = Array.from(airlineCheckboxes).some(c => c.checked);
