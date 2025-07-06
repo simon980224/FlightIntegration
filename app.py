@@ -78,10 +78,10 @@ def flight_search():
         a_time = request.form.get('arrival_date')
         airline_ids = request.form.getlist('airline_ids')
         flights_data = search_service.search_flights(
-            d_airport_id=d_airport_id,
-            a_airport_id=a_airport_id,
-            d_time=d_time,
-            a_time=a_time,
+            from_id=d_airport_id,
+            to_id=a_airport_id,
+            dep_time=d_time,
+            arr_time=a_time,
             airline_ids=airline_ids,
         )
     return flights_data,200
