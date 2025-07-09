@@ -137,8 +137,8 @@ if __name__ == "__main__":
     try:
         flights_data = fetch_departure_data()
         if flights_data['success']:
-            insert_airports_data(flights_data['data'])
             insert_flights_data(flights_data['data'])
+            insert_airports_data(flights_data['data'])
             insert_airlines_data(flights_data['data'])
             print("完成")
         else:
