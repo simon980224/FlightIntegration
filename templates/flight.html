@@ -205,7 +205,7 @@
                     <div class="col-lg-9">
                       <div class="d-flex justify-content-between align-items-center">
                         <div class="text-start">
-                          <div class="fs-5 fw-bold">${flight.D_Time}</div>
+                          <div class="fs-5 fw-bold">${flight.D_Time.slice(16, 22)}</div>
                           <div class="fs-6 text-muted">${flight.From_Airport}</div>
                         </div>
                         <div class="flex-grow-1 px-3 d-none d-md-block">
@@ -216,7 +216,7 @@
                           </div>
                         </div>
                         <div class="text-end">
-                          <div class="fs-5 fw-bold">${flight.A_Time}</div>
+                          <div class="fs-5 fw-bold">${flight.A_Time.slice(16, 22)}</div>
                           <div class="fs-6 text-muted">${flight.To_Airport}</div>
                            <div class="small text-muted">&nbsp;</div>
                         </div>
