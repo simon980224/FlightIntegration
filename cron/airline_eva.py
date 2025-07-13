@@ -1,7 +1,26 @@
 import requests
 from bs4 import BeautifulSoup
 from datetime import date
+from datetime import datetime
 import pymssql
+import logging
+import os
+
+today = date.today()
+# 🔧 建立 logs/CronLog 資料夾（若不存在）
+log_dir = os.path.join("logs", "CronLog")
+os.makedirs(log_dir, exist_ok=True)
+log_filename = f"{today.strftime('%Y%m%d')}.log"
+log_path = os.path.join(log_dir, log_filename)
+# 📋 設定 log 格式
+logging.basicConfig(
+    filename=log_path,
+    filemode="a",
+    level=logging.INFO,
+    format="%(asctime)s - %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+    encoding="utf-8"
+)
 
 def connect_db():
     return pymssql.connect(
@@ -18,10 +37,6 @@ cursor = conn.cursor()
 cursor.execute("SELECT Airport_Id FROM Airport WHERE Domestic = '0' ")
 
 a_airports = cursor.fetchall()
-
-count = 1
-
-today = date.today().strftime("%Y/%m/%d")
 
 url = "https://booking.evaair.com/flyeva/EVA/B2C/flight-status.aspx?lang=zh-tw&_gl=1*1nvxd8n*_gcl_au*MTMyOTcwMDU1Ni4xNzQ5MDQxOTAz*_ga*NDUwNDYyOTI5LjE3NDkwNDE5MDM.*_ga_FWZ55CGWWV*czE3NTIyMTM3NzMkbzQkZzEkdDE3NTIyMTUzNzgkajU5JGwwJGgw"
 
@@ -55,15 +70,15 @@ for d_airport in d_airports:
             "ctl00$content$txt_formcity": d_airport,
             "ctl00$content$txt_tocity": a_airport[0],
             "acb": "D",
-            "nuk": today,
+            "nuk": today.strftime("%Y/%m/%d"),
             "ctl00$content$btn_ok": "",
             "ctl00$content$txt_Airport": d_airport,
             "bhj": "D",
-            "adf": today,
+            "adf": today.strftime("%Y/%m/%d"),
             "ctl00$content$ddl_Time": "0",
             "ctl00$content$Carrier": "BR",
             "ctl00$content$txt_fltno": "",
-            "ctl00$content$hid_Date1": today
+            "ctl00$content$hid_Date1": today.strftime("%Y/%m/%d")
             }
 
         response = requests.post(url, headers=headers, data=payload)
@@ -75,15 +90,22 @@ for d_airport in d_airports:
             rows = soup.find("table", id="content_gvw_Flight3").find_all("tr", class_="table-dataRow")
         except:
             continue
-        # 遍歷所有航班
+        # # 遍歷所有航班
+        # inserted_flight_ids = set()
+
         for row in rows:
             # 班機編號
             flight_number = row.find("td", {"data-head": "班機編號"}).text.strip()
 
-            # 出發與抵達機場（中文）
-            route_cells = row.find("td", {"data-head": "行程"}).find_all("span", class_="text-9")
-            departure_airport_name_zh = route_cells[0].text.strip() if len(route_cells) > 0 else ""
-            arrival_airport_name_zh = route_cells[1].text.strip() if len(route_cells) > 1 else ""
+            route_cells = row.find("td", {"data-head": "行程"}).find_all("div", class_="flightSegment-airport")
+
+            # 出發機場代碼（如 TPE）
+            departure_airport_text = route_cells[0].text.strip()
+            departure_airport_code = departure_airport_text.split("(")[-1].split(")")[0].strip()
+
+            # 抵達機場代碼（如 NRT）
+            arrival_airport_text = route_cells[1].text.strip()
+            arrival_airport_code = arrival_airport_text.split("(")[-1].split(")")[0].strip()
 
             # 表定出發時間
             dep_td = row.find("td", {"data-head": "出發"})
@@ -103,25 +125,25 @@ for d_airport in d_airports:
                     scheduled_arrival = arr_times[i+1]
                     break
 
-            flight_id_db = f'{flight_number}_{count}'
             airline_id_db = 'EVA'
-            d_airport_db = departure_airport_name_zh
-            a_airport_db = arrival_airport_name_zh
+            flight_id_db = f'{airline_id_db}_{today.strftime("%Y%m%d")}_{flight_number}_{departure_airport_code}_{arrival_airport_code}'
+            Num = flight_number
+            d_airport_db = departure_airport_code
+            a_airport_db = arrival_airport_code
             d_time_db = scheduled_departure
             a_time_db = scheduled_arrival
-            status_db = '1'
-    
-            #TODO 轉機問題待解決
             
-
-            cursor.execute("""
-                INSERT INTO Flight(Flight_Id, Airline_Id, D_Airport_Id, A_Airport_Id, D_Time, A_Time, Status)
-                VALUES (%s, %s, %s, %s, %s, %s, %s) 
-            """, (flight_id_db, airline_id_db, d_airport_db, a_airport_db, d_time_db, a_time_db, status_db))
-
-            conn.commit()
-            count += 1
-            print(f"Inserted flight: {flight_id_db} from {d_airport_db} to {a_airport_db}")
+            try:
+                cursor.execute("""
+                    INSERT INTO Flight(Flight_Id, Airline_Id, D_Airport_Id, A_Airport_Id, D_Time, A_Time, No)
+                    VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """, (flight_id_db, airline_id_db, d_airport_db, a_airport_db, d_time_db, a_time_db, Num))
+                conn.commit()
+                logging.info(f"插入：{flight_id_db}，{d_airport_db} ➜ {a_airport_db}，出發：{d_time_db}，抵達：{a_time_db}")
+            except pymssql.IntegrityError as e:
+                # 只針對主鍵重複錯誤進行略過處理
+                logging.info(f"略過（已存在）：{flight_id_db}，{d_airport_db} ➜ {a_airport_db}，出發：{d_time_db}，抵達：{a_time_db}")
+                pass
 cursor.close()
 conn.close()
         
