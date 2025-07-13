@@ -9,14 +9,17 @@ conn_args = {
 }
 
 # 取得所有機場資料
-def get_airport_data():
+def get_airport_data(domestic):
     try:
         conn = pymssql.connect(**conn_args)
         cursor = conn.cursor(as_dict=True)
-        cursor.execute("""
+
+        query = """
 SELECT Airport_Id, Airport_Name, Airport_Name_ZH
 FROM Airport
-        """)
+WHERE Is_Domestic = %s
+        """
+        cursor.execute(query, (domestic))
         data = cursor.fetchall()
         return {"success": True, "data": data}
     except Exception as e:

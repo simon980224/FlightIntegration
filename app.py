@@ -55,17 +55,21 @@ def index():
 # 查詢頁面
 @app.route('/flight', methods=['GET', 'POST'])
 def flight():
-    airport_data = search_service.get_airport_data()
+    d_airport_data = search_service.get_airport_data('1')  # 1表示國內機場
+    a_airport_data = search_service.get_airport_data('0')  # 1表示國內機場
     airline_data = search_service.get_airline_data()
     flight_data = search_service.get_flight_data()
-    if airport_data["success"]:
-        airport_data = {"data": airport_data["data"]}
+    if d_airport_data["success"]:
+        d_airport_data = {"data": d_airport_data["data"]}
+    if a_airport_data["success"]:
+        a_airport_data = {"data": a_airport_data["data"]}
     if airline_data["success"]:
         airline_data = {"data": airline_data["data"]}
     if flight_data["success"]:
         flight_data = {"data": flight_data["data"]}
     return render_template('flight.html',
-                         airport_data=airport_data,
+                         d_airport_data=d_airport_data,
+                         a_airport_data=a_airport_data,
                          airline_data=airline_data,
                          flight_data=flight_data)
     
