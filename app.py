@@ -20,33 +20,6 @@ def login_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# 登入頁面
-@app.route('/login', methods=['GET'])
-def login_page():
-    return render_template('login_modal.html')
-
-# 登入處理
-@app.route('/login', methods=['POST'])
-def login():
-    data = request.json
-    username = data.get('username')
-    password = data.get('password')
-    
-    if not username or not password:
-        return jsonify({'success': False, 'message': '請輸入使用者名稱和密碼'})
-    
-    if username == FIXED_USERNAME and password == FIXED_PASSWORD:
-        session['username'] = username
-        return jsonify({'success': True, 'message': '登入成功'})
-    
-    return jsonify({'success': False, 'message': '使用者名稱或密碼錯誤'})
-
-# 登出
-@app.route('/logout')
-def logout():
-    session.clear()
-    return redirect(url_for('index'))
-
 # 首頁
 @app.route('/')
 def index():
@@ -73,32 +46,62 @@ def flight():
                          airline_data=airline_data,
                          flight_data=flight_data)
     
-@app.route('/flight/search', methods=['GET', 'POST']) 
+@app.route('/flight/search', methods=['POST']) 
 def flight_search():
-    if request.method == 'POST':
-        data = request.get_json()
+    data = request.get_json()
 
-        from_airport = data.get("from_airport", "").strip()
-        to_airport = data.get("to_airport", "").strip()
-        d_time = data.get("departure_date", "").strip()
-        airline_ids = data.get("airline_ids", [])
-        flights_data = search_service.get_flight_data(
-            from_id=from_airport,
-            to_id=to_airport,
-            dep_time=d_time,
-            airline_ids=airline_ids,
-        )
-        return jsonify(flights_data)
+    from_airport = data.get("from_airport", "").strip()
+    to_airport = data.get("to_airport", "").strip()
+    d_time = data.get("departure_date", "").strip()
+    airline_ids = data.get("airline_ids", [])
+    flights_data = search_service.get_flight_data(
+        from_id=from_airport,
+        to_id=to_airport,
+        dep_time=d_time,
+        airline_ids=airline_ids,
+    )
+    return jsonify(flights_data)
+
+# 登入頁面
+@app.route('/login', methods=['GET'])
+def login_page():
+    return render_template('_login.html')
+
+# 註冊頁面
+@app.route('/register', methods=['GET'])
+def register_page():
+    return render_template('_register.html')
+
+# 登入處理
+@app.route('/login', methods=['POST'])
+def login():
+    data = request.get_json()
+
+    user_id = data.get("user_id", "").strip()
+    password = data.get("password", "").strip()    
     
-    return jsonify({'success': False, 'error': 'Invalid request method.'}), 405
+    if not user_id or not password:
+        return jsonify({'success': False, 'message': '請輸入使用者名稱和密碼'})
+    
+    if user_id == FIXED_USERNAME and password == FIXED_PASSWORD:
+        session['user_id'] = user_id
+        return jsonify({'success': True, 'message': '登入成功'})
+    else:
+        return jsonify({'success': False, 'message': '使用者名稱或密碼錯誤'})
 
-# 註冊（已停用，返回提示訊息）
-@app.route('/register', methods=['POST'])
-def register():
-    return jsonify({
-        'success': False, 
-        'message': '此系統使用固定帳號，無法註冊新帳號。\n請使用以下帳號登入：\n帳號：YiZhen\n密碼：yzzz918kk'
-    })
+# 登出
+@app.route('/logout')
+def logout():
+    session.clear()
+    return render_template('index.html', title='首頁')
+
+
+
+
+
+
+
+
 
 # 個人資料頁面
 @app.route('/profile')
