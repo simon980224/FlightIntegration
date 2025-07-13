@@ -96,14 +96,13 @@
   document.addEventListener("DOMContentLoaded", init);
 
   // 將 DOM 元素變數移至此處，讓所有函式都能共用
-  let fromAirportInput, toAirportInput, toAirportDatalist, unlimitedCheckbox, airlineCheckboxes, 
+  let fromAirportInput, toAirportInput, unlimitedCheckbox, airlineCheckboxes, 
       departureDateInput, resultsContainer, searchForm;
 
   function init() {
     // 先抓元素
     fromAirportInput   = document.getElementById('from_airport');
     toAirportInput     = document.getElementById('to_airport');
-    toAirportDatalist  = document.getElementById('to_airports');
     unlimitedCheckbox  = document.getElementById('airline_unlimited');
     airlineCheckboxes  = document.querySelectorAll('.airline-checkbox');
     departureDateInput = document.getElementById('departure_date');
@@ -133,26 +132,27 @@
         unlimitedCheckbox.checked = !anyChecked;
       });
     });
-    // 攔截表單 submit，不跳頁，改用 AJAX 查詢
-    searchForm.addEventListener('submit', (event) => {
-        event.preventDefault(); // 阻止表單預設的提交行為 (刷新頁面)
-        getData(); // 執行查詢
-   });
+    
+    searchForm.addEventListener('submit', getData);
   }
 
   // 清除表單
   function clearForm() {
-    searchForm.reset();
-    // 手動觸發 change 事件以重設航空公司 checkbox 狀態
+    // 重設航空公司為「不限」，並觸發 change 事件以清除其他勾選
+    unlimitedCheckbox.checked = true;
     unlimitedCheckbox.dispatchEvent(new Event('change')); 
-    // 清空目的地篩選並重新計算
+
+    // 清空機場和日期
     fromAirportInput.value = '';
     toAirportInput.value = '';
+    departureDateInput.value = '';
+
     // 清空查詢結果
     resultsContainer.innerHTML = "";
   }
   
-  function getData() {
+  function getData(event) {
+    event.preventDefault(); // 阻止表單預設的提交行為 (刷新頁面)
     // 顯示「查詢中」載入動畫
     showLoading("查詢中", "正在搜尋航班，請稍候...");
     // 準備要送給後端的查詢物件
@@ -169,7 +169,7 @@
                                     .filter(cb => cb.checked)
                                     .map(cb => cb.value);
     }
-    console.log(searchData);
+    
     // 用 Fetch 送 POST 請求，Content-Type: JSON
     fetch("/flight/search", {
       method: "POST",
