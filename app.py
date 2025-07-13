@@ -28,7 +28,7 @@ def index():
 # 查詢頁面
 @app.route('/flight', methods=['GET', 'POST'])
 def flight():
-    d_airport_data = search_service.get_airport_data('1')  # 1表示國內機場
+    d_airport_data = search_service.get_airport_data('1')  # 1表示國外機場
     a_airport_data = search_service.get_airport_data('0')  # 0表示國內機場
     airline_data = search_service.get_airline_data()
     flight_data = search_service.get_flight_data()
