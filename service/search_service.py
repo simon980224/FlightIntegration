@@ -17,7 +17,7 @@ def get_airport_data(domestic):
         query = """
 SELECT Airport_Id, Airport_Name, Airport_Name_ZH
 FROM Airport
-WHERE Is_Domestic = %s
+WHERE Domestic = %s
         """
         cursor.execute(query, (domestic))
         data = cursor.fetchall()
@@ -113,4 +113,4 @@ WHERE
 
 if __name__ == "__main__":
     # 測試函數
-    print(get_flight_data(from_id='MNL', to_id='TPE', dep_time='2023-10-01', arr_time='2026-10-31', airline_ids=['5J', '7C']))
+    print(get_airport_data('0'))  # 測試國內機場
