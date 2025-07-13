@@ -14,7 +14,7 @@ FIXED_PASSWORD = '12345'
 def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        if 'username' not in session:
+        if 'user_id' not in session:
             flash('請先登入')
             return redirect(url_for('login'))
         return f(*args, **kwargs)
@@ -85,7 +85,7 @@ def login():
     
     user_data = user_service.AuthenticateUser(user_id, password)
     if user_data["success"]:
-        session['username'] = user_id
+        session['user_id'] = user_id
         return jsonify({'success': True, 'message': '登入成功'})
     else:
         return jsonify({'success': False, 'message': '使用者名稱或密碼錯誤'})
@@ -110,7 +110,7 @@ def logout():
 def profile():
     # 固定的會員資料
     user_data = {
-        'username': 'Admin',
+        'user_id': 'Admin',
         'email': '12345@example.com',
         'created_at': datetime.datetime(2025, 1, 1),
         'membership_level': '一般會員',
