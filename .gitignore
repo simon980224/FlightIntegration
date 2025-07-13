@@ -12,6 +12,7 @@ venv.bak/
 *.egg-info/
 .installed.cfg
 *.egg
+*.log
 
 # Flask
 instance/

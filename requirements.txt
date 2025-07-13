@@ -1,5 +1,4 @@
-# Requirements for the project
 Flask
-Flask-SQLAlchemy
-python-dotenv
-pyodbc
+requests
+beautifulsoup4
+pymssql
