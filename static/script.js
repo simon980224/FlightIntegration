@@ -12,3 +12,11 @@ function showLoading(title, text) {
 function closeLoading() {
     Swal.close();
 }
+
+function showToast(title, text, icon = 'success') {
+    Toast.fire({
+      icon,    // success / error / warning / info / question
+      title,
+      text     // 可不傳，用於補充說明
+    });
+  }

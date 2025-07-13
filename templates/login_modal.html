@@ -115,16 +115,10 @@ document.getElementById('loginFormElement').addEventListener('submit', function(
   .then(response => response.json())
   .then(data => {
     if (data.success) {
-      Swal.fire({
-        icon: 'success',
-        title: '登入成功！',
-        text: data.message,
-        timer: 2000,
-        showConfirmButton: false
-      }).then(() => {
-        location.reload();
-      });
-    } else {
+      showToast('登入成功！', '歡迎回來！', 'success')
+       .then(() => location.reload());
+    } 
+    else {
       Swal.fire({
         icon: 'error',
         title: '登入失敗',

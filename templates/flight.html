@@ -1,54 +1,64 @@
-  {% extends 'base.html' %}
-  {% block title %}航班查詢系統{% endblock %}
-  <!-- 載入 bootstrap-datepicker 的樣式和中文語系 -->
-  {% block extra_head %}
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script> 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/locales/bootstrap-datepicker.zh-TW.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-  {% endblock %}
+{% extends 'base.html' %}
+{% block title %}航班查詢系統{% endblock %}
 
-  {% block content %}
-  {% set form_data = form_data if form_data is defined else {} %}
+{% block extra_head %}
+<!-- 載入 bootstrap-datepicker 的樣式和中文語系 -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/css/bootstrap-datepicker.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/js/bootstrap-datepicker.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap-datepicker/1.9.0/locales/bootstrap-datepicker.zh-TW.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+{% endblock %}
 
-<div class="container mt-3">
+{% block content %}
+{% set form_data = form_data if form_data is defined else {} %}
+
+<div class="container my-5">
+  <!-- 頁首標題 -->
+  <div class="text-center mb-5">
+    <h1 class="display-4 fw-bold">搜尋理想航班</h1>
+    <p class="lead text-muted">輕鬆規劃您的下一趟旅程</p>
+  </div>
+
   <div class="row justify-content-center">
     <div class="col-lg-10">
-      <div class="card shadow-sm">
-        <div class="card-header bg-primary text-white">
-          <h4 class="my-0 font-weight-normal">
+      <div class="card shadow-lg border-0">
+        <div class="card-body p-4 p-md-5">
+          <h4 class="card-title mb-4 text-primary">
             <i class="fas fa-plane-departure me-2"></i>查詢航班
           </h4>
-        </div>
-        <div class="card-body">
           <form id="searchForm">
-            <div class="row g-3">
+            <div class="row g-4">
               <div class="col-md-6">
                 <label for="from_airport" class="form-label">出發地</label>
-                <input list="from_airports" type="text" class="form-control" id="from_airport" name="from_airport" />
-                <datalist id="from_airports">
-                  {% for airport in airport_data.data %}
-                  <option label="{{ airport['Airport_Name_ZH'] }}" value="{{ airport['Airport_Id'] }}"></option>
-                  {% endfor %}
-                </datalist>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="fas fa-plane-departure"></i></span>
+                  <input list="from_airports" type="text" class="form-control" id="from_airport" name="from_airport" placeholder="選擇或輸入機場" />
+                  <datalist id="from_airports">
+                    {% for airport in airport_data.data %}
+                    <option label="{{ airport['Airport_Name_ZH'] }}" value="{{ airport['Airport_Id'] }}"></option>
+                    {% endfor %}
+                  </datalist>
+                </div>
               </div>
               <div class="col-md-6">
                 <label for="to_airport" class="form-label">目的地</label>
-                <input list="to_airports" type="text" class="form-control" id="to_airport" name="to_airport" />
-                <datalist id="to_airports">
-                  {% for airport in airport_data.data %}
-                  <option label="{{ airport['Airport_Name_ZH'] }}" value="{{ airport['Airport_Id'] }}"></option>
-                  {% endfor %}
-                </datalist>
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="fas fa-plane-arrival"></i></span>
+                  <input list="to_airports" type="text" class="form-control" id="to_airport" name="to_airport" placeholder="選擇或輸入機場" />
+                  <datalist id="to_airports">
+                    {% for airport in airport_data.data %}
+                    <option label="{{ airport['Airport_Name_ZH'] }}" value="{{ airport['Airport_Id'] }}"></option>
+                    {% endfor %}
+                  </datalist>
+                </div>
               </div>
-              <div class="col-md-6">
+              <div class="col-md-12">
                 <label for="departure_date" class="form-label">出發日期</label>
-                <input type="text" class="form-control" id="departure_date" name="departure_date" placeholder="請選擇出發日期" />
-              </div>
-              <div class="col-md-6">
-                <label for="arrival_date" class="form-label">抵達日期</label>
-                <input type="text" class="form-control" id="arrival_date" name="arrival_date" placeholder="請選擇抵達日期" />
+                <div class="input-group">
+                   <span class="input-group-text bg-light"><i class="fas fa-calendar-alt"></i></span>
+                   <input type="text" class="form-control" id="departure_date" name="departure_date" placeholder="請選擇出發日期" />
+                </div>
               </div>
               <div class="col-12">
                 <label class="form-label">航空公司</label>
@@ -68,16 +78,16 @@
                 </div>
               </div>
             </div>
-            <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4">
+            <div class="d-grid gap-2 d-md-flex justify-content-md-center mt-4 pt-3">
               <button type="submit" class="btn btn-primary btn-lg px-5" id="submitBtn">
                 <i class="fas fa-search me-2"></i>查詢
               </button>
-              <button type="button" class="btn btn-outline-secondary btn-lg px-5" onclick="location.reload()">清除</button>
+              <button type="button" class="btn btn-outline-secondary btn-lg px-4" onclick="clearForm()">清除</button>
             </div>
           </form>
         </div>
       </div>
-      <div id="flight-results" class="mt-4"></div> <!-- 結果顯示區 -->
+      <div id="flight-results" class="mt-5"></div> <!-- 結果顯示區 -->
     </div>
   </div>
 </div>
@@ -87,7 +97,7 @@
 
   // 將 DOM 元素變數移至此處，讓所有函式都能共用
   let fromAirportInput, toAirportInput, toAirportDatalist, unlimitedCheckbox, airlineCheckboxes, 
-      departureDateInput, arrivalDateInput, resultsContainer, searchForm;
+      departureDateInput, resultsContainer, searchForm;
 
   function init() {
     // 先抓元素
@@ -97,7 +107,6 @@
     unlimitedCheckbox  = document.getElementById('airline_unlimited');
     airlineCheckboxes  = document.querySelectorAll('.airline-checkbox');
     departureDateInput = document.getElementById('departure_date');
-    arrivalDateInput   = document.getElementById('arrival_date');
     resultsContainer   = document.getElementById('flight-results');
     searchForm         = document.getElementById('searchForm');
     
@@ -106,19 +115,8 @@
         format: 'yyyy-mm-dd',
         language: 'zh-TW',
         autoclose: true,
-        todayHighlight: true
-    }).on('changeDate', function(e) {
-        // 當出發日期變更時，設定抵達日期的起始日
-        if (e.date) {
-            $('#arrival_date').datepicker('setStartDate', e.date);
-        }
-    });
-    // 初始化日期選擇器：抵達日
-    $('#arrival_date').datepicker({
-        format: 'yyyy-mm-dd',
-        language: 'zh-TW',
-        autoclose: true,
-        todayHighlight: true
+        todayHighlight: true,
+        container: 'body' // 避免被 modal 或 card 裁切
     });
 
     // 當「出發地」輸入改變時，過濾「目的地」選項
@@ -147,6 +145,18 @@
   }
 
   let originalToOptions = []; // 儲存目的地下拉選單原始選項，用來防止出發地與目的地相同
+
+  // 清除表單
+  function clearForm() {
+    searchForm.reset();
+    // 手動觸發 change 事件以重設航空公司 checkbox 狀態
+    unlimitedCheckbox.dispatchEvent(new Event('change')); 
+    // 清空目的地篩選並重新計算
+    toAirportInput.value = '';
+    updateToAirportOptions();
+    // 清空查詢結果
+    resultsContainer.innerHTML = "";
+  }
   
   // 更新目的地機場選項，避免與出發地相同
   function updateToAirportOptions() {
@@ -184,26 +194,8 @@
       toAirportInput.value = '';
     }
   }
-  // 在送出查詢前確認「出發日」不會晚於「抵達日」
-  function validateDateRange() {
-    const departureDate = departureDateInput.value;
-    const arrivalDate = arrivalDateInput.value;
-    if (departureDate && arrivalDate && departureDate > arrivalDate) {
-      Swal.fire({
-        icon: 'error',
-        title: '日期選擇錯誤',
-        text: '抵達日期不能早於出發日期。'
-      });
-      return false;
-    }
-      return true;
-  }
-
-  
 
   function getData() {
-    // 如果日期驗證失敗（例如起飛 > 抵達），就停止查詢
-    if (!validateDateRange()) return;
     // 顯示「查詢中」載入動畫
     showLoading("查詢中", "正在搜尋航班，請稍候...");
     // 準備要送給後端的查詢物件
@@ -211,7 +203,6 @@
       from_airport: fromAirportInput.value,
       to_airport: toAirportInput.value,
       departure_date: departureDateInput.value,
-      arrival_date: arrivalDateInput.value,
       airline_ids: [] // 初始化為空陣列
     };
     
@@ -241,29 +232,39 @@
           json.data.forEach(flight => {
             // 解析出發／抵達時間，用本地格式化
             const depTime = new Date(flight.D_Time);
-            const arrTime = new Date(flight.A_Time);
 
             // 建立航班卡片
             const flightCard = `
-              <div class="card mb-3 shadow-sm">
-                <div class="card-header d-flex justify-content-between align-items-center">
-                  <div class="fw-bold">${flight.Airline_Name_ZH}</div>
-                  <div class="small text-muted">航班編號: ${flight.Flight_Number}</div>
-                </div>
-                <div class="card-body">
-                  <div class="row align-items-center text-center">
-                    <div class="col-md-5">
-                      <div class="fs-4 fw-bold">${depTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
-                      <div class="fs-5 text-muted">${flight.From_Airport}</div>
-                      <div class="small">${depTime.toISOString().split('T')[0]}</div>
+              <div class="card mb-3 shadow-sm flight-result-card">
+                <div class="card-body p-4">
+                  <div class="row align-items-center">
+                    <div class="col-lg-3 d-flex align-items-center mb-3 mb-lg-0">
+                      <i class="fas fa-plane-circle-check fa-2x text-primary me-3"></i>
+                      <div>
+                        <div class="fw-bold h6 mb-0">${flight.Airline_Name_ZH}</div>
+                        <div class="small text-muted">航班 ${flight.Flight_Number}</div>
+                      </div>
                     </div>
-                    <div class="col-md-2 my-3 my-md-0">
-                      <i class="fas fa-plane fa-2x text-muted"></i>
-                    </div>
-                    <div class="col-md-5">
-                      <div class="fs-4 fw-bold">${arrTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
-                      <div class="fs-5 text-muted">${flight.To_Airport}</div>
-                      <div class="small">${arrTime.toISOString().split('T')[0]}</div>
+                    <div class="col-lg-9">
+                      <div class="d-flex justify-content-between align-items-center">
+                        <div class="text-start">
+                          <div class="fs-5 fw-bold">${depTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
+                          <div class="fs-6 text-muted">${flight.From_Airport}</div>
+                          <div class="small">${depTime.toISOString().split('T')[0]}</div>
+                        </div>
+                        <div class="flex-grow-1 px-3 d-none d-md-block">
+                          <div class="d-flex align-items-center">
+                            <hr class="w-100">
+                            <i class="fas fa-plane mx-2 text-muted"></i>
+                            <hr class="w-100">
+                          </div>
+                        </div>
+                        <div class="text-end">
+                          <div class="fs-5 fw-bold">&nbsp;</div>
+                          <div class="fs-6 text-muted">${flight.To_Airport}</div>
+                           <div class="small text-muted">&nbsp;</div>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -271,15 +272,15 @@
             resultsContainer.insertAdjacentHTML('beforeend', flightCard);
               });
             } else if (json.success) { // 成功但沒資料
-              resultsContainer.innerHTML = '<div class="alert alert-info text-center">找不到符合條件的航班。</div>';
+              resultsContainer.innerHTML = '<div class="alert alert-info text-center fs-5 p-4"><i class="fas fa-info-circle me-2"></i>找不到符合條件的航班。</div>';
             } else {  // 失敗：顯示後端回傳的錯誤訊息
-              resultsContainer.innerHTML = `<div class="alert alert-danger text-center">錯誤：${json.error}</div>`;
+              resultsContainer.innerHTML = `<div class="alert alert-danger text-center fs-5 p-4"><i class="fas fa-exclamation-triangle me-2"></i>查詢失敗：${json.error}</div>`;
             }  
       })
 
       .catch(error => {// 網路或伺服器無法連線
         closeLoading();
-        resultsContainer.innerHTML = '<div class="alert alert-danger text-center">無法連線，請稍後再試。</div>';
+        resultsContainer.innerHTML = '<div class="alert alert-danger text-center fs-5 p-4"><i class="fas fa-server me-2"></i>無法連線至伺服器，請稍後再試。</div>';
         console.error(error);
       });
   }
