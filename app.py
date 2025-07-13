@@ -56,7 +56,7 @@ def index():
 @app.route('/flight', methods=['GET', 'POST'])
 def flight():
     d_airport_data = search_service.get_airport_data('1')  # 1表示國內機場
-    a_airport_data = search_service.get_airport_data('0')  # 1表示國內機場
+    a_airport_data = search_service.get_airport_data('0')  # 0表示國內機場
     airline_data = search_service.get_airline_data()
     flight_data = search_service.get_flight_data()
     if d_airport_data["success"]:
@@ -76,16 +76,16 @@ def flight():
 @app.route('/flight/search', methods=['GET', 'POST']) 
 def flight_search():
     if request.method == 'POST':
-        d_airport_id = request.form.get('from_airport')
-        a_airport_id = request.form.get('to_airport')
-        d_time = request.form.get('departure_date')
-        a_time = request.form.get('arrival_date')
-        airline_ids = request.form.getlist('airline_ids')
+        data = request.get_json()
+
+        from_airport = data.get("from_airport", "").strip()
+        to_airport = data.get("to_airport", "").strip()
+        d_time = data.get("departure_date", "").strip()
+        airline_ids = data.get("airline_ids", [])
         flights_data = search_service.get_flight_data(
-            from_id=d_airport_id,
-            to_id=a_airport_id,
+            from_id=from_airport,
+            to_id=to_airport,
             dep_time=d_time,
-            arr_time=a_time,
             airline_ids=airline_ids,
         )
         return jsonify(flights_data)

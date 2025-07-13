@@ -56,7 +56,7 @@
               <div class="col-md-12">
                 <label for="departure_date" class="form-label">出發日期</label>
                 <div class="input-group">
-                   <span class="input-group-text bg-light"><i class="fas fa-calendar-alt"></i></span>
+                  <span class="input-group-text bg-light"><i class="fas fa-calendar-alt"></i></span>
                    <input type="text" class="form-control" id="departure_date" name="departure_date" placeholder="請選擇出發日期" />
                 </div>
               </div>
@@ -96,26 +96,26 @@
   document.addEventListener("DOMContentLoaded", init);
 
   // 將 DOM 元素變數移至此處，讓所有函式都能共用
-  let fromAirportInput, toAirportInput, unlimitedCheckbox, airlineCheckboxes, 
-      departureDateInput, resultsContainer;
+  let fromAirportInput, toAirportInput, unlimitedCheckbox, airlineCheckboxes,
+    departureDateInput, resultsContainer;
 
   function init() {
     // 先抓元素
-    fromAirportInput   = document.getElementById('from_airport');
-    toAirportInput     = document.getElementById('to_airport');
-    unlimitedCheckbox  = document.getElementById('airline_unlimited');
-    airlineCheckboxes  = document.querySelectorAll('.airline-checkbox');
+    fromAirportInput = document.getElementById('from_airport');
+    toAirportInput = document.getElementById('to_airport');
+    unlimitedCheckbox = document.getElementById('airline_unlimited');
+    airlineCheckboxes = document.querySelectorAll('.airline-checkbox');
     departureDateInput = document.getElementById('departure_date');
-    resultsContainer   = document.getElementById('flight-results');
-    
-    
+    resultsContainer = document.getElementById('flight-results');
+
+
     // 初始化日期選擇器：出發日
     $('#departure_date').datepicker({
-        format: 'yyyy-mm-dd',
-        language: 'zh-TW',
-        autoclose: true,
-        todayHighlight: true,
-        container: 'body' // 避免被 modal 或 card 裁切
+      format: 'yyyy-mm-dd',
+      language: 'zh-TW',
+      autoclose: true,
+      todayHighlight: true,
+      container: 'body' // 避免被 modal 或 card 裁切
     });
 
 
@@ -132,7 +132,7 @@
         unlimitedCheckbox.checked = !anyChecked;
       });
     });
-    
+
     document.getElementById('searchForm').addEventListener('submit', getData);
   }
 
@@ -140,7 +140,7 @@
   function clearForm() {
     // 重設航空公司為「不限」，並觸發 change 事件以清除其他勾選
     unlimitedCheckbox.checked = true;
-    unlimitedCheckbox.dispatchEvent(new Event('change')); 
+    unlimitedCheckbox.dispatchEvent(new Event('change'));
 
     // 清空機場和日期
     fromAirportInput.value = '';
@@ -150,7 +150,7 @@
     // 清空查詢結果
     resultsContainer.innerHTML = "";
   }
-  
+
   function getData(event) {
     event.preventDefault(); // 阻止表單預設的提交行為 (刷新頁面)
     // 顯示「查詢中」載入動畫
@@ -162,14 +162,14 @@
       departure_date: departureDateInput.value,
       airline_ids: [] // 初始化為空陣列
     };
-    
+
     // 如果不是「不限」，把使用者勾的航空公司一起帶過去
     if (!unlimitedCheckbox.checked) {
       searchData.airline_ids = Array.from(airlineCheckboxes)
-                                    .filter(cb => cb.checked)
-                                    .map(cb => cb.value);
+        .filter(cb => cb.checked)
+        .map(cb => cb.value);
     }
-    
+
     // 用 Fetch 送 POST 請求，Content-Type: JSON
     fetch("/flight/search", {
       method: "POST",
@@ -183,7 +183,7 @@
         // 關閉載入動畫
         closeLoading();
         // 先清空舊結果
-        resultsContainer.innerHTML = "";  
+        resultsContainer.innerHTML = "";
         // 成功且有航班資料：逐筆渲染成卡片
         if (json.success && json.data.length) {
           json.data.forEach(flight => {
@@ -199,15 +199,14 @@
                       <i class="fas fa-plane-circle-check fa-2x text-primary me-3"></i>
                       <div>
                         <div class="fw-bold h6 mb-0">${flight.Airline_Name_ZH}</div>
-                        <div class="small text-muted">航班 ${flight.Flight_Number}</div>
+                        <div class="small text-muted">航班 ${flight.No}</div>
                       </div>
                     </div>
                     <div class="col-lg-9">
                       <div class="d-flex justify-content-between align-items-center">
                         <div class="text-start">
-                          <div class="fs-5 fw-bold">${depTime.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit', hour12: false })}</div>
+                          <div class="fs-5 fw-bold">${flight.D_Time}</div>
                           <div class="fs-6 text-muted">${flight.From_Airport}</div>
-                          <div class="small">${depTime.toISOString().split('T')[0]}</div>
                         </div>
                         <div class="flex-grow-1 px-3 d-none d-md-block">
                           <div class="d-flex align-items-center">
@@ -217,7 +216,7 @@
                           </div>
                         </div>
                         <div class="text-end">
-                          <div class="fs-5 fw-bold">&nbsp;</div>
+                          <div class="fs-5 fw-bold">${flight.A_Time}</div>
                           <div class="fs-6 text-muted">${flight.To_Airport}</div>
                            <div class="small text-muted">&nbsp;</div>
                         </div>
@@ -227,12 +226,12 @@
                 </div>
               </div>`;
             resultsContainer.insertAdjacentHTML('beforeend', flightCard);
-              });
-            } else if (json.success) { // 成功但沒資料
-              resultsContainer.innerHTML = '<div class="alert alert-info text-center fs-5 p-4"><i class="fas fa-info-circle me-2"></i>找不到符合條件的航班。</div>';
-            } else {  // 失敗：顯示後端回傳的錯誤訊息
-              resultsContainer.innerHTML = `<div class="alert alert-danger text-center fs-5 p-4"><i class="fas fa-exclamation-triangle me-2"></i>查詢失敗：${json.error}</div>`;
-            }  
+          });
+        } else if (json.success) { // 成功但沒資料
+          resultsContainer.innerHTML = '<div class="alert alert-info text-center fs-5 p-4"><i class="fas fa-info-circle me-2"></i>找不到符合條件的航班。</div>';
+        } else {  // 失敗：顯示後端回傳的錯誤訊息
+          resultsContainer.innerHTML = `<div class="alert alert-danger text-center fs-5 p-4"><i class="fas fa-exclamation-triangle me-2"></i>查詢失敗：${json.error}</div>`;
+        }
       })
 
       .catch(error => {// 網路或伺服器無法連線
