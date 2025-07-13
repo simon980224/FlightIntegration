@@ -64,8 +64,9 @@
               </div>
               <div class="col-12">
                 <label class="form-label">航空公司</label>
-                <div class="p-3 bg-light border rounded">
-                  <div class="d-flex flex-wrap gap-3">
+                <div class="py-3 pe-3 ps-3 bg-light border rounded">
+                  <div class="d-flex flex-wrap align-items-center gap-3">
+                    <i class="fa-solid fa-building"></i>
                     <div class="form-check">
                       <input class="form-check-input" type="checkbox" id="airline_unlimited" checked />
                       <label class="form-check-label" for="airline_unlimited">不限</label>
@@ -213,7 +214,7 @@
                           class="btn btn-success btn-sm book-btn"
                           data-flight-no="${flight.No}"
                           data-airline="${flight.Airline_Id}"
-                        >訂票</button>
+                        ><i class="fa-solid fa-ticket"></i> 訂票</button>
                       </div>
                     </div>
                     <div class="col-lg-9">
