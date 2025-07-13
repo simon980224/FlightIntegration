@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
-from service import search_service
+from service import search_service,user_service
 from functools import wraps
 import datetime
 
@@ -83,8 +83,9 @@ def login():
     if not user_id or not password:
         return jsonify({'success': False, 'message': '請輸入使用者名稱和密碼'})
     
-    if user_id == FIXED_USERNAME and password == FIXED_PASSWORD:
-        session['user_id'] = user_id
+    user_data = user_service.AuthenticateUser(user_id, password)
+    if user_data["success"]:
+        session['username'] = user_id
         return jsonify({'success': True, 'message': '登入成功'})
     else:
         return jsonify({'success': False, 'message': '使用者名稱或密碼錯誤'})
