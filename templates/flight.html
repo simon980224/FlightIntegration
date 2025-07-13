@@ -187,8 +187,15 @@
         // 成功且有航班資料：逐筆渲染成卡片
         if (json.success && json.data.length) {
           json.data.forEach(flight => {
-            // 解析出發／抵達時間，用本地格式化
-            const depTime = new Date(flight.D_Time);
+            const depDate = new Date(flight.D_Time);
+            // 再取出月、日、時、分（分鐘補零對齊）
+            const month   = depDate.getMonth() + 1;
+            const day     = depDate.getDate();
+            const hour    = depDate.getHours();
+            const minute  = String(depDate.getMinutes()).padStart(2, '0');
+            const formattedDep = `${month}月${day}日 ${hour}:${minute}`;
+            const arrDate = new Date(flight.A_Time);
+            const formattedArr = `${arrDate.getMonth()+1}月${arrDate.getDate()}日 ${arrDate.getHours()}:${String(arrDate.getMinutes()).padStart(2,'0')}`;
 
             // 建立航班卡片
             const flightCard = `
@@ -200,12 +207,17 @@
                       <div>
                         <div class="fw-bold h6 mb-0">${flight.Airline_Name_ZH}</div>
                         <div class="small text-muted">航班 ${flight.No}</div>
+                        <button 
+                          class="btn btn-success btn-sm book-btn"
+                          data-flight-no="${flight.No}"
+                          data-airline="${flight.Airline_Id}"
+                        >訂票</button>
                       </div>
                     </div>
                     <div class="col-lg-9">
                       <div class="d-flex justify-content-between align-items-center">
                         <div class="text-start">
-                          <div class="fs-5 fw-bold">${flight.D_Time.slice(16, 22)}</div>
+                          <div class="fs-5 fw-bold">${formattedDep}</div>
                           <div class="fs-6 text-muted">${flight.From_Airport}</div>
                         </div>
                         <div class="flex-grow-1 px-3 d-none d-md-block">
@@ -216,10 +228,11 @@
                           </div>
                         </div>
                         <div class="text-end">
-                          <div class="fs-5 fw-bold">${flight.A_Time.slice(16, 22)}</div>
+                          <div class="fs-5 fw-bold">${formattedArr}</div>
                           <div class="fs-6 text-muted">${flight.To_Airport}</div>
-                           <div class="small text-muted">&nbsp;</div>
                         </div>
+                      </div>
+                      
                       </div>
                     </div>
                   </div>
