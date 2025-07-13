@@ -92,7 +92,7 @@ def parse_flight_data(row):
             scheduled_arrival = arr_times[i + 1]
             break
     
-    airline_id_db = 'EVA'
+    airline_id_db = 'BR'
     flight_id_db = f'{airline_id_db}_{today.strftime("%Y%m%d")}_{flight_number}_{departure_airport_code}_{arrival_airport_code}'
     Num = flight_number
     d_airport_db = departure_airport_code
@@ -112,6 +112,7 @@ def insert_flight_data(cursor, conn, flight_id_db, airline_id_db, d_airport_db, 
         log_info(f"插入：{flight_id_db}，{d_airport_db} ➜ {a_airport_db}，出發：{d_time_db}，抵達：{a_time_db}")
     except pymssql.IntegrityError:
         log_info(f"略過（已存在）：{flight_id_db}，{d_airport_db} ➜ {a_airport_db}，出發：{d_time_db}，抵達：{a_time_db}")
+        pass
 
 def cleanup(cursor, conn):
     cursor.close()
@@ -142,7 +143,7 @@ def main():
             for row in rows:
                 flight_number, d_code, a_code, d_time, a_time, flight_number = parse_flight_data(row)
                 flight_id = f"EVA_{today.strftime('%Y%m%d')}_{flight_number}_{d_code}_{a_code}"
-                insert_flight_data(cursor, conn, flight_id, "EVA", d_code, a_code, d_time, a_time, flight_number)
+                insert_flight_data(cursor, conn, flight_id, "BR", d_code, a_code, d_time, a_time, flight_number)
                 # print(f"插入：{flight_id}，{d_code} ➜ {a_code}，出發：{d_time}，抵達：{a_time}")
 
     cleanup(cursor, conn)
