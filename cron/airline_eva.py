@@ -125,3 +125,13 @@ for d_airport in d_airports:
 cursor.close()
 conn.close()
         
+
+# 將本py檔切分為幾個重要的方法
+# 1. connect_db(): 用於連接資料庫
+# 2. fetch_airports(): 用於從資料庫中獲取機場資料
+# 3. fetch_flight_data(): 用於從EVA Air網站獲取航班資料
+# 4. parse_flight_data(): 用於解析航班資料
+# 5. insert_flight_data(): 用於將解析後的航班資料插入資料庫
+# 6. main(): 主函式，用於調用其他方法並執行整個流程
+# 7. log_info(): 用於記錄操作
+# 8. cleanup(): 用於清理資源，如關閉資料庫連接
