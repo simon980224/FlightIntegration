@@ -115,24 +115,17 @@ document.getElementById('loginFormElement').addEventListener('submit', function(
   .then(response => response.json())
   .then(data => {
     if (data.success) {
-      showToast('登入成功！', '歡迎回來！', 'success')
-       .then(() => location.reload());
-    } 
-    else {
-      Swal.fire({
-        icon: 'error',
-        title: '登入失敗',
-        text: data.message
-      });
+      showToast('登入成功！', data.message, 'success')
+        .then(() => {
+          location.reload();
+        });
+    } else {
+      showToast('登入失敗', data.message, 'error');
     }
   })
   .catch(error => {
     console.error('Error:', error);
-    Swal.fire({
-      icon: 'error',
-      title: '發生錯誤',
-      text: '請稍後再試'
-    });
+    showToast('發生錯誤', '請稍後再試', 'error');
   });
 });
 
@@ -144,11 +137,7 @@ document.getElementById('registerFormElement').addEventListener('submit', functi
   const confirmPassword = document.getElementById('confirmPassword').value;
   
   if (password !== confirmPassword) {
-    Swal.fire({
-      icon: 'error',
-      title: '密碼不符',
-      text: '請確認密碼輸入正確'
-    });
+    showToast('密碼不符', '請確認密碼輸入正確', 'error');
     return;
   }
 
@@ -168,30 +157,17 @@ document.getElementById('registerFormElement').addEventListener('submit', functi
   .then(response => response.json())
   .then(data => {
     if (data.success) {
-      Swal.fire({
-        icon: 'success',
-        title: '註冊成功！',
-        text: data.message,
-        timer: 2000,
-        showConfirmButton: false
-      }).then(() => {
-        showLoginForm();
-      });
+      showToast('註冊成功！', data.message, 'success')
+        .then(() => {
+          showLoginForm();
+        });
     } else {
-      Swal.fire({
-        icon: 'error',
-        title: '註冊失敗',
-        text: data.message
-      });
+      showToast('註冊失敗', data.message, 'error');
     }
   })
   .catch(error => {
     console.error('Error:', error);
-    Swal.fire({
-      icon: 'error',
-      title: '發生錯誤',
-      text: '請稍後再試'
-    });
+    showToast('發生錯誤', '請稍後再試', 'error');
   });
 });
 </script> 

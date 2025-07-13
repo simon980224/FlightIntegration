@@ -119,10 +119,6 @@
         container: 'body' // 避免被 modal 或 card 裁切
     });
 
-    // 當「出發地」輸入改變時，過濾「目的地」選項
-    fromAirportInput.addEventListener('input', updateToAirportOptions);
-    // 頁面一載入就過濾一次
-    updateToAirportOptions();
 
     // 選「不限」時，清空所有其他 airline-checkbox
     unlimitedCheckbox.addEventListener('change', () => {
@@ -144,57 +140,18 @@
    });
   }
 
-  let originalToOptions = []; // 儲存目的地下拉選單原始選項，用來防止出發地與目的地相同
-
   // 清除表單
   function clearForm() {
     searchForm.reset();
     // 手動觸發 change 事件以重設航空公司 checkbox 狀態
     unlimitedCheckbox.dispatchEvent(new Event('change')); 
     // 清空目的地篩選並重新計算
+    fromAirportInput.value = '';
     toAirportInput.value = '';
-    updateToAirportOptions();
     // 清空查詢結果
     resultsContainer.innerHTML = "";
   }
   
-  // 更新目的地機場選項，避免與出發地相同
-  function updateToAirportOptions() {
-    const fromValue = fromAirportInput.value; // 取得「出發地」input的值
-    
-    // 第一次呼叫時，把 datalist 裡所有<option>都暫存起來
-    if (originalToOptions.length === 0) {
-      originalToOptions = Array.from(toAirportDatalist.options).map(opt => ({ value: opt.value, label: opt.label }));
-    }
-    
-    // 記下目前目的地框的值，以便稍後確認是否被過濾掉
-    const currentToValue = toAirportInput.value;
-
-    // 清空 datalist
-    toAirportDatalist.innerHTML = '';
-      
-    // 重新生成 option，只加入與出發地不同的那幾筆
-    let isCurrentToValueStillValid = false;
-    originalToOptions.forEach(opt => {
-      if (!opt.value || opt.value !== fromValue) {
-        const o = document.createElement('option');
-        o.value = opt.value;
-        o.label = opt.label;
-        toAirportDatalist.appendChild(o);
-
-        // 如果舊的目的地值還沒被過濾掉，就標記為有效
-        if (opt.value === currentToValue) {
-          isCurrentToValueStillValid = true;
-        }
-      }
-    });
-
-    // 如果舊的目的地被濾掉了，就把輸入框清空
-    if (!isCurrentToValueStillValid) {
-      toAirportInput.value = '';
-    }
-  }
-
   function getData() {
     // 顯示「查詢中」載入動畫
     showLoading("查詢中", "正在搜尋航班，請稍候...");
