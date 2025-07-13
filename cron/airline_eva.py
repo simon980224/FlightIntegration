@@ -140,7 +140,7 @@ def main():
         for a_airport in a_airports:
             rows = fetch_flight_data(d_airport, a_airport[0], url, headers)
             for row in rows:
-                flight_number, d_code, a_code, d_time, a_time, Num = parse_flight_data(row)
+                flight_number, d_code, a_code, d_time, a_time, flight_number = parse_flight_data(row)
                 flight_id = f"EVA_{today.strftime('%Y%m%d')}_{flight_number}_{d_code}_{a_code}"
                 insert_flight_data(cursor, conn, flight_id, "EVA", d_code, a_code, d_time, a_time, flight_number)
                 # print(f"插入：{flight_id}，{d_code} ➜ {a_code}，出發：{d_time}，抵達：{a_time}")
