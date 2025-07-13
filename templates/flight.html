@@ -35,7 +35,7 @@
                   <span class="input-group-text bg-light"><i class="fas fa-plane-departure"></i></span>
                   <input list="from_airports" type="text" class="form-control" id="from_airport" name="from_airport" placeholder="選擇或輸入機場" />
                   <datalist id="from_airports">
-                    {% for airport in airport_data.data %}
+                    {% for airport in d_airport_data.data %}
                     <option label="{{ airport['Airport_Name_ZH'] }}" value="{{ airport['Airport_Id'] }}"></option>
                     {% endfor %}
                   </datalist>
@@ -47,7 +47,7 @@
                   <span class="input-group-text bg-light"><i class="fas fa-plane-arrival"></i></span>
                   <input list="to_airports" type="text" class="form-control" id="to_airport" name="to_airport" placeholder="選擇或輸入機場" />
                   <datalist id="to_airports">
-                    {% for airport in airport_data.data %}
+                    {% for airport in a_airport_data.data %}
                     <option label="{{ airport['Airport_Name_ZH'] }}" value="{{ airport['Airport_Id'] }}"></option>
                     {% endfor %}
                   </datalist>
@@ -97,7 +97,7 @@
 
   // 將 DOM 元素變數移至此處，讓所有函式都能共用
   let fromAirportInput, toAirportInput, unlimitedCheckbox, airlineCheckboxes, 
-      departureDateInput, resultsContainer, searchForm;
+      departureDateInput, resultsContainer;
 
   function init() {
     // 先抓元素
@@ -107,7 +107,7 @@
     airlineCheckboxes  = document.querySelectorAll('.airline-checkbox');
     departureDateInput = document.getElementById('departure_date');
     resultsContainer   = document.getElementById('flight-results');
-    searchForm         = document.getElementById('searchForm');
+    
     
     // 初始化日期選擇器：出發日
     $('#departure_date').datepicker({
@@ -133,7 +133,7 @@
       });
     });
     
-    searchForm.addEventListener('submit', getData);
+    document.getElementById('searchForm').addEventListener('submit', getData);
   }
 
   // 清除表單
