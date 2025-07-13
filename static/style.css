@@ -1,0 +1,17 @@
+body {
+    background-image: url('https://c.pxhere.com/photos/6b/8b/above_aeroplane_aircraft_engine_airplane_clouds_flight_plane_sky-937305.jpg!d');
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+}
+
+.card {
+    background-color: rgba(255, 255, 255, 0.9);
+}
+
+.display-4,
+.lead {
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+    color: white;
+}

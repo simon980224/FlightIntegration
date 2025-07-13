@@ -17,7 +17,7 @@
   <!-- 頁首標題 -->
   <div class="text-center mb-5">
     <h1 class="display-4 fw-bold">搜尋理想航班</h1>
-    <p class="lead text-muted">輕鬆規劃您的下一趟旅程</p>
+    <p class="lead">輕鬆規劃您的下一趟旅程</p>
   </div>
 
   <div class="row justify-content-center">
@@ -54,10 +54,12 @@
                 </div>
               </div>
               <div class="col-md-12">
-                <label for="departure_date" class="form-label">出發日期</label>
+                <label for="departure_date" class="form-label">出發日期
+                  <span class="text-danger">*</span>
+                </label>
                 <div class="input-group">
                   <span class="input-group-text bg-light"><i class="fas fa-calendar-alt"></i></span>
-                   <input type="text" class="form-control" id="departure_date" name="departure_date" placeholder="請選擇出發日期" />
+                   <input type="text" class="form-control" id="departure_date" name="departure_date" placeholder="請選擇出發日期" required />
                 </div>
               </div>
               <div class="col-12">
