@@ -1,165 +1,64 @@
-{% extends 'base.html' %}
-{% block title %}註冊 - 航班查詢系統{% endblock %}
-
-{% block content %}
-
-<div class="container">
-  <div class="row justify-content-center">
-    <div class="col-lg-6">
-      <!-- 頁面標題 -->
-      <div class="text-center mb-5">
-        <h1 class="display-5 fw-bold text-primary">
-          <i class="fas fa-user-plus me-3"></i>註冊帳號
-        </h1>
-        <p class="lead text-muted">加入我們，享受更多會員專屬服務</p>
-      </div>
-
-      <!-- 註冊表單卡片 -->
-      <div class="card shadow-sm border-0">
-        <div class="card-header bg-primary text-white">
-          <h5 class="mb-0">
-            <i class="fas fa-user-plus me-2"></i>建立新帳號
-          </h5>
+<!-- 註冊模態框 -->
+<div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-body p-4 p-md-5">
+        <div class="text-end">
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
-        <div class="card-body p-4">
-          <form id="registerForm">
-            <!-- 基本資料 -->
-            <div class="mb-3">
-              <label for="username" class="form-label">
-                <i class="fas fa-user me-2"></i>使用者名稱
-              </label>
-              <input type="text" class="form-control" id="username" name="username" required>
-              <div class="form-text">請輸入 3-20 個字元的使用者名稱</div>
-            </div>
 
-            <div class="mb-3">
-              <label for="email" class="form-label">
-                <i class="fas fa-envelope me-2"></i>電子郵件
-              </label>
-              <input type="email" class="form-control" id="email" name="email" required>
-              <div class="form-text">我們將發送確認信到此信箱</div>
-            </div>
+        <h4 class="card-title mb-4 text-primary text-center">
+          <i class="fas fa-user-plus me-2"></i>建立新帳號
+        </h4>
 
-            <div class="mb-3">
-              <label for="password" class="form-label">
-                <i class="fas fa-lock me-2"></i>密碼
-              </label>
-              <input type="password" class="form-control" id="password" name="password" required>
-              <div class="form-text">密碼至少需要 8 個字元，包含大小寫字母和數字</div>
-            </div>
-
-            <div class="mb-3">
-              <label for="confirmPassword" class="form-label">
-                <i class="fas fa-lock me-2"></i>確認密碼
-              </label>
-              <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
-              <div class="form-text">請再次輸入密碼以確認</div>
-            </div>
-
-            <!-- 個人資料 -->
-            <div class="mb-3">
-              <label for="fullName" class="form-label">
-                <i class="fas fa-id-card me-2"></i>姓名
-              </label>
-              <input type="text" class="form-control" id="fullName" name="fullName" required>
-            </div>
-
-            <div class="mb-3">
-              <label for="phone" class="form-label">
-                <i class="fas fa-phone me-2"></i>手機號碼
-              </label>
-              <input type="tel" class="form-control" id="phone" name="phone" required>
-            </div>
-
-            <div class="mb-3">
-              <label for="birthDate" class="form-label">
-                <i class="fas fa-birthday-cake me-2"></i>出生日期
-              </label>
-              <input type="date" class="form-control" id="birthDate" name="birthDate" required>
-            </div>
-
-            <!-- 會員條款 -->
-            <div class="mb-4">
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="agreeTerms" required>
-                <label class="form-check-label" for="agreeTerms">
-                  我同意 <a href="#" class="text-primary">服務條款</a> 和 <a href="#" class="text-primary">隱私政策</a>
-                </label>
-              </div>
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="agreeMarketing">
-                <label class="form-check-label" for="agreeMarketing">
-                  我願意接收會員專屬優惠和最新消息
-                </label>
-              </div>
-            </div>
-
-            <!-- 提交按鈕 -->
-            <div class="d-grid mb-3">
-              <button type="submit" class="btn btn-primary btn-lg">
-                <i class="fas fa-user-plus me-2"></i>立即註冊
-              </button>
-            </div>
-
-            <!-- 登入連結 -->
-            <div class="text-center">
-              <p class="text-muted mb-0">
-                已有帳號？ 
-                <a href="#" class="text-primary text-decoration-none" onclick="showLoginModal()">
-                  <i class="fas fa-sign-in-alt me-1"></i>立即登入
-                </a>
-              </p>
-            </div>
-          </form>
-        </div>
-      </div>
-
-      <!-- 會員權益說明 -->
-      <div class="card shadow-sm border-0 mt-4">
-        <div class="card-header bg-success text-white">
-          <h5 class="mb-0">
-            <i class="fas fa-gift me-2"></i>會員專屬權益
-          </h5>
-        </div>
-        <div class="card-body">
-          <div class="row g-3">
-            <div class="col-md-6">
-              <div class="d-flex align-items-center">
-                <i class="fas fa-percentage fa-2x text-success me-3"></i>
-                <div>
-                  <h6 class="mb-1 fw-bold">專屬折扣</h6>
-                  <small class="text-muted">享有會員專屬票價優惠</small>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="d-flex align-items-center">
-                <i class="fas fa-coins fa-2x text-warning me-3"></i>
-                <div>
-                  <h6 class="mb-1 fw-bold">積分回饋</h6>
-                  <small class="text-muted">每次訂票都可累積積分</small>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="d-flex align-items-center">
-                <i class="fas fa-headset fa-2x text-primary me-3"></i>
-                <div>
-                  <h6 class="mb-1 fw-bold">優先客服</h6>
-                  <small class="text-muted">24小時專線客服支援</small>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="d-flex align-items-center">
-                <i class="fas fa-bell fa-2x text-info me-3"></i>
-                <div>
-                  <h6 class="mb-1 fw-bold">即時通知</h6>
-                  <small class="text-muted">航班異動即時通知</small>
-                </div>
-              </div>
+        <form id="registerFormElement">
+          <!-- 使用者名稱 -->
+          <div class="mb-3">
+            <label for="username" class="form-label">使用者名稱</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="fas fa-user"></i></span>
+              <input type="text" class="form-control" id="username" name="username" placeholder="3-20 個字元" required>
             </div>
           </div>
+          <!-- 電子郵件 -->
+          <div class="mb-3">
+            <label for="email" class="form-label">電子郵件</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="fas fa-envelope"></i></span>
+              <input type="email" class="form-control" id="email" name="email" placeholder="your@email.com" required>
+            </div>
+          </div>
+          <!-- 密碼 -->
+          <div class="mb-3">
+            <label for="password" class="form-label">密碼</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="fas fa-lock"></i></span>
+              <input type="password" class="form-control" id="password" name="password" placeholder="至少 8 個字元" required>
+            </div>
+          </div>
+          <!-- 確認密碼 -->
+          <div class="mb-3">
+            <label for="confirmPassword" class="form-label">確認密碼</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="fas fa-check-circle"></i></span>
+              <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" placeholder="再次輸入密碼" required>
+            </div>
+          </div>
+          
+          <div class="d-grid mt-4">
+            <button type="submit" class="btn btn-primary btn-lg">
+              <i class="fas fa-user-plus me-2"></i>立即註冊
+            </button>
+          </div>
+        </form>
+
+        <hr class="my-4">
+
+        <div class="text-center">
+          <p class="text-muted mb-2">已經有帳號了嗎？</p>
+          <a href="#" class="btn btn-outline-secondary" data-bs-dismiss="modal" data-bs-toggle="modal" data-bs-target="#loginModal">
+            <i class="fas fa-sign-in-alt me-2"></i>立即登入
+          </a>
         </div>
       </div>
     </div>
@@ -167,39 +66,47 @@
 </div>
 
 <script>
-document.getElementById('registerForm').addEventListener('submit', function(e) {
-  e.preventDefault();
-  
-  const password = document.getElementById('password').value;
-  const confirmPassword = document.getElementById('confirmPassword').value;
-  
-  if (password !== confirmPassword) {
-    Swal.fire({
-      icon: 'error',
-      title: '密碼不符',
-      text: '請確認密碼輸入正確'
-    });
-    return;
-  }
+function Register(event) {
+  event.preventDefault();
+  showLoading("註冊中", "正在建立您的帳號，請稍候...");
 
-  // 這裡之後可以加入表單驗證和提交邏輯
-  Swal.fire({
-    icon: 'success',
-    title: '註冊成功！',
-    text: '歡迎加入我們的會員',
-    timer: 2000,
-    showConfirmButton: false
-  }).then(() => {
-    // 跳轉到登入頁面或首頁
-    window.location.href = '/';
+  const payload = {
+    username:      document.getElementById('username').value,
+    email:         document.getElementById('email').value,
+    password:      document.getElementById('password').value,
+    confirmPassword: document.getElementById('confirmPassword').value,    
+  };
+
+  fetch('/register', {
+    method:  'POST',
+    headers: {'Content-Type': 'application/json'},
+    body:    JSON.stringify(payload),
+  })
+  .then(res => res.json())
+  .then(data => {
+    closeLoading();
+    if (data.success) {
+      return showToast('註冊成功！', '歡迎加入我們的會員', 'success')
+        .then(() => {
+          // 隱藏註冊 Modal
+          const regModal = bootstrap.Modal.getInstance(document.getElementById('registerModal'));
+          regModal.hide();
+          // 顯示登入 Modal
+          const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+          loginModal.show();
+        });
+    } else {
+      showToast('註冊失敗', data.message || '請檢查輸入', 'error');
+    }
+  })
+  .catch(err => {
+    closeLoading();
+    console.error(err);
+    showToast('發生錯誤', '請稍後再試', 'error');
   });
-});
-
-function showLoginModal() {
-  // 觸發登入模態框
-  const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
-  loginModal.show();
 }
-</script>
 
-{% endblock %} 
+document
+  .getElementById('registerFormElement')
+  .addEventListener('submit', Register);
+</script>

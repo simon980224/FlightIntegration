@@ -1,173 +1,90 @@
-<!-- 登入/註冊模態框 -->
+<!-- 登入模態框 -->
 <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
   <div class="modal-dialog modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header bg-primary text-white">
-        <h5 class="modal-title" id="loginModalLabel">
-          <i class="fas fa-sign-in-alt me-2"></i>登入 / 註冊
-        </h5>
-        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body">
-        <!-- 登入表單 -->
-        <div id="loginForm">
-          <form id="loginFormElement">
-            <div class="mb-3">
-              <label for="loginUsername" class="form-label">
-                <i class="fas fa-user me-2"></i>使用者名稱
-              </label>
-              <input type="text" class="form-control" id="loginUsername" name="username" required>
-            </div>
-            <div class="mb-3">
-              <label for="loginPassword" class="form-label">
-                <i class="fas fa-lock me-2"></i>密碼
-              </label>
-              <input type="password" class="form-control" id="loginPassword" name="password" required>
-            </div>
-            <div class="d-grid">
-              <button type="submit" class="btn btn-primary">
-                <i class="fas fa-sign-in-alt me-2"></i>登入
-              </button>
-            </div>
-          </form>
-          <hr class="my-3">
-          <div class="text-center">
-            <p class="text-muted mb-2">還沒有帳號？</p>
-            <button type="button" class="btn btn-outline-primary" onclick="showRegisterForm()">
-              <i class="fas fa-user-plus me-2"></i>立即註冊
-            </button>
-          </div>
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-body p-4 p-md-5">
+        <div class="text-end">
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
+        
+        <h4 class="card-title mb-4 text-primary text-center">
+          <i class="fas fa-sign-in-alt me-2"></i>會員登入
+        </h4>
 
-        <!-- 註冊表單 -->
-        <div id="registerForm" style="display: none;">
-          <form id="registerFormElement">
-            <div class="mb-3">
-              <label for="registerUsername" class="form-label">
-                <i class="fas fa-user me-2"></i>使用者名稱
-              </label>
-              <input type="text" class="form-control" id="registerUsername" name="username" required>
+        <!-- 登入表單 -->
+        <form id="loginFormElement">
+          <div class="mb-3">
+            <label for="loginUserid" class="form-label">使用者帳號</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="fas fa-user"></i></span>
+              <input type="text" class="form-control" id="loginUserid" name="user_id" placeholder="請輸入您的帳號" required>
             </div>
-            <div class="mb-3">
-              <label for="registerEmail" class="form-label">
-                <i class="fas fa-envelope me-2"></i>電子郵件
-              </label>
-              <input type="email" class="form-control" id="registerEmail" name="email" required>
+          </div>
+          <div class="mb-4">
+            <label for="loginPassword" class="form-label">密碼</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="fas fa-lock"></i></span>
+              <input type="password" class="form-control" id="loginPassword" name="password" placeholder="請輸入您的密碼" required>
             </div>
-            <div class="mb-3">
-              <label for="registerPassword" class="form-label">
-                <i class="fas fa-lock me-2"></i>密碼
-              </label>
-              <input type="password" class="form-control" id="registerPassword" name="password" required>
-            </div>
-            <div class="mb-3">
-              <label for="confirmPassword" class="form-label">
-                <i class="fas fa-lock me-2"></i>確認密碼
-              </label>
-              <input type="password" class="form-control" id="confirmPassword" name="confirmPassword" required>
-            </div>
-            <div class="d-grid">
-              <button type="submit" class="btn btn-success">
-                <i class="fas fa-user-plus me-2"></i>註冊
-              </button>
-            </div>
-          </form>
-          <hr class="my-3">
-          <div class="text-center">
-            <p class="text-muted mb-2">已有帳號？</p>
-            <button type="button" class="btn btn-outline-secondary" onclick="showLoginForm()">
-              <i class="fas fa-sign-in-alt me-2"></i>返回登入
+          </div>
+          <div class="d-grid">
+            <button type="submit" class="btn btn-primary btn-lg">
+              <i class="fas fa-sign-in-alt me-2"></i>登入
             </button>
           </div>
+        </form>
+
+        <hr class="my-4">
+        
+        <div class="text-center">
+          <p class="text-muted mb-2">還沒有帳號嗎？</p>
+          <a href="#"
+            class="btn btn-outline-secondary"
+            data-bs-dismiss="modal"
+            data-bs-toggle="modal"
+            data-bs-target="#registerModal">
+            <i class="fas fa-user-plus me-2"></i>立即註冊
+          </a>
         </div>
-      </div>
+      </div>  
     </div>
   </div>
 </div>
 
 <script>
-function showRegisterForm() {
-  document.getElementById('loginForm').style.display = 'none';
-  document.getElementById('registerForm').style.display = 'block';
-}
+function Login(event) {
+  event.preventDefault();  
+  showLoading("登入中", "正在驗證您的帳號，請稍候...");
 
-function showLoginForm() {
-  document.getElementById('registerForm').style.display = 'none';
-  document.getElementById('loginForm').style.display = 'block';
-}
-
-// 登入表單提交
-document.getElementById('loginFormElement').addEventListener('submit', function(e) {
-  e.preventDefault();
-  
-  const formData = {
-    username: document.getElementById('loginUsername').value,
-    password: document.getElementById('loginPassword').value
+  const payload = {
+    user_id:document.getElementById('loginUserid').value,
+    password:document.getElementById('loginPassword').value
   };
 
   fetch('/login', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(formData)
+    method:'POST',
+    headers:{'Content-Type': 'application/json'},
+    body:JSON.stringify(payload),
   })
-  .then(response => response.json())
+  .then(res => res.json())
   .then(data => {
+    closeLoading();
     if (data.success) {
-      showToast('登入成功！', data.message, 'success')
-        .then(() => {
-          location.reload();
-        });
+      // 登入成功後顯示 toast，再重新載入
+      return showToast('登入成功', '歡迎回來！', 'success')
+        .then(() => location.reload());
     } else {
-      showToast('登入失敗', data.message, 'error');
+      // 登入失敗顯示錯誤
+      showToast('登入失敗', '帳號或密碼錯誤', 'error');
     }
   })
-  .catch(error => {
-    console.error('Error:', error);
+  .catch(err => {
+    closeLoading();
+    console.error('Error:', err);
     showToast('發生錯誤', '請稍後再試', 'error');
   });
-});
-
-// 註冊表單提交
-document.getElementById('registerFormElement').addEventListener('submit', function(e) {
-  e.preventDefault();
-  
-  const password = document.getElementById('registerPassword').value;
-  const confirmPassword = document.getElementById('confirmPassword').value;
-  
-  if (password !== confirmPassword) {
-    showToast('密碼不符', '請確認密碼輸入正確', 'error');
-    return;
-  }
-
-  const formData = {
-    username: document.getElementById('registerUsername').value,
-    email: document.getElementById('registerEmail').value,
-    password: password
-  };
-
-  fetch('/register', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(formData)
-  })
-  .then(response => response.json())
-  .then(data => {
-    if (data.success) {
-      showToast('註冊成功！', data.message, 'success')
-        .then(() => {
-          showLoginForm();
-        });
-    } else {
-      showToast('註冊失敗', data.message, 'error');
-    }
-  })
-  .catch(error => {
-    console.error('Error:', error);
-    showToast('發生錯誤', '請稍後再試', 'error');
-  });
-});
+}
+document
+  .getElementById('loginFormElement')
+  .addEventListener('submit', Login);
 </script> 

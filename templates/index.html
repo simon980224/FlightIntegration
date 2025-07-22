@@ -1,152 +1,157 @@
 {% extends 'base.html' %}
+{% block body_class %}bg-index{% endblock %}
 {% block title %}首頁 - 航班查詢系統{% endblock %}
 {% block content %}
 
-<div class="container">
+<div class="container my-5">
   <div class="row justify-content-center">
     <div class="col-lg-10">
       <!-- 歡迎區塊 -->
       <div class="text-center mb-5">
-        <h1 class="display-4 fw-bold text-primary mb-3">
+        <h1 class="display-4 fw-bold mb-3">
           <i class="fas fa-plane-departure me-3"></i>歡迎使用航班查詢系統
         </h1>
-        <p class="lead text-muted">輕鬆查詢航班資訊，規劃您的完美旅程</p>
+        <p class="lead">輕鬆查詢航班資訊，規劃您的完美旅程</p>
       </div>
 
-      <!-- 功能卡片區塊 -->
-      <div class="row g-4 mb-5">
-        <div class="col-md-4">
-          <div class="card h-100 shadow-sm border-0">
-            <div class="card-body text-center p-4">
-              <div class="mb-3">
-                <i class="fas fa-search fa-3x text-primary"></i>
+      <div class="card shadow-lg border-0">
+        <div class="card-body p-4 p-md-5">
+          <!-- 功能卡片區塊 -->
+          <div class="row g-4 mb-5">
+            <div class="col-md-4">
+              <div class="card h-100 shadow-sm border-0">
+                <div class="card-body text-center p-4">
+                  <div class="mb-3">
+                    <i class="fas fa-search fa-3x text-primary"></i>
+                  </div>
+                  <h5 class="card-title fw-bold">航班查詢</h5>
+                  <p class="card-text text-muted">快速查詢航班時刻表，支援多種篩選條件</p>
+                  <a href="/flight" class="btn btn-primary">
+                    <i class="fas fa-search me-2"></i>開始查詢
+                  </a>
+                </div>
               </div>
-              <h5 class="card-title fw-bold">航班查詢</h5>
-              <p class="card-text text-muted">快速查詢航班時刻表，支援多種篩選條件</p>
-              <a href="/flight" class="btn btn-primary">
-                <i class="fas fa-search me-2"></i>開始查詢
-              </a>
+            </div>
+            
+            <div class="col-md-4">
+              <div class="card h-100 shadow-sm border-0">
+                <div class="card-body text-center p-4">
+                  <div class="mb-3">
+                    <i class="fas fa-ticket-alt fa-3x text-success"></i>
+                  </div>
+                  <h5 class="card-title fw-bold">線上訂票</h5>
+                  <p class="card-text text-muted">便捷的線上訂票服務，輕鬆完成購票</p>
+                  <a href="/ticket" class="btn btn-success">
+                    <i class="fas fa-ticket-alt me-2"></i>立即訂票
+                  </a>
+                </div>
+              </div>
+            </div>
+            
+            <div class="col-md-4">
+              <div class="card h-100 shadow-sm border-0">
+                <div class="card-body text-center p-4">
+                  <div class="mb-3">
+                    <i class="fas fa-user-circle fa-3x text-info"></i>
+                  </div>
+                  <h5 class="card-title fw-bold">會員服務</h5>
+                  <p class="card-text text-muted">查看個人資料、訂票記錄等會員專屬服務</p>
+                  <a href="/profile" class="btn btn-info text-white">
+                    <i class="fas fa-user-circle me-2"></i>會員中心
+                  </a>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-        
-        <div class="col-md-4">
-          <div class="card h-100 shadow-sm border-0">
-            <div class="card-body text-center p-4">
-              <div class="mb-3">
-                <i class="fas fa-ticket-alt fa-3x text-success"></i>
-              </div>
-              <h5 class="card-title fw-bold">線上訂票</h5>
-              <p class="card-text text-muted">便捷的線上訂票服務，輕鬆完成購票</p>
-              <a href="/ticket" class="btn btn-success">
-                <i class="fas fa-ticket-alt me-2"></i>立即訂票
-              </a>
-            </div>
-          </div>
-        </div>
-        
-        <div class="col-md-4">
-          <div class="card h-100 shadow-sm border-0">
-            <div class="card-body text-center p-4">
-              <div class="mb-3">
-                <i class="fas fa-user-circle fa-3x text-info"></i>
-              </div>
-              <h5 class="card-title fw-bold">會員服務</h5>
-              <p class="card-text text-muted">查看個人資料、訂票記錄等會員專屬服務</p>
-              <a href="/profile" class="btn btn-info text-white">
-                <i class="fas fa-user-circle me-2"></i>會員中心
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- 最新航班資訊 -->
-      <div class="card shadow-sm border-0">
-        <div class="card-header bg-primary text-white">
-          <h5 class="mb-0">
-            <i class="fas fa-clock me-2"></i>最新航班資訊
-          </h5>
-        </div>
-        <div class="card-body">
+          <!-- 最新航班資訊 -->
+          <div class="card shadow-sm border-0 mb-5">
+            <div class="card-header bg-primary text-white">
+              <h5 class="mb-0">
+                <i class="fas fa-clock me-2"></i>最新航班資訊
+              </h5>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-6">
+                  <h6 class="fw-bold text-primary mb-3">
+                    <i class="fas fa-plane-departure me-2"></i>即將起飛
+                  </h6>
+                  <div class="list-group list-group-flush">
+                    <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
+                      <div>
+                        <strong>BR123</strong> - 台北 → 東京
+                        <br><small class="text-muted">起飛時間: 14:30</small>
+                      </div>
+                      <span class="badge bg-success">準時</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
+                      <div>
+                        <strong>CI567</strong> - 台北 → 香港
+                        <br><small class="text-muted">起飛時間: 15:45</small>
+                      </div>
+                      <span class="badge bg-warning text-dark">延誤</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-md-6">
+                  <h6 class="fw-bold text-success mb-3">
+                    <i class="fas fa-plane-arrival me-2"></i>即將抵達
+                  </h6>
+                  <div class="list-group list-group-flush">
+                    <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
+                      <div>
+                        <strong>NH789</strong> - 東京 → 台北
+                        <br><small class="text-muted">抵達時間: 16:20</small>
+                      </div>
+                      <span class="badge bg-success">準時</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
+                      <div>
+                        <strong>CX456</strong> - 香港 → 台北
+                        <br><small class="text-muted">抵達時間: 17:15</small>
+                      </div>
+                      <span class="badge bg-success">準時</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 系統特色 -->
           <div class="row">
-            <div class="col-md-6">
-              <h6 class="fw-bold text-primary mb-3">
-                <i class="fas fa-plane-departure me-2"></i>即將起飛
-              </h6>
-              <div class="list-group list-group-flush">
-                <div class="list-group-item d-flex justify-content-between align-items-center border-0">
-                  <div>
-                    <strong>BR123</strong> - 台北 → 東京
-                    <br><small class="text-muted">起飛時間: 14:30</small>
-                  </div>
-                  <span class="badge bg-success">準時</span>
-                </div>
-                <div class="list-group-item d-flex justify-content-between align-items-center border-0">
-                  <div>
-                    <strong>CI567</strong> - 台北 → 香港
-                    <br><small class="text-muted">起飛時間: 15:45</small>
-                  </div>
-                  <span class="badge bg-warning text-dark">延誤</span>
-                </div>
+            <div class="col-12">
+              <h3 class="text-center mb-4 fw-bold">系統特色</h3>
+            </div>
+            <div class="col-md-3 text-center mb-3">
+              <div class="p-3">
+                <i class="fas fa-bolt fa-2x text-warning mb-2"></i>
+                <h6 class="fw-bold">快速查詢</h6>
+                <small class="text-muted">秒級響應，即時獲取航班資訊</small>
               </div>
             </div>
-            <div class="col-md-6">
-              <h6 class="fw-bold text-success mb-3">
-                <i class="fas fa-plane-arrival me-2"></i>即將抵達
-              </h6>
-              <div class="list-group list-group-flush">
-                <div class="list-group-item d-flex justify-content-between align-items-center border-0">
-                  <div>
-                    <strong>NH789</strong> - 東京 → 台北
-                    <br><small class="text-muted">抵達時間: 16:20</small>
-                  </div>
-                  <span class="badge bg-success">準時</span>
-                </div>
-                <div class="list-group-item d-flex justify-content-between align-items-center border-0">
-                  <div>
-                    <strong>CX456</strong> - 香港 → 台北
-                    <br><small class="text-muted">抵達時間: 17:15</small>
-                  </div>
-                  <span class="badge bg-success">準時</span>
-                </div>
+            <div class="col-md-3 text-center mb-3">
+              <div class="p-3">
+                <i class="fas fa-mobile-alt fa-2x text-info mb-2"></i>
+                <h6 class="fw-bold">響應式設計</h6>
+                <small class="text-muted">支援各種裝置，隨時隨地查詢</small>
               </div>
             </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 系統特色 -->
-      <div class="row mt-5">
-        <div class="col-12">
-          <h3 class="text-center mb-4 fw-bold">系統特色</h3>
-        </div>
-        <div class="col-md-3 text-center mb-3">
-          <div class="p-3">
-            <i class="fas fa-bolt fa-2x text-warning mb-2"></i>
-            <h6 class="fw-bold">快速查詢</h6>
-            <small class="text-muted">秒級響應，即時獲取航班資訊</small>
-          </div>
-        </div>
-        <div class="col-md-3 text-center mb-3">
-          <div class="p-3">
-            <i class="fas fa-mobile-alt fa-2x text-info mb-2"></i>
-            <h6 class="fw-bold">響應式設計</h6>
-            <small class="text-muted">支援各種裝置，隨時隨地查詢</small>
-          </div>
-        </div>
-        <div class="col-md-3 text-center mb-3">
-          <div class="p-3">
-            <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
-            <h6 class="fw-bold">安全可靠</h6>
-            <small class="text-muted">資料加密，保障個人隱私</small>
-          </div>
-        </div>
-        <div class="col-md-3 text-center mb-3">
-          <div class="p-3">
-            <i class="fas fa-headset fa-2x text-primary mb-2"></i>
-            <h6 class="fw-bold">24小時服務</h6>
-            <small class="text-muted">全天候提供航班查詢服務</small>
+            <div class="col-md-3 text-center mb-3">
+              <div class="p-3">
+                <i class="fas fa-shield-alt fa-2x text-success mb-2"></i>
+                <h6 class="fw-bold">安全可靠</h6>
+                <small class="text-muted">資料加密，保障個人隱私</small>
+              </div>
+            </div>
+            <div class="col-md-3 text-center mb-3">
+              <div class="p-3">
+                <i class="fas fa-headset fa-2x text-primary mb-2"></i>
+                <h6 class="fw-bold">24小時服務</h6>
+                <small class="text-muted">全天候提供航班查詢服務</small>
+              </div>
+            </div>
           </div>
         </div>
       </div>

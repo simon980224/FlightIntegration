@@ -1,9 +1,16 @@
 body {
-    background-image: url('https://c.pxhere.com/photos/6b/8b/above_aeroplane_aircraft_engine_airplane_clouds_flight_plane_sky-937305.jpg!d');
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     background-attachment: fixed;
+}
+
+body.bg-flight {
+    background-image: url('https://c.pxhere.com/photos/6b/8b/above_aeroplane_aircraft_engine_airplane_clouds_flight_plane_sky-937305.jpg!d');
+}
+
+body.bg-index {
+    background-image: url('https://images.unsplash.com/photo-1622396481328-9b1b78cdd9fd?q=80&w=2670&auto=format&fit=crop');
 }
 
 .card {
@@ -13,5 +20,9 @@ body {
 .display-4,
 .lead {
     text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.bg-index .display-4, .bg-flight .display-4,
+.bg-index .lead, .bg-flight .lead {
     color: white;
 }

@@ -23,7 +23,7 @@
 
   {% block extra_head %}{% endblock %}
 </head>
-<body class="bg-light">
+<body class="bg-light {% block body_class %}bg-flight{% endblock %}">
   <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
     <div class="container">
       <a class="navbar-brand fw-bold" href="/">
@@ -51,10 +51,10 @@
           </li>
         </ul>
         <ul class="navbar-nav">
-          {% if session.get('username') %}
+          {% if user_id %}
             <li class="nav-item dropdown">
               <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown">
-                <i class="fas fa-user-circle me-1"></i>{{ session.get('username') }}
+                <i class="fas fa-user-circle me-1"></i>{{ user_id }}
               </a>
               <ul class="dropdown-menu dropdown-menu-end">
                 <li><a class="dropdown-item" href="/profile"><i class="fas fa-user me-2"></i>個人資料</a></li>
@@ -76,11 +76,23 @@
   </nav>
 
   {% include '_login.html' %}
+  {% include '_register.html' %}
 
   <main class="py-4">
     {% block content %}{% endblock %}
   </main>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
+
+  {% if open_modal %}
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      if ('{{ open_modal }}' === 'login') {
+        const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+        loginModal.show();
+      }
+    });
+  </script>
+  {% endif %}
 </body>
 </html>
