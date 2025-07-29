@@ -10,7 +10,7 @@ today = date.today()
 def log_info(message):
     log_dir = os.path.join("logs", "CronLog")
     os.makedirs(log_dir, exist_ok=True)
-    log_filename = f"{today.strftime('%Y%m%d')}.log"
+    log_filename = f"{today.strftime('%Y%m%d')}_eva.log"
     log_path = os.path.join(log_dir, log_filename)
     
     logging.basicConfig(
