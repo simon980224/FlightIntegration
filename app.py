@@ -10,6 +10,11 @@ app.secret_key = 'your-development-secret-key'
 FIXED_USERNAME = 'admin'
 FIXED_PASSWORD = '12345'
 
+# 將 user_id 注入到所有模板
+@app.context_processor
+def inject_user():
+    return dict(user_id=session.get('user_id'))
+
 # 登入要求裝飾器
 def login_required(f):
     @wraps(f)
@@ -95,10 +100,7 @@ def login():
 @app.route('/logout')
 def logout():
     session.clear()
-    return render_template('index.html', title='首頁')
-
-
-
+    return redirect(url_for('index'))
 
 
 
