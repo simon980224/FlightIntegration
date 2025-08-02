@@ -14,17 +14,17 @@
         <!-- 登入表單 -->
         <form id="loginFormElement">
           <div class="mb-3">
-            <label for="loginUserid" class="form-label">使用者帳號</label>
+            <label for="user_id" class="form-label">使用者帳號</label>
             <div class="input-group">
               <span class="input-group-text bg-light"><i class="fas fa-user"></i></span>
-              <input type="text" class="form-control" id="loginUserid" name="user_id" placeholder="請輸入您的帳號" required>
+              <input type="text" class="form-control" id="user_id" name="user_id" placeholder="請輸入您的帳號" required>
             </div>
           </div>
           <div class="mb-4">
-            <label for="loginPassword" class="form-label">密碼</label>
+            <label for="password" class="form-label">密碼</label>
             <div class="input-group">
               <span class="input-group-text bg-light"><i class="fas fa-lock"></i></span>
-              <input type="password" class="form-control" id="loginPassword" name="password" placeholder="請輸入您的密碼" required>
+              <input type="password" class="form-control" id="password" name="password" placeholder="請輸入您的密碼" required>
             </div>
           </div>
           <div class="d-grid">
@@ -50,13 +50,12 @@
     </div>
   </div>
 </div>
-
 <script>
 document.getElementById("loginFormElement").addEventListener("submit", function (event) {
   event.preventDefault(); // 阻止默認的表單提交行為
 
-  const user_id = document.getElementById("loginUserid").value.trim();
-  const password = document.getElementById("loginPassword").value;
+  const user_id = document.getElementById("user_id").value.trim();
+  const password = document.getElementById("password").value;
 
   if (!user_id || !password) {
     // 欄位不完整
