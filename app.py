@@ -10,11 +10,6 @@ app.secret_key = 'your-development-secret-key'
 FIXED_USERNAME = 'admin'
 FIXED_PASSWORD = '12345'
 
-# 將 user_id 注入到所有模板
-@app.context_processor
-def inject_user():
-    return dict(user_id=session.get('user_id'))
-
 # 登入要求裝飾器
 def login_required(f):
     @wraps(f)
@@ -95,17 +90,29 @@ def login():
         return jsonify({'success': True, 'message': '登入成功'})
     else:
         return jsonify({'success': False, 'message': '使用者名稱或密碼錯誤'})
+    
+# 註冊處理    
+@app.route('/register', methods=['POST'])
+def register():
+    data = request.get_json()
+    user_id = data.get("user_id", "").strip()
+    user_name = data.get("user_name", "").strip()
+    password = data.get("password", "").strip()
+
+    # 檢查欄位是否為空
+    if not user_id or not user_name or not password:
+        return jsonify({"success": False, "message": "請輸入完整資料"})
+
+    # 呼叫 user_service 裡的註冊函式
+    result = user_service.RegisterUser(user_id, user_name, password)
+    return jsonify(result)
+
 
 # 登出
 @app.route('/logout')
 def logout():
     session.clear()
-    return redirect(url_for('index'))
-
-
-
-
-
+    return render_template('index.html', title='首頁')
 
 # 個人資料頁面
 @app.route('/profile')
