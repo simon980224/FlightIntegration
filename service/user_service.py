@@ -19,7 +19,7 @@ def AuthenticateUser(user_id, password):
 
         query = """
 SELECT *
-FROM User
+FROM [User]
 WHERE User_Id = %s AND Password_Hash = %s
         """
         cursor.execute(query, (user_id, password_hash))

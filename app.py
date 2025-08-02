@@ -79,11 +79,12 @@ def login():
 
     user_id = data.get("user_id", "").strip()
     password = data.get("password", "").strip()    
-    
+
     if not user_id or not password:
         return jsonify({'success': False, 'message': '請輸入使用者名稱和密碼'})
     
     user_data = user_service.AuthenticateUser(user_id, password)
+    print("🧪 AuthenticateUser 回傳：", user_data)
     if user_data["success"]:
         session['user_id'] = user_id
         return jsonify({'success': True, 'message': '登入成功'})
