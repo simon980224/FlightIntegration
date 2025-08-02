@@ -14,26 +14,34 @@
         <form id="registerFormElement">
           <!-- 使用者名稱 -->
           <div class="mb-3">
-            <label for="username" class="form-label">使用者名稱</label>
+            <label for="reg_user_id" class="form-label">使用者帳號</label>
             <div class="input-group">
               <span class="input-group-text bg-light"><i class="fas fa-user"></i></span>
-              <input type="text" class="form-control" id="username" name="username" placeholder="3-20 個字元" required>
+              <input type="text" class="form-control" id="reg_user_id" name="reg_user_id" placeholder="3-20 個字元" required>
+            </div>
+          </div>
+          <!-- 名稱 -->
+          <div class="mb-3">
+            <label for="user_name" class="form-label">使用者名稱</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="fas fa-user"></i></span>
+              <input type="text" class="form-control" id="user_name" name="user_name" placeholder="3-20 個字元" required>
             </div>
           </div>
           <!-- 電子郵件 -->
-          <div class="mb-3">
+          <!-- <div class="mb-3">
             <label for="email" class="form-label">電子郵件</label>
             <div class="input-group">
               <span class="input-group-text bg-light"><i class="fas fa-envelope"></i></span>
               <input type="email" class="form-control" id="email" name="email" placeholder="your@email.com" required>
             </div>
-          </div>
+          </div> -->
           <!-- 密碼 -->
           <div class="mb-3">
-            <label for="password" class="form-label">密碼</label>
+            <label for="reg_password" class="form-label">密碼</label>
             <div class="input-group">
               <span class="input-group-text bg-light"><i class="fas fa-lock"></i></span>
-              <input type="password" class="form-control" id="password" name="password" placeholder="至少 8 個字元" required>
+              <input type="password" class="form-control" id="reg_password" name="reg_password" placeholder="至少 8 個字元" required>
             </div>
           </div>
           <!-- 確認密碼 -->
@@ -71,10 +79,11 @@ function Register(event) {
   showLoading("註冊中", "正在建立您的帳號，請稍候...");
 
   const payload = {
-    username:      document.getElementById('username').value,
-    email:         document.getElementById('email').value,
-    password:      document.getElementById('password').value,
-    confirmPassword: document.getElementById('confirmPassword').value,    
+    user_id:document.getElementById('reg_user_id').value,
+    user_name:document.getElementById('user_name').value,
+    // email:document.getElementById('email').value,
+    password:document.getElementById('reg_password').value,
+    confirmPassword:document.getElementById('confirmPassword').value,    
   };
 
   fetch('/register', {

@@ -98,10 +98,18 @@ def register():
     user_id = data.get("user_id", "").strip()
     user_name = data.get("user_name", "").strip()
     password = data.get("password", "").strip()
-
+    confirm_password = data.get("confirmPassword", "").strip()
+    print("user_id:", user_id)
+    print("user_name:", user_name)
+    print("password:", password)
+    print("confirm_password:", confirm_password)
     # 檢查欄位是否為空
     if not user_id or not user_name or not password:
         return jsonify({"success": False, "message": "請輸入完整資料"})
+
+    # 檢查密碼是否一致
+    if password != confirm_password:
+        return jsonify({"success": False, "message": "兩次輸入的密碼不一致"})
 
     # 呼叫 user_service 裡的註冊函式
     result = user_service.RegisterUser(user_id, user_name, password)
@@ -113,6 +121,7 @@ def register():
 def logout():
     session.clear()
     return render_template('index.html', title='首頁')
+
 
 # 個人資料頁面
 @app.route('/profile')
