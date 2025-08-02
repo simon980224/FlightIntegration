@@ -52,39 +52,60 @@
 </div>
 
 <script>
-function Login(event) {
-  event.preventDefault();  
+document.getElementById("loginFormElement").addEventListener("submit", function (event) {
+  event.preventDefault(); // 阻止默認的表單提交行為
+
+  const user_id = document.getElementById("loginUserid").value.trim();
+  const password = document.getElementById("loginPassword").value;
+
+  if (!user_id || !password) {
+    // 欄位不完整
+    if (typeof showWarning === "function") {
+      showWarning("提示", "請填寫完整資料");
+    } else {
+      showToast("提示", "請填寫完整資料", "warning");
+    }
+    return;
+  }
+
   showLoading("登入中", "正在驗證您的帳號，請稍候...");
 
-  const payload = {
-    user_id:document.getElementById('loginUserid').value,
-    password:document.getElementById('loginPassword').value
-  };
-
-  fetch('/login', {
-    method:'POST',
-    headers:{'Content-Type': 'application/json'},
-    body:JSON.stringify(payload),
+  fetch("/login", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ user_id, password }),
   })
-  .then(res => res.json())
-  .then(data => {
-    closeLoading();
-    if (data.success) {
-      // 登入成功後顯示 toast，再重新載入
-      return showToast('登入成功', '歡迎回來！', 'success')
-        .then(() => location.reload());
-    } else {
-      // 登入失敗顯示錯誤
-      showToast('登入失敗', '帳號或密碼錯誤', 'error');
-    }
-  })
-  .catch(err => {
-    closeLoading();
-    console.error('Error:', err);
-    showToast('發生錯誤', '請稍後再試', 'error');
-  });
-}
-document
-  .getElementById('loginFormElement')
-  .addEventListener('submit', Login);
+    .then((response) => response.json())
+    .then((data) => {
+      closeLoading();
+      if (data.success) {
+        if (typeof showSuccess === "function") {
+          showSuccess("成功", "登入成功");
+        } else {
+          showToast("登入成功", "歡迎回來！", "success");
+        }
+        // 重新載入或導向（依你原本的需求）
+        setTimeout(() => {
+          location.reload();
+        }, 500);
+      } else {
+        if (typeof showError === "function") {
+          showError("失敗", data.message || "帳號或密碼錯誤");
+        } else {
+          showToast("登入失敗", data.message || "帳號或密碼錯誤", "error");
+        }
+      }
+    })
+    .catch((error) => {
+      closeLoading();
+      console.error("登入過程中出錯:", error);
+      if (typeof showError === "function") {
+        showError("發生錯誤", "請稍後再試");
+      } else {
+        showToast("發生錯誤", "請稍後再試", "error");
+      }
+    });
+});
 </script> 
