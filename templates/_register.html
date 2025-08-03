@@ -74,48 +74,59 @@
 </div>
 
 <script>
-function Register(event) {
-  event.preventDefault();
+document.getElementById("registerFormElement").addEventListener("submit", function (event) {
+  event.preventDefault(); // 阻止表單預設提交
+
+  const user_id = document.getElementById("reg_user_id").value.trim();
+  const user_name = document.getElementById("user_name").value.trim();
+  const password = document.getElementById("reg_password").value;
+  const confirmPassword = document.getElementById("confirmPassword").value;
+
+  // 基本欄位檢查
+  if (!user_id || !user_name || !password || !confirmPassword) {
+    showToast("提示", "請填寫完整資料", "warning");
+    return;
+  }
+
+  // 密碼比對
+  if (password !== confirmPassword) {
+    showToast("提示", "密碼與確認密碼不符", "warning");
+    return;
+  }
+
   showLoading("註冊中", "正在建立您的帳號，請稍候...");
 
-  const payload = {
-    user_id:document.getElementById('reg_user_id').value,
-    user_name:document.getElementById('user_name').value,
-    // email:document.getElementById('email').value,
-    password:document.getElementById('reg_password').value,
-    confirmPassword:document.getElementById('confirmPassword').value,    
-  };
+  const payload = { user_id, user_name, password, confirmPassword };
 
-  fetch('/register', {
-    method:  'POST',
-    headers: {'Content-Type': 'application/json'},
-    body:    JSON.stringify(payload),
+  fetch("/register", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(payload),
   })
-  .then(res => res.json())
-  .then(data => {
-    closeLoading();
-    if (data.success) {
-      return showToast('註冊成功！', '歡迎加入我們的會員', 'success')
-        .then(() => {
+    .then((response) => response.json())
+    .then((data) => {
+      closeLoading();
+      if (data.success) {
+        showToast("註冊成功！", "歡迎加入我們的會員", "success").then(() => {
           // 隱藏註冊 Modal
-          const regModal = bootstrap.Modal.getInstance(document.getElementById('registerModal'));
+          const regModalEl = document.getElementById("registerModal");
+          const regModal = bootstrap.Modal.getInstance(regModalEl) || new bootstrap.Modal(regModalEl);
           regModal.hide();
+
           // 顯示登入 Modal
-          const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+          const loginModal = new bootstrap.Modal(document.getElementById("loginModal"));
           loginModal.show();
         });
-    } else {
-      showToast('註冊失敗', data.message || '請檢查輸入', 'error');
-    }
-  })
-  .catch(err => {
-    closeLoading();
-    console.error(err);
-    showToast('發生錯誤', '請稍後再試', 'error');
-  });
-}
-
-document
-  .getElementById('registerFormElement')
-  .addEventListener('submit', Register);
+      } else {
+        showToast("註冊失敗", data.message || "請檢查輸入", "error");
+      }
+    })
+    .catch((error) => {
+      closeLoading();
+      console.error("註冊過程中出錯:", error);
+      showToast("發生錯誤", "請稍後再試", "error");
+    });
+});
 </script>

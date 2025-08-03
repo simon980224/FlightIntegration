@@ -77,6 +77,10 @@ document.getElementById("loginFormElement").addEventListener("submit", function 
       closeLoading();
       if (data.success) {
         showToast("登入成功", "歡迎回來！", "success");
+        // 隱藏登入頁面
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
       } else {
         showToast("登入失敗", data.message || "帳號或密碼錯誤", "error");
       }
