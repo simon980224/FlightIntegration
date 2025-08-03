@@ -172,6 +172,21 @@ def update_profile():
 
     return jsonify(result)
 
+@app.route('/update_profile', methods=['GET'])
+@login_required
+def profile_page():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'message': '請先登入'})
+
+    user_data_result = user_service.GetUserInfo(user_id)
+    if user_data_result["success"]:
+        user_data_result = user_data_result["data"]
+        return render_template('update_profile.html', user=user_data_result)
+    else:
+        return jsonify({'success': False, 'message': '無法獲取使用者資料'})
+    
+
 @app.route("/lineApi", methods=['POST'])
 def Api():
     # 取得 LINE 發送的 X-Line-Signature 標頭
