@@ -1,4 +1,7 @@
 import pymssql
+from datetime import datetime, timezone, timedelta
+
+tz_offset = timezone(timedelta(hours=8))
 
 # 連接字串配置
 conn_args = {
@@ -103,6 +106,14 @@ WHERE
 
         cursor.execute(query, params)
         results = cursor.fetchall()
+
+        # ✅ 加上時區 +08:00
+        for row in results:
+            if isinstance(row["D_Time"], datetime):
+                row["D_Time"] = row["D_Time"].replace(tzinfo=tz_offset).isoformat()
+            if isinstance(row["A_Time"], datetime):
+                row["A_Time"] = row["A_Time"].replace(tzinfo=tz_offset).isoformat()
+
         return {"success": True, "data": results}
     except Exception as e:
         return {"success": False, "data": [], "error": str(e)}
