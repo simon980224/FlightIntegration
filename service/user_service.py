@@ -25,12 +25,16 @@ WHERE User_Id = %s AND Password_Hash = %s
         """
         cursor.execute(query, (user_id, password_hash))
         results = cursor.fetchall()
+
         if results:
             return {"success": True, "data": results}
+        
         else:
             return {"success": False, "message": "使用者名稱或密碼錯誤"}
+    
     except Exception as e:
         return {"success": False, "data": [], "error": str(e)}
+    
     finally:
         if cursor:
             cursor.close()
@@ -55,8 +59,8 @@ def RegisterUser(user_id, user_name, password):
 
         # 寫入新使用者（User_Img 可為 NULL，這邊先放空字串或 None）
         cursor.execute("""
-            INSERT INTO [User] (User_Id, User_Name, Password_Hash, User_Img, Create_At, Modify_At)
-            VALUES (%s, %s, %s, %s, %s, %s)
+INSERT INTO [User] (User_Id, User_Name, Password_Hash, User_Img, Create_At, Modify_At)
+VALUES (%s, %s, %s, %s, %s, %s)
         """, (user_id, user_name, password_hash, None, now, now))
         conn.commit()
 
@@ -65,6 +69,83 @@ def RegisterUser(user_id, user_name, password):
     except Exception as e:
         return {"success": False, "message": f"註冊失敗：{str(e)}"}
 
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
+
+def UpdateUserInfo(
+    user_id,
+    user_name=None,
+    old_password=None,
+    new_password=None,
+    user_img=None,
+    create_at=None
+):
+    try:
+        conn = pymssql.connect(**conn_args)
+        cursor = conn.cursor(as_dict=True)
+
+        # 驗證舊密碼（若要修改密碼時才驗證）
+        if new_password:
+            if not old_password:
+                return {"success": False, "message": "請提供舊密碼以修改新密碼"}
+            
+            old_password_hash = hashlib.sha256(old_password.encode('utf-8')).hexdigest()
+
+            cursor.execute("SELECT * FROM [User] WHERE User_Id = %s AND Password_Hash = %s",
+                           (user_id, old_password_hash))
+            if not cursor.fetchone():
+                return {"success": False, "message": "舊密碼錯誤，無法修改密碼"}
+            if new_password == old_password:
+                return {"success": False, "message": "新密碼不能與舊密碼相同"}
+
+        # 準備更新欄位
+        fields = []
+        params = []
+        modify_at = datetime.datetime.now()
+
+        if user_name is not None:
+            fields.append("User_Name = %s")
+            params.append(user_name)
+
+        if new_password is not None:
+            new_password_hash = hashlib.sha256(new_password.encode('utf-8')).hexdigest()
+            fields.append("Password_Hash = %s")
+            params.append(new_password_hash)
+
+        if user_img is not None:
+            fields.append("User_Img = %s")
+            params.append(user_img)
+
+        fields.append("Modify_At = %s")
+        params.append(modify_at)
+
+        if not fields:
+            return {"success": False, "message": "沒有提供任何要更新的欄位"}
+
+        # 組成 SQL 更新語句
+        query = f"""
+UPDATE [User]
+SET {', '.join(fields)}
+WHERE User_Id = %s
+        """
+        params.append(user_id)
+
+        # 執行更新
+        cursor = conn.cursor()
+        cursor.execute(query, tuple(params))
+        conn.commit()
+
+        if cursor.rowcount == 0:
+            return {"success": False, "message": "查無此使用者，更新失敗"}
+
+        return {"success": True, "message": "使用者資料更新成功"}
+
+    except Exception as e:
+        return {"success": False, "message": f"更新失敗：{str(e)}"}
+    
     finally:
         if cursor:
             cursor.close()

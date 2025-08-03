@@ -3,12 +3,9 @@ from service import search_service,user_service
 from functools import wraps
 from datetime import datetime
 
+
 app = Flask(__name__)
 app.secret_key = 'your-development-secret-key'
-
-# 固定的使用者憑證
-FIXED_USERNAME = 'admin'
-FIXED_PASSWORD = '12345'
 
 # 將 user_id 注入到所有模板
 @app.context_processor
@@ -137,13 +134,39 @@ def profile():
         'userid': '001',
         'username': 'Admin',
         'email': '12345@example.com',
-        'created_at': datetime(2025, 1, 1),
+        'created_at': datetime.datetime(2025, 1, 1),
         'membership_level': '一般會員',
         'points': 1000,
         'points_to_upgrade': 3000
     }
     return render_template('profile.html', user=user_data)
 
+# 修改個人資料（需要舊密碼才能修改密碼）
+@app.route('/update_profile', methods=['POST'])
+@login_required
+def update_profile():
+    user_id = session.get('user_id')
+    data = request.get_json()
+
+    user_name = data.get("user_name")              # 要改的名字
+    old_password = data.get("old_password")        # 舊密碼（用來驗證）
+    new_password = data.get("new_password")        # 新密碼（可選）
+    user_img = data.get("user_img")                # 用戶頭像檔名或 URL
+    create_at = data.get("create_at")              # 可選，如果你允許修改建立時間
+
+    result = user_service.UpdateUserInfo(
+        user_id=user_id,
+        user_name=user_name,
+        old_password=old_password,
+        new_password=new_password,
+        user_img=user_img,
+        create_at=create_at
+    )
+
+    return jsonify(result)
+
+
+#########################進度條###########################
 # 我的訂票頁面
 @app.route('/bookings')
 @login_required
