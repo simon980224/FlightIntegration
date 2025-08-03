@@ -1,8 +1,15 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
-from service import search_service,user_service
+from service import search_service,user_service,linebot_service
 from functools import wraps
 from datetime import datetime
 
+# LINE Bot SDK 的相關匯入
+from linebot import LineBotApi, WebhookHandler
+from linebot.exceptions import InvalidSignatureError
+from linebot.models import MessageEvent, TextMessage, TextSendMessage
+
+line_bot_api = LineBotApi('LINE_CHANNEL_ACCESS_TOKEN')
+handler = WebhookHandler('LINE_CHANNEL_SECRET')
 
 app = Flask(__name__)
 app.secret_key = 'your-development-secret-key'
@@ -165,6 +172,27 @@ def update_profile():
 
     return jsonify(result)
 
+@app.route("/lineApi", methods=['POST'])
+def Api():
+    # 取得 LINE 發送的 X-Line-Signature 標頭
+    signature = request.headers.get('X-Line-Signature')
+
+    try:
+        handler.handle(request.get_data(as_text=True), signature)
+    except InvalidSignatureError:
+        pass
+
+    return 'OK'
+
+@handler.add(MessageEvent, message=TextMessage)
+def handle_message(event):
+    message = event.message.text.strip()
+
+    if message == '/測試':
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text="妳好")
+        )
 
 #########################進度條###########################
 # 我的訂票頁面

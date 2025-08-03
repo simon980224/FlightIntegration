@@ -2,3 +2,5 @@ Flask
 requests
 beautifulsoup4
 pymssql
+line-bot-sdk
+WebhookHandler
