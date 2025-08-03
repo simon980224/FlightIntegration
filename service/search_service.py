@@ -59,6 +59,7 @@ def get_flight_data(from_id=None, to_id=None, dep_time=None, airline_ids=None):
 SELECT 
     F.Flight_Id,
     F.No,
+    F.Airline_Id,
     AL.Airline_Name_ZH AS Airline_Name_ZH,
     FAP.Airport_Name_ZH AS From_Airport,
     TAP.Airport_Name_ZH AS To_Airport,
