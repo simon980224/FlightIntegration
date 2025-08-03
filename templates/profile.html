@@ -48,19 +48,19 @@
                           <div class="row">
                             <div class="col-md-6 mb-3">
                               <label class="form-label fw-bold text-muted">使用者名稱</label>
-                              <p class="form-control-plaintext fs-5">{{ user.username }}</p>
+                              <p class="form-control-plaintext fs-5">{{ user.User_Name }}</p>
                             </div>
                             <div class="col-md-6 mb-3">
                               <label class="form-label fw-bold text-muted">電子郵件</label>
-                              <p class="form-control-plaintext fs-5">{{ user.email }}</p>
+                              <p class="form-control-plaintext fs-5">{{ user.Email }}</p>
                             </div>
                             <div class="col-md-6 mb-3">
                               <label class="form-label fw-bold text-muted">註冊日期</label>
                               <p class="form-control-plaintext fs-5">{{ user.Created_At.strftime('%Y-%m-%d') }}</p>
                             </div>
                             <div class="col-md-6 mb-3">
-                              <label class="form-label fw-bold text-muted">會員等級</label>
-                              <p><span class="badge bg-primary fs-5">{{ user.membership_level }}</span></p>
+                                <label class="form-label fw-bold text-muted">編輯日期</label>
+                                <p class="form-control-plaintext fs-5">{{ user.Modify_At.strftime('%Y-%m-%d') }}</p>
                             </div>
                           </div>
                         </div>
