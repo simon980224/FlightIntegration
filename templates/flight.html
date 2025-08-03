@@ -208,11 +208,13 @@
                   <div class="row align-items-center">
                     <div class="col-lg-3 d-flex align-items-center mb-3 mb-lg-0">
                       <img src="/static/img/${flight.Airline_Id}.jpg" class="me-3" style="width: 50px; border-radius: 8px;">
-                      <div>
+                      <div class="flex-grow-1">
                         <div class="fw-bold h6 mb-0">${flight.Airline_Name_ZH}</div>
-                        <div class="small text-muted">航班 ${flight.No}</div>
+                        <div class="small text-muted">航班 ${flight.No}</div>                        
+                      </div>
+                      <div>
                         <button 
-                          class="btn btn-success btn-sm book-btn"
+                          class="btn btn-success w-auto"
                           data-flight-no="${flight.No}"
                           data-airline="${flight.Airline_Id}"
                         ><i class="fa-solid fa-ticket"></i> 訂票</button>
@@ -242,7 +244,8 @@
                   </div>
                 </div>
               </div>`;
-            resultsContainer.insertAdjacentHTML('beforeend', flightCard);
+            
+              resultsContainer.insertAdjacentHTML('beforeend', flightCard);
           });
         } else if (json.success) { // 成功但沒資料
           resultsContainer.innerHTML = '<div class="alert alert-info text-center fs-5 p-4"><i class="fas fa-info-circle me-2"></i>找不到符合條件的航班。</div>';
