@@ -10,14 +10,10 @@
           <form id="editProfileForm">
             <div class="text-center mb-4">
               <label for="photoUpload" class="profile-photo-container position-relative mx-auto d-block" style="cursor: pointer; width: 120px; height: 120px;">
-                  {% if user.photo_url %}
-                      <img src="{{ user.photo_url }}" alt="使用者照片預覽" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;" id="modalProfilePhotoPreview">
-                  {% else %}
-                      <img src="{{ url_for('static', filename='img/defult_user.png') }}" alt="使用者照片預覽" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;" id="modalProfilePhotoPreview">
-                  {% endif %}
-                  <div class="profile-photo-overlay position-absolute top-0 start-0 w-100 h-100 rounded-circle d-flex justify-content-center align-items-center text-white">
-                      <i class="fas fa-camera fa-lg"></i> <span class="ms-2">更換頭像</span>
-                  </div>
+                <img src="{{ user.user_img }}" alt="使用者照片預覽" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;" id="modalProfilePhotoPreview">
+                <div class="profile-photo-overlay position-absolute top-0 start-0 w-100 h-100 rounded-circle d-flex justify-content-center align-items-center text-white">
+                    <i class="fas fa-camera fa-lg"></i> <span class="ms-2">更換頭像</span>
+                </div>
               </label>
               <input type="file" id="photoUpload" name="photo" class="d-none" accept="image/*">
             </div>

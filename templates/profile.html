@@ -56,7 +56,7 @@
                             </div>
                             <div class="col-md-6 mb-3">
                               <label class="form-label fw-bold text-muted">註冊日期</label>
-                              <p class="form-control-plaintext fs-5">{{ user.created_at.strftime('%Y-%m-%d') }}</p>
+                              <p class="form-control-plaintext fs-5">{{ user.Created_At.strftime('%Y-%m-%d') }}</p>
                             </div>
                             <div class="col-md-6 mb-3">
                               <label class="form-label fw-bold text-muted">會員等級</label>
@@ -67,100 +67,12 @@
                         <!-- 右邊：大頭貼 -->
                         <div class="col-lg-4 d-flex justify-content-center align-items-start mb-3">
                             <div class="profile-photo-container position-relative">
-                                {% if user.photo_url %}
-                                    <img src="{{ user.photo_url }}" alt="使用者照片" class="rounded-circle" style="width: 200px; height: 200px; object-fit: cover;" id="mainProfilePhoto">
-                                {% else %}
-                                    <img src="{{ url_for('static', filename='img/defult_user.png') }}" alt="使用者照片" class="rounded-circle" style="width: 200px; height: 200px; object-fit: cover;" id="mainProfilePhoto">
-                                {% endif %}
+                                <img src="{{ user.user_img }}" alt="使用者照片" class="rounded-circle" style="width: 200px; height: 200px; object-fit: cover;" id="mainProfilePhoto">
                             </div>
                         </div>
                     </div>                      
                 </div>
-            </div>
-
-            <div class="card shadow-lg border-0 mb-4">
-                <div class="card-body p-4 p-md-5">
-                    <h4 class="card-title mb-4 text-success">
-                        <i class="fas fa-star me-2"></i>會員積分
-                    </h4>
-                    <div class="row align-items-center">
-                        <div class="col-md-6">
-                            <div class="d-flex align-items-center mb-3">
-                                <div class="me-3">
-                                    <i class="fas fa-coins fa-3x text-warning"></i>
-                                </div>
-                                <div>
-                                    <h3 class="mb-0 fw-bold">{{ user.points }}</h3>
-                                    <small class="text-muted">目前積分</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            {% if user.points_to_upgrade > 0 %}
-                                {% set progress = (user.points / user.points_to_upgrade * 100) | round | int %}
-                            {% else %}
-                                {% set progress = 100 %}
-                            {% endif %}
-                            <div class="progress mb-2" style="height: 12px;">
-                                <div id="membership-progress" class="progress-bar bg-warning" role="progressbar" aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100"></div>
-                            </div>
-                            <small class="text-muted">
-                                {% if user.points_to_upgrade > user.points %}
-                                    距離升級還需 {{ user.points_to_upgrade - user.points }} 積分
-                                {% else %}
-                                    已達最高等級
-                                {% endif %}
-                            </small>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="card shadow-lg border-0 mb-4">
-                <div class="card-body p-4 p-md-5">
-                    <h4 class="card-title mb-4 text-info">
-                        <i class="fas fa-gift me-2"></i>會員權益
-                    </h4>
-                    <div class="row g-4">
-                        <div class="col-md-6">
-                            <div class="d-flex align-items-center p-3 bg-light rounded h-100">
-                                <i class="fas fa-percentage fa-2x text-success me-3"></i>
-                                <div>
-                                    <h6 class="mb-1 fw-bold">專屬折扣</h6>
-                                    <small class="text-muted">享有會員專屬票價優惠</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="d-flex align-items-center p-3 bg-light rounded h-100">
-                                <i class="fas fa-headset fa-2x text-primary me-3"></i>
-                                <div>
-                                    <h6 class="mb-1 fw-bold">優先客服</h6>
-                                    <small class="text-muted">24小時專線客服支援</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="d-flex align-items-center p-3 bg-light rounded h-100">
-                                <i class="fas fa-suitcase fa-2x text-warning me-3"></i>
-                                <div>
-                                    <h6 class="mb-1 fw-bold">行李優惠</h6>
-                                    <small class="text-muted">額外免費行李額度</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-md-6">
-                            <div class="d-flex align-items-center p-3 bg-light rounded h-100">
-                                <i class="fas fa-plane fa-2x text-info me-3"></i>
-                                <div>
-                                    <h6 class="mb-1 fw-bold">優先登機</h6>
-                                    <small class="text-muted">享受優先登機服務</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            </div>            
 
             <!-- 操作按鈕 -->
             <div class="d-flex justify-content-center gap-3 mt-5">
