@@ -1,0 +1,137 @@
+<!-- Edit Profile Modal -->
+<div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="editProfileModalLabel">編輯個人資料</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <form id="editProfileForm">
+            <div class="text-center mb-4">
+              <label for="photoUpload" class="profile-photo-container position-relative mx-auto d-block" style="cursor: pointer; width: 120px; height: 120px;">
+                  {% if user.photo_url %}
+                      <img src="{{ user.photo_url }}" alt="使用者照片預覽" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;" id="modalProfilePhotoPreview">
+                  {% else %}
+                      <img src="{{ url_for('static', filename='img/defult_user.png') }}" alt="使用者照片預覽" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;" id="modalProfilePhotoPreview">
+                  {% endif %}
+                  <div class="profile-photo-overlay position-absolute top-0 start-0 w-100 h-100 rounded-circle d-flex justify-content-center align-items-center text-white">
+                      <i class="fas fa-camera fa-lg"></i> <span class="ms-2">更換頭像</span>
+                  </div>
+              </label>
+              <input type="file" id="photoUpload" name="photo" class="d-none" accept="image/*">
+            </div>
+            <div class="mb-3">
+              <label for="username" class="form-label">使用者名稱</label>
+              <input type="text" class="form-control" id="username" name="username" value="{{ user.username }}" required>
+            </div>
+            <div class="mb-3">
+              <label for="old_password" class="form-label">舊密碼</label>
+              <input type="password" class="form-control" id="old_password" name="old_password" placeholder="如需變更密碼請輸入舊密碼">
+              <small class="form-text text-muted">若不需變更密碼，此欄位請留空</small>
+            </div>
+            <div class="mb-3">
+              <label for="new_password" class="form-label">新密碼</label>
+              <input type="password" class="form-control" id="new_password" name="new_password" placeholder="輸入新密碼">
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+          <button type="submit" form="editProfileForm" class="btn btn-primary">儲存變更</button>
+        </div>
+      </div>
+    </div>
+</div>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const photoUpload = document.getElementById('photoUpload');
+        const modalProfilePhotoPreview = document.getElementById('modalProfilePhotoPreview');
+        const mainProfilePhoto = document.getElementById('mainProfilePhoto');
+
+        if (photoUpload && modalProfilePhotoPreview && mainProfilePhoto) {
+            // 當使用者選擇檔案後，處理預覽
+            photoUpload.addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const imageUrl = e.target.result;
+                        // 更新 modal 中的預覽圖
+                        modalProfilePhotoPreview.src = imageUrl;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            const editProfileModal = document.getElementById('editProfileModal');
+            editProfileModal.addEventListener('show.bs.modal', () => {
+                // 重置 modal 中的圖片為當前主頁面的圖片
+                modalProfilePhotoPreview.src = mainProfilePhoto.src;
+                // 重置表單（可選）
+                // document.getElementById('editProfileForm').reset();
+            });
+        }
+
+        const editProfileForm = document.getElementById('editProfileForm');
+        const saveChangesBtn = document.querySelector('button[form="editProfileForm"]');
+
+        saveChangesBtn.addEventListener('click', function(event) {
+            event.preventDefault(); // 阻止表單的默認提交行為
+
+            const username = document.getElementById('username').value;
+            const old_password = document.getElementById('old_password').value;
+            const new_password = document.getElementById('new_password').value;
+            const photoFile = document.getElementById('photoUpload').files[0];
+
+            let photoDataUrl = null;
+
+            const reader = new FileReader();
+            
+            // 讀取完成後執行的回呼
+            reader.onloadend = function() {
+                photoDataUrl = reader.result;
+
+                const data = {
+                    user_name: username,
+                    old_password: old_password,
+                    new_password: new_password,
+                    user_img: photoDataUrl // Base64 Data URL
+                };
+
+                fetch('/update_profile', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        alert('個人資料更新成功！');
+                        // 更新頁面上的資訊
+                        document.querySelector('.form-control-plaintext.fs-5').textContent = username;
+                        mainProfilePhoto.src = modalProfilePhotoPreview.src;
+                        // 關閉 modal
+                        var modal = bootstrap.Modal.getInstance(document.getElementById('editProfileModal'));
+                        modal.hide();
+                    } else {
+                        alert('更新失敗：' + result.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('更新時發生錯誤。');
+                });
+            };
+            
+            // 如果有選擇檔案，則讀取檔案；否則直接送出請求
+            if (photoFile) {
+                reader.readAsDataURL(photoFile);
+            } else {
+                reader.onloadend(); // 手動觸發 onloadend 以送出沒有圖片的請求
+            }
+        });
+    });
+</script>

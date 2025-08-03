@@ -31,30 +31,50 @@
 
             <div class="card shadow-lg border-0 mb-4">
                 <div class="card-body p-4 p-md-5">
-                    <h4 class="card-title mb-4 text-primary">
-                        <i class="fas fa-user me-2"></i>基本資料
+                    <h4 class="card-title mb-4 text-primary d-flex align-items-center">
+                        <span class="d-flex align-items-center">
+                          <i class="fas fa-user me-2"></i>基本資料
+                        </span>
+                        <!-- 去掉多餘 margin 才會緊貼，如果想更緊可以移除 me-1 -->
                         <button 
-                          class="btn btn-primary w-auto"
+                          class="btn btn-primary btn-sm ms-2"
+                          data-bs-toggle="modal" 
+                          data-bs-target="#editProfileModal"
                         ><i class="fa-solid fa-pen-to-square"></i></button>
-                    </h4>
-                    <div class="row">
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-muted">使用者名稱</label>
-                            <p class="form-control-plaintext fs-5">{{ user.username }}</p>
+                      </h4>
+                    <div class="row align-items-start">
+                        <!-- 左邊：使用者資訊 -->
+                        <div class="col-lg-8">
+                          <div class="row">
+                            <div class="col-md-6 mb-3">
+                              <label class="form-label fw-bold text-muted">使用者名稱</label>
+                              <p class="form-control-plaintext fs-5">{{ user.username }}</p>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                              <label class="form-label fw-bold text-muted">電子郵件</label>
+                              <p class="form-control-plaintext fs-5">{{ user.email }}</p>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                              <label class="form-label fw-bold text-muted">註冊日期</label>
+                              <p class="form-control-plaintext fs-5">{{ user.created_at.strftime('%Y-%m-%d') }}</p>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                              <label class="form-label fw-bold text-muted">會員等級</label>
+                              <p><span class="badge bg-primary fs-5">{{ user.membership_level }}</span></p>
+                            </div>
+                          </div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-muted">電子郵件</label>
-                            <p class="form-control-plaintext fs-5">{{ user.email }}</p>
+                        <!-- 右邊：大頭貼 -->
+                        <div class="col-lg-4 d-flex justify-content-center align-items-start mb-3">
+                            <div class="profile-photo-container position-relative">
+                                {% if user.photo_url %}
+                                    <img src="{{ user.photo_url }}" alt="使用者照片" class="rounded-circle" style="width: 200px; height: 200px; object-fit: cover;" id="mainProfilePhoto">
+                                {% else %}
+                                    <img src="{{ url_for('static', filename='img/defult_user.png') }}" alt="使用者照片" class="rounded-circle" style="width: 200px; height: 200px; object-fit: cover;" id="mainProfilePhoto">
+                                {% endif %}
+                            </div>
                         </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-muted">註冊日期</label>
-                            <p class="form-control-plaintext fs-5">{{ user.created_at.strftime('%Y-%m-%d') }}</p>
-                        </div>
-                        <div class="col-md-6 mb-3">
-                            <label class="form-label fw-bold text-muted">會員等級</label>
-                            <p><span class="badge bg-primary fs-5">{{ user.membership_level }}</span></p>
-                        </div>
-                    </div>
+                    </div>                      
                 </div>
             </div>
 
@@ -154,16 +174,18 @@
         </div>
     </div>
 </div>
+{% include '_profile.html' %}
 {% endblock %}
 
 {% block extra_script %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const progressBar = document.getElementById('membership-progress');
-    if (progressBar) {
-        const progressValue = progressBar.getAttribute('aria-valuenow');
-        progressBar.style.width = progressValue + '%';
-    }
-});
+    document.addEventListener('DOMContentLoaded', function() {
+        // progress bar logic 進度條
+        const progressBar = document.getElementById('membership-progress');
+        if (progressBar) {
+            const progressValue = progressBar.getAttribute('aria-valuenow');
+            progressBar.style.width = progressValue + '%';
+        }
+    });
 </script>
 {% endblock %}
