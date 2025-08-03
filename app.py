@@ -134,7 +134,7 @@ def profile():
         'userid': '001',
         'username': 'Admin',
         'email': '12345@example.com',
-        'created_at': datetime.datetime(2025, 1, 1),
+        'created_at': datetime(2025, 1, 1),
         'membership_level': '一般會員',
         'points': 1000,
         'points_to_upgrade': 3000
