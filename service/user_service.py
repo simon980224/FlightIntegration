@@ -97,6 +97,8 @@ def GetUserInfo(user_id):
         if conn:
             conn.close()
 
+
+
 def UpdateUserInfo(
     user_id,
     user_name=None,
