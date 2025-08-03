@@ -1,142 +1,166 @@
 {% extends 'base.html' %}
 {% block title %}個人資料 - 航班查詢系統{% endblock %}
 
+{% block body_class %}bg-profile{% endblock %}
+
 {% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <!-- Sidebar -->
+        <div class="col-lg-2 col-md-3 bg-light p-4">
+            <h4 class="mb-4">會員中心</h4>
+            <div class="list-group">
+                <a href="{{ url_for('profile') }}" class="list-group-item list-group-item-action active" aria-current="true">
+                    <i class="fas fa-user-circle me-2"></i>個人資料
+                </a>
+                <a href="{{ url_for('bookings') }}" class="list-group-item list-group-item-action">
+                    <i class="fas fa-list me-2"></i>我的訂票
+                </a>
+                <a href="{{ url_for('logout') }}" class="list-group-item list-group-item-action text-danger">
+                    <i class="fas fa-sign-out-alt me-2"></i>登出
+                </a>
+            </div>
+        </div>
 
-<div class="container">
-  <div class="row justify-content-center">
-    <div class="col-lg-8">
-      <!-- 頁面標題 -->
-      <div class="text-center mb-5">
-        <h1 class="display-5 fw-bold text-primary">
-          <i class="fas fa-user-circle me-3"></i>個人資料
-        </h1>
-        <p class="lead text-muted">管理您的帳戶資訊和會員權益</p>
-      </div>
+        <!-- Main Content -->
+        <div class="col-lg-10 col-md-9 p-4">
+            <div class="text-center mb-5">
+                <h1 class="display-4 fw-bold">個人資料</h1>
+                <p class="lead">管理您的帳戶資訊和會員權益</p>
+            </div>
 
-      <!-- 個人資料卡片 -->
-      <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-primary text-white">
-          <h5 class="mb-0">
-            <i class="fas fa-user me-2"></i>基本資料
-          </h5>
-        </div>
-        <div class="card-body">
-          <div class="row">
-            <div class="col-md-6 mb-3">
-              <label class="form-label fw-bold text-muted">使用者名稱</label>
-              <p class="form-control-plaintext">{{ user.username }}</p>
+            <div class="card shadow-lg border-0 mb-4">
+                <div class="card-body p-4 p-md-5">
+                    <h4 class="card-title mb-4 text-primary">
+                        <i class="fas fa-user me-2"></i>基本資料
+                    </h4>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-muted">使用者名稱</label>
+                            <p class="form-control-plaintext fs-5">{{ user.username }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-muted">電子郵件</label>
+                            <p class="form-control-plaintext fs-5">{{ user.email }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-muted">註冊日期</label>
+                            <p class="form-control-plaintext fs-5">{{ user.created_at.strftime('%Y-%m-%d') }}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label fw-bold text-muted">會員等級</label>
+                            <p><span class="badge bg-primary fs-5">{{ user.membership_level }}</span></p>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="col-md-6 mb-3">
-              <label class="form-label fw-bold text-muted">電子郵件</label>
-              <p class="form-control-plaintext">{{ user.email }}</p>
-            </div>
-            <div class="col-md-6 mb-3">
-              <label class="form-label fw-bold text-muted">註冊日期</label>
-              <p class="form-control-plaintext">{{ user.created_at.strftime('%Y-%m-%d') }}</p>
-            </div>
-            <div class="col-md-6 mb-3">
-              <label class="form-label fw-bold text-muted">會員等級</label>
-              <span class="badge bg-primary fs-6">{{ user.membership_level }}</span>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- 會員積分卡片 -->
-      <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-success text-white">
-          <h5 class="mb-0">
-            <i class="fas fa-star me-2"></i>會員積分
-          </h5>
-        </div>
-        <div class="card-body">
-          <div class="row align-items-center">
-            <div class="col-md-6">
-              <div class="d-flex align-items-center mb-3">
-                <div class="me-3">
-                  <i class="fas fa-coins fa-2x text-warning"></i>
+            <div class="card shadow-lg border-0 mb-4">
+                <div class="card-body p-4 p-md-5">
+                    <h4 class="card-title mb-4 text-success">
+                        <i class="fas fa-star me-2"></i>會員積分
+                    </h4>
+                    <div class="row align-items-center">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="me-3">
+                                    <i class="fas fa-coins fa-3x text-warning"></i>
+                                </div>
+                                <div>
+                                    <h3 class="mb-0 fw-bold">{{ user.points }}</h3>
+                                    <small class="text-muted">目前積分</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            {% if user.points_to_upgrade > 0 %}
+                                {% set progress = (user.points / user.points_to_upgrade * 100) | round | int %}
+                            {% else %}
+                                {% set progress = 100 %}
+                            {% endif %}
+                            <div class="progress mb-2" style="height: 12px;">
+                                <div id="membership-progress" class="progress-bar bg-warning" role="progressbar" aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100"></div>
+                            </div>
+                            <small class="text-muted">
+                                {% if user.points_to_upgrade > user.points %}
+                                    距離升級還需 {{ user.points_to_upgrade - user.points }} 積分
+                                {% else %}
+                                    已達最高等級
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
                 </div>
-                <div>
-                  <h4 class="mb-0 fw-bold">{{ user.points }}</h4>
-                  <small class="text-muted">目前積分</small>
-                </div>
-              </div>
             </div>
-            <div class="col-md-6">
-              <div class="progress mb-2" style="height: 10px;">
-                {% set progress = (user.points / user.points_to_upgrade * 100) | round %}
-                <div class="progress-bar bg-warning" role="progressbar" style="width: {{ progress }}%" 
-                     aria-valuenow="{{ progress }}" aria-valuemin="0" aria-valuemax="100"></div>
-              </div>
-              <small class="text-muted">
-                距離升級還需 {{ user.points_to_upgrade - user.points }} 積分
-              </small>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- 會員權益卡片 -->
-      <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-info text-white">
-          <h5 class="mb-0">
-            <i class="fas fa-gift me-2"></i>會員權益
-          </h5>
-        </div>
-        <div class="card-body">
-          <div class="row g-3">
-            <div class="col-md-6">
-              <div class="d-flex align-items-center p-3 border rounded">
-                <i class="fas fa-percentage fa-2x text-success me-3"></i>
-                <div>
-                  <h6 class="mb-1 fw-bold">專屬折扣</h6>
-                  <small class="text-muted">享有會員專屬票價優惠</small>
+            <div class="card shadow-lg border-0 mb-4">
+                <div class="card-body p-4 p-md-5">
+                    <h4 class="card-title mb-4 text-info">
+                        <i class="fas fa-gift me-2"></i>會員權益
+                    </h4>
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center p-3 bg-light rounded h-100">
+                                <i class="fas fa-percentage fa-2x text-success me-3"></i>
+                                <div>
+                                    <h6 class="mb-1 fw-bold">專屬折扣</h6>
+                                    <small class="text-muted">享有會員專屬票價優惠</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center p-3 bg-light rounded h-100">
+                                <i class="fas fa-headset fa-2x text-primary me-3"></i>
+                                <div>
+                                    <h6 class="mb-1 fw-bold">優先客服</h6>
+                                    <small class="text-muted">24小時專線客服支援</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center p-3 bg-light rounded h-100">
+                                <i class="fas fa-suitcase fa-2x text-warning me-3"></i>
+                                <div>
+                                    <h6 class="mb-1 fw-bold">行李優惠</h6>
+                                    <small class="text-muted">額外免費行李額度</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center p-3 bg-light rounded h-100">
+                                <i class="fas fa-plane fa-2x text-info me-3"></i>
+                                <div>
+                                    <h6 class="mb-1 fw-bold">優先登機</h6>
+                                    <small class="text-muted">享受優先登機服務</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-              </div>
             </div>
-            <div class="col-md-6">
-              <div class="d-flex align-items-center p-3 border rounded">
-                <i class="fas fa-headset fa-2x text-primary me-3"></i>
-                <div>
-                  <h6 class="mb-1 fw-bold">優先客服</h6>
-                  <small class="text-muted">24小時專線客服支援</small>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="d-flex align-items-center p-3 border rounded">
-                <i class="fas fa-suitcase fa-2x text-warning me-3"></i>
-                <div>
-                  <h6 class="mb-1 fw-bold">行李優惠</h6>
-                  <small class="text-muted">額外免費行李額度</small>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="d-flex align-items-center p-3 border rounded">
-                <i class="fas fa-plane fa-2x text-info me-3"></i>
-                <div>
-                  <h6 class="mb-1 fw-bold">優先登機</h6>
-                  <small class="text-muted">享受優先登機服務</small>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- 操作按鈕 -->
-      <div class="d-flex justify-content-center gap-3">
-        <a href="/bookings" class="btn btn-primary">
-          <i class="fas fa-list me-2"></i>查看訂票記錄
-        </a>
-        <button class="btn btn-outline-secondary" onclick="history.back()">
-          <i class="fas fa-arrow-left me-2"></i>返回
-        </button>
-      </div>
+            <!-- 操作按鈕 -->
+            <div class="d-flex justify-content-center gap-3 mt-5">
+                <a href="{{ url_for('bookings') }}" class="btn btn-primary btn-lg px-5">
+                    <i class="fas fa-list me-2"></i>查看訂票記錄
+                </a>
+                <button class="btn btn-outline-secondary btn-lg px-4" onclick="history.back()">
+                    <i class="fas fa-arrow-left me-2"></i>返回
+                </button>
+            </div>
+        </div>
     </div>
-  </div>
 </div>
+{% endblock %}
 
-{% endblock %} 
+{% block extra_script %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const progressBar = document.getElementById('membership-progress');
+    if (progressBar) {
+        const progressValue = progressBar.getAttribute('aria-valuenow');
+        progressBar.style.width = progressValue + '%';
+    }
+});
+</script>
+{% endblock %}
