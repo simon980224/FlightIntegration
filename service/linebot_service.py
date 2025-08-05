@@ -51,16 +51,23 @@ def search_flights_by_message(message):
         to_location = parts[1]
 
         # 取得機場資料來匹配用戶輸入
+        print(f"🔍 開始查詢航班: {from_location} -> {to_location}")
         d_airports = search_service.get_airport_data('1')  # 國外機場
         a_airports = search_service.get_airport_data('0')  # 國內機場
+
+        print(f"🔍 國外機場查詢結果: success={d_airports['success']}, 數量={len(d_airports.get('data', []))}")
+        print(f"🔍 國內機場查詢結果: success={a_airports['success']}, 數量={len(a_airports.get('data', []))}")
 
         if not d_airports["success"] or not a_airports["success"]:
             return "❌ 無法取得機場資料"
 
         all_airports = d_airports["data"] + a_airports["data"]
+        print(f"🔍 總機場數量: {len(all_airports)}")
 
         # 尋找匹配的機場
+        print(f"🔍 查找出發地: '{from_location}'")
         from_airport_id = find_airport_id(from_location, all_airports)
+        print(f"🔍 查找目的地: '{to_location}'")
         to_airport_id = find_airport_id(to_location, all_airports)
 
         if not from_airport_id:
@@ -103,21 +110,55 @@ def search_flights_by_message(message):
 
 def find_airport_id(location_input, airports):
     """根據用戶輸入找到對應的機場ID"""
-    location_input = location_input.upper()
+    # 保留原始輸入用於中文比對
+    original_input = location_input.strip()
+    location_input_upper = location_input.upper()
 
-    for airport in airports:
+    print(f"🔍 查找機場: 原始輸入='{original_input}', 大寫輸入='{location_input_upper}'")
+    print(f"🔍 機場總數: {len(airports)}")
+
+    # 城市別名映射
+    city_aliases = {
+        '台北': 'TSA',  # 台北 → 松山機場
+        '松山': 'TSA',  # 松山 → 松山機場
+        '桃園': 'TPE',  # 桃園 → 桃園機場
+        '高雄': 'KHH',
+        '台中': 'RMQ',
+    }
+
+    # 先檢查城市別名
+    if original_input in city_aliases:
+        target_code = city_aliases[original_input]
+        for airport in airports:
+            if airport.get('Airport_Id', '') == target_code:
+                print(f"✅ 找到城市別名匹配: {target_code} (輸入: {original_input})")
+                return target_code
+
+    for i, airport in enumerate(airports):
+        airport_id = airport.get('Airport_Id', '')
+        airport_name_zh = airport.get('Airport_Name_ZH', '')
+        airport_name = airport.get('Airport_Name', '')
+
+        # 只打印前5個機場作為樣本
+        if i < 5:
+            print(f"🔍 機場{i+1}: ID='{airport_id}', 中文='{airport_name_zh}', 英文='{airport_name}'")
+
         # 檢查機場代碼
-        if airport['Airport_Id'].upper() == location_input:
-            return airport['Airport_Id']
+        if airport_id.upper() == location_input_upper:
+            print(f"✅ 找到機場代碼匹配: {airport_id}")
+            return airport_id
 
-        # 檢查中文名稱
-        if location_input in airport.get('Airport_Name_ZH', ''):
-            return airport['Airport_Id']
+        # 檢查中文名稱（使用原始輸入，不轉大寫）
+        if original_input in airport_name_zh:
+            print(f"✅ 找到中文名稱匹配: {airport_id} ({airport_name_zh})")
+            return airport_id
 
         # 檢查英文名稱
-        if location_input in airport.get('Airport_Name', '').upper():
-            return airport['Airport_Id']
+        if location_input_upper in airport_name.upper():
+            print(f"✅ 找到英文名稱匹配: {airport_id} ({airport_name})")
+            return airport_id
 
+    print(f"❌ 未找到匹配的機場: '{original_input}'")
     return None
 
 def get_help_message():
@@ -149,8 +190,8 @@ def process_line_message(message_text):
         return get_help_message()
 
     # 測試訊息
-    if message == '/測試':
-        return "✅ LINE Bot 運作正常！\n\n" + get_help_message()
+    if message in ['測試', '/測試']:
+        return "Hello"
 
     # 航班查詢
     if any(keyword in message for keyword in ['查詢航班', '航班', '查航班', '找航班', '搜尋航班']):
