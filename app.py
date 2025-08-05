@@ -2,14 +2,22 @@ from flask import Flask, render_template, request, redirect, url_for, flash, ses
 from service import search_service,user_service,linebot_service
 from functools import wraps
 from datetime import datetime
+import json
+import os
 
 # LINE Bot SDK 的相關匯入
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage
 
-line_bot_api = LineBotApi('LINE_CHANNEL_ACCESS_TOKEN')
-handler = WebhookHandler('LINE_CHANNEL_SECRET')
+# 載入設定檔
+config_path = os.path.join('config', 'prodConfig.json')
+with open(config_path, 'r', encoding='utf-8') as f:
+    config = json.load(f)
+
+# 初始化 LINE Bot
+line_bot_api = LineBotApi(config['line_bot']['channel_access_token'])
+handler = WebhookHandler(config['line_bot']['channel_secret'])
 
 app = Flask(__name__)
 app.secret_key = 'your-development-secret-key'
@@ -33,6 +41,8 @@ def login_required(f):
 @app.route('/')
 def index():
     return render_template('index.html', title='首頁')
+
+
 
 # 查詢頁面
 @app.route('/flight', methods=['GET', 'POST'])
@@ -172,8 +182,13 @@ def update_profile():
 
     return jsonify(result)
 
-@app.route("/lineApi", methods=['POST'])
+@app.route("/lineApi", methods=['GET', 'POST'])
 def Api():
+    # GET 請求用於測試 Webhook 端點
+    if request.method == 'GET':
+        return 'LINE Bot Webhook is working! 🤖'
+
+    # POST 請求處理 LINE 訊息
     # 取得 LINE 發送的 X-Line-Signature 標頭
     signature = request.headers.get('X-Line-Signature')
 
@@ -184,15 +199,30 @@ def Api():
 
     return 'OK'
 
+
+
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
-    message = event.message.text.strip()
+    try:
+        message = event.message.text.strip()
 
-    if message == '/測試':
+        # 使用 linebot_service 處理訊息
+        response_text = linebot_service.process_line_message(message)
+
+        # 回覆訊息
         line_bot_api.reply_message(
             event.reply_token,
-            TextSendMessage(text="妳好")
+            TextSendMessage(text=response_text)
         )
+
+    except Exception as e:
+        # 錯誤處理
+        error_message = f"❌ 處理訊息時發生錯誤，請稍後再試。\n\n輸入「幫助」查看使用說明。"
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text=error_message)
+        )
+        print(f"LINE Bot 錯誤: {str(e)}")
 
 #########################進度條###########################
 # 我的訂票頁面
