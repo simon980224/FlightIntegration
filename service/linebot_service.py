@@ -198,4 +198,4 @@ def process_line_message(message_text):
         return search_flights_by_message(message)
 
     # 預設回應
-    return f"🤔 我不太理解「{message}」\n\n" + get_help_message()
+    return f"請參考以下對話框輸入格式\n\n" + get_help_message()
