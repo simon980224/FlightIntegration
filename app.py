@@ -213,6 +213,7 @@ def profile_page():
         return jsonify({'success': False, 'message': '無法獲取使用者資料'})
     
 
+# LINE Bot 訊息處理
 @app.route("/lineApi", methods=['GET', 'POST'])
 def Api():
     # GET 請求用於測試 Webhook 端點
