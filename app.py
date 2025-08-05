@@ -141,22 +141,28 @@ def logout():
     session.clear()
     return redirect(url_for('index'))
 
-
-# 個人資料頁面
 @app.route('/profile')
 @login_required
 def profile():
-    # 固定的會員資料
-    user_data = {
-        'userid': '001',
-        'username': 'Admin',
-        'email': '12345@example.com',
-        'created_at': datetime(2025, 1, 1),
-        'membership_level': '一般會員',
-        'points': 1000,
-        'points_to_upgrade': 3000
-    }
-    return render_template('profile.html', user=user_data)
+    user_id = session.get('user_id')
+    if not user_id:
+        flash('請先登入', 'error')
+        return redirect(url_for('login'))
+
+    result = user_service.GetUserInfo(user_id)
+
+    if not result.get("success"):
+        flash('使用者資料取得失敗', 'error')
+        return redirect(url_for('index'))
+
+    user = result["data"]
+    print("🧪 user keys:", user.keys(), flush=True)
+    print("🧪 Create_At =", user.get("Create_At"), flush=True)
+
+    return render_template('profile.html', user=user)
+
+
+
 
 # 修改個人資料（需要舊密碼才能修改密碼）
 @app.route('/update_profile', methods=['POST'])
@@ -180,7 +186,32 @@ def update_profile():
         create_at=create_at
     )
 
-    return jsonify(result)
+    return jsonify({
+    "success": True,
+    "message": "更新成功",
+    "user": {
+        "user_id": user_id,
+        "user_name": user_name,
+        "user_img": user_img,
+        "created_at": create_at
+    }
+})
+
+
+@app.route('/update_profile', methods=['GET'])
+@login_required
+def profile_page():
+    user_id = session.get('user_id')
+    if not user_id:
+        return jsonify({'success': False, 'message': '請先登入'})
+
+    user_data_result = user_service.GetUserInfo(user_id)
+    if user_data_result["success"]:
+        user_data_result = user_data_result["data"]
+        return render_template('update_profile.html', user=user_data_result)
+    else:
+        return jsonify({'success': False, 'message': '無法獲取使用者資料'})
+    
 
 @app.route("/lineApi", methods=['GET', 'POST'])
 def Api():
