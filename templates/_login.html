@@ -51,44 +51,44 @@
   </div>
 </div>
 <script>
-document.getElementById("loginFormElement").addEventListener("submit", function (event) {
-  event.preventDefault(); // 阻止默認的表單提交行為
+  document.getElementById("loginFormElement").addEventListener("submit", function (event) {
+    event.preventDefault(); // 阻止默認的表單提交行為
 
-  const user_id = document.getElementById("user_id").value.trim();
-  const password = document.getElementById("password").value;
+    const user_id = document.getElementById("user_id").value.trim();
+    const password = document.getElementById("password").value;
 
-  if (!user_id || !password) {
-    // 欄位不完整
-    showToast("提示", "請填寫完整資料", "warning");
-    return;
-  }
+    if (!user_id || !password) {
+      // 欄位不完整
+      showToast("提示", "請填寫完整資料", "warning");
+      return;
+    }
 
-  showLoading("登入中", "正在驗證您的帳號，請稍候...");
+    showLoading("登入中", "正在驗證您的帳號，請稍候...");
 
-  fetch("/login", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ user_id, password }),
-  })
-    .then((response) => response.json())
-    .then((data) => {
-      closeLoading();
-      if (data.success) {
-        showToast("登入成功", "歡迎回來！", "success");
-        // 隱藏登入頁面
-        setTimeout(() => {
-          window.location.reload();
-        }, 500);
-      } else {
-        showToast("登入失敗", data.message || "帳號或密碼錯誤", "error");
-      }
+    fetch("/login", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ user_id, password }),
     })
-    .catch((error) => {
-      closeLoading();
-      console.error("登入過程中出錯:", error);
-      showToast("發生錯誤", "請稍後再試", "error");
-    });
-});
+      .then((response) => response.json())
+      .then((data) => {
+        closeLoading();
+        if (data.success) {
+          showToast("登入成功", "歡迎回來！", "success");
+          // 隱藏登入頁面
+          setTimeout(() => {
+            window.location.reload();
+          }, 500);
+        } else {
+          showToast("登入失敗", data.message || "帳號或密碼錯誤", "error");
+        }
+      })
+      .catch((error) => {
+        closeLoading();
+        console.error("登入過程中出錯:", error);
+        showToast("發生錯誤", "請稍後再試", "error");
+      });
+  });
 </script> 

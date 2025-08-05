@@ -41,7 +41,7 @@
             <label for="reg_password" class="form-label">密碼</label>
             <div class="input-group">
               <span class="input-group-text bg-light"><i class="fas fa-lock"></i></span>
-              <input type="password" class="form-control" id="reg_password" name="reg_password" placeholder="至少 8 個字元" required>
+              <input type="password" class="form-control" id="reg_password" name="reg_password" placeholder="至少 6 個字元" required>
             </div>
           </div>
           <!-- 確認密碼 -->
@@ -74,59 +74,59 @@
 </div>
 
 <script>
-document.getElementById("registerFormElement").addEventListener("submit", function (event) {
-  event.preventDefault(); // 阻止表單預設提交
+  document.getElementById("registerFormElement").addEventListener("submit", function (event) {
+    event.preventDefault(); // 阻止表單預設提交
 
-  const user_id = document.getElementById("reg_user_id").value.trim();
-  const user_name = document.getElementById("user_name").value.trim();
-  const password = document.getElementById("reg_password").value;
-  const confirmPassword = document.getElementById("confirmPassword").value;
+    const user_id = document.getElementById("reg_user_id").value.trim();
+    const user_name = document.getElementById("user_name").value.trim();
+    const password = document.getElementById("reg_password").value;
+    const confirmPassword = document.getElementById("confirmPassword").value;
 
-  // 基本欄位檢查
-  if (!user_id || !user_name || !password || !confirmPassword) {
-    showToast("提示", "請填寫完整資料", "warning");
-    return;
-  }
+    // 基本欄位檢查
+    if (!user_id || !user_name || !password || !confirmPassword) {
+      showToast("提示", "請填寫完整資料", "warning");
+      return;
+    }
 
-  // 密碼比對
-  if (password !== confirmPassword) {
-    showToast("提示", "密碼與確認密碼不符", "warning");
-    return;
-  }
+    // 密碼比對
+    if (password !== confirmPassword) {
+      showToast("提示", "密碼與確認密碼不符", "warning");
+      return;
+    }
 
-  showLoading("註冊中", "正在建立您的帳號，請稍候...");
+    showLoading("註冊中", "正在建立您的帳號，請稍候...");
 
-  const payload = { user_id, user_name, password, confirmPassword };
+    const payload = { user_id, user_name, password, confirmPassword };
 
-  fetch("/register", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  })
-    .then((response) => response.json())
-    .then((data) => {
-      closeLoading();
-      if (data.success) {
-        showToast("註冊成功！", "歡迎加入我們的會員", "success").then(() => {
-          // 隱藏註冊 Modal
-          const regModalEl = document.getElementById("registerModal");
-          const regModal = bootstrap.Modal.getInstance(regModalEl) || new bootstrap.Modal(regModalEl);
-          regModal.hide();
-
-          // 顯示登入 Modal
-          const loginModal = new bootstrap.Modal(document.getElementById("loginModal"));
-          loginModal.show();
-        });
-      } else {
-        showToast("註冊失敗", data.message || "請檢查輸入", "error");
-      }
+    fetch("/register", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     })
-    .catch((error) => {
-      closeLoading();
-      console.error("註冊過程中出錯:", error);
-      showToast("發生錯誤", "請稍後再試", "error");
-    });
-});
+      .then((response) => response.json())
+      .then((data) => {
+        closeLoading();
+        if (data.success) {
+          showToast("註冊成功！", "歡迎加入我們的會員", "success").then(() => {
+            // 隱藏註冊 Modal
+            const regModalEl = document.getElementById("registerModal");
+            const regModal = bootstrap.Modal.getInstance(regModalEl) || new bootstrap.Modal(regModalEl);
+            regModal.hide();
+
+            // 顯示登入 Modal
+            const loginModal = new bootstrap.Modal(document.getElementById("loginModal"));
+            loginModal.show();
+          });
+        } else {
+          showToast("註冊失敗", data.message || "請檢查輸入", "error");
+        }
+      })
+      .catch((error) => {
+        closeLoading();
+        console.error("註冊過程中出錯:", error);
+        showToast("發生錯誤", "請稍後再試", "error");
+      });
+  });
 </script>
