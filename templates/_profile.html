@@ -22,6 +22,11 @@
               <input type="text" class="form-control" id="username" name="user_name" value="{{ user.User_Name }}" required>
             </div>
             <div class="mb-3">
+              <label for="user_email" class="form-label">電子郵件</label>
+              <input type="email" class="form-control" id="user_email" name="user_email" value="{{ user.User_Email }}" readonly>
+              <small class="form-text text-muted">電子郵件作為帳號唯一識別，不提供變更</small>
+            </div>
+            <div class="mb-3">
               <label for="old_password" class="form-label">舊密碼</label>
               <input type="password" class="form-control" id="old_password" name="old_password" placeholder="如需變更密碼請輸入舊密碼">
               <small class="form-text text-muted">若不需變更密碼，此欄位請留空</small>
@@ -39,67 +44,82 @@
       </div>
     </div>
 </div>
+
 <script>
-    document.getElementById("registerFormElement").addEventListener("submit", function(event) {
-    event.preventDefault(); // 阻止表單預設提交行為
-
-    // 取得並 trim 各輸入欄位
-    const user_id = document.getElementById("reg_user_id").value.trim();
-    const user_name = document.getElementById("user_name").value.trim();
-    const password = document.getElementById("reg_password").value;
-    const confirmPassword = document.getElementById("confirmPassword").value;
-
-    // 1. 基本欄位檢查
-    if (!user_id || !user_name || !password || !confirmPassword) {
-        showToast("提示", "請填寫完整資料", "warning");
+document.addEventListener('DOMContentLoaded', function () {
+    const editProfileForm = document.getElementById('editProfileForm');
+    if (!editProfileForm) {
         return;
     }
 
-    // 2. 密碼一致性檢查
-    if (password !== confirmPassword) {
-        showToast("提示", "密碼與確認密碼不符", "warning");
-        return;
+    const photoUpload = document.getElementById('photoUpload');
+    const modalProfilePhotoPreview = document.getElementById('modalProfilePhotoPreview');
+    const editProfileModalEl = document.getElementById('editProfileModal');
+    const editProfileModal = bootstrap.Modal.getOrCreateInstance(editProfileModalEl);
+
+    // Update photo preview
+    if(photoUpload) {
+        photoUpload.addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file && modalProfilePhotoPreview) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    modalProfilePhotoPreview.src = e.target.result;
+                }
+                reader.readAsDataURL(file);
+            }
+        });
     }
 
-    // 3. 顯示載入中
-    showLoading("註冊中", "正在建立您的帳號，請稍候...");
+    editProfileForm.addEventListener('submit', function(event) {
+        event.preventDefault();
 
-    // 4. 組裝要送出的 payload
-    const payload = { user_id, user_name, password, confirmPassword };
+        const formData = new FormData(editProfileForm);
+        const newPassword = formData.get('new_password');
+        const oldPassword = formData.get('old_password');
 
-    // 5. 發送註冊請求
-    fetch("/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-    })
-        .then(response => response.json())
-        .then(data => {
-        closeLoading();
-        if (data.success) {
-            // 註冊成功，顯示成功訊息後切換 Modal
-            showToast("註冊成功！", "歡迎加入我們的會員", "success")
-            .then(() => {
-                // 關閉註冊 Modal
-                const regModalEl = document.getElementById("registerModal");
-                const regModal = bootstrap.Modal.getInstance(regModalEl)
-                                || new bootstrap.Modal(regModalEl);
-                regModal.hide();
-
-                // 打開登入 Modal
-                const loginModal = new bootstrap.Modal(document.getElementById("loginModal"));
-                loginModal.show();
-            });
-        } else {
-            // 後端回傳失敗，顯示錯誤訊息
-            showToast("註冊失敗", data.message || "請檢查輸入", "error");
+        if (newPassword && !oldPassword) {
+            alert('若要變更密碼，請提供您的舊密碼。');
+            return;
         }
+
+        const submitButton = editProfileForm.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.innerHTML;
+        submitButton.disabled = true;
+        submitButton.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 儲存中...`;
+
+        fetch('/api/user', {
+            method: 'POST',
+            body: formData,
+        })
+        .then(response => response.json().then(data => ({ ok: response.ok, data })))
+        .then(({ ok, data }) => {
+            if (!ok) {
+                throw new Error(data.message || '更新個人資料時發生錯誤。');
+            }
+            alert(data.message || '個人資料更新成功！');
+            editProfileModal.hide();
+            
+            editProfileModalEl.addEventListener('hidden.bs.modal', function () {
+                location.reload();
+            }, { once: true });
+
         })
         .catch(error => {
-        closeLoading();
-        console.error("註冊過程中出錯:", error);
-        showToast("發生錯誤", "請稍後再試", "error");
+            console.error('更新錯誤:', error);
+            alert(error.message);
+        })
+        .finally(() => {
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
         });
     });
 
+    editProfileModalEl.addEventListener('hidden.bs.modal', function () {
+        editProfileForm.reset();
+        if (modalProfilePhotoPreview) {
+             modalProfilePhotoPreview.src = '{{ user.User_Img }}';
+        }
+    });
+});
 </script>
