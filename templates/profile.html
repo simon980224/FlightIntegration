@@ -48,7 +48,7 @@
                           <div class="row">
                             <div class="col-md-6 mb-3">
                               <label class="form-label fw-bold text-muted">使用者名稱</label>
-                              <p class="form-control-plaintext fs-5">{{ user.User_Name }}</p>
+                              <p class="form-control-plaintext fs-5" id="displayUserName">{{ user.User_Name }}</p>
                             </div>
                             <div class="col-md-6 mb-3">
                               <label class="form-label fw-bold text-muted">註冊日期</label>
@@ -56,14 +56,14 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label class="form-label fw-bold text-muted">編輯日期</label>
-                                <p class="form-control-plaintext fs-5">{{ user.Modify_At.strftime('%Y-%m-%d') }}</p>
+                                <p class="form-control-plaintext fs-5" id="displayModifyAt">{{ user.Modify_At.strftime('%Y-%m-%d') }}</p>
                             </div>
                           </div>
                         </div>
                         <!-- 右邊：大頭貼 -->
                         <div class="col-lg-4 d-flex justify-content-center align-items-start mb-3">
                             <div class="profile-photo-container position-relative">
-                                <img src="{{ user.user_img }}" alt="使用者照片" class="rounded-circle" style="width: 200px; height: 200px; object-fit: cover;" id="mainProfilePhoto">
+                                <img src="{{ user.User_Img }}" alt="使用者照片" class="rounded-circle" style="width: 200px; height: 200px; object-fit: cover;" id="mainProfilePhoto">
                             </div>
                         </div>
                     </div>                      
