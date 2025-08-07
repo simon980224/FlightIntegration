@@ -350,6 +350,26 @@ def ticket():
 
     return render_template('ticket.html', user=user, flight=flight, ticket=ticket)
 
+#########################快取管理###########################
+@app.route('/admin/cache/clear', methods=['POST'])
+def clear_cache():
+    """清除機場快取"""
+    try:
+        from service import linebot_service
+        linebot_service.clear_airport_cache()
+        return jsonify({"success": True, "message": "快取已清除"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
+
+@app.route('/admin/cache/refresh', methods=['POST'])
+def refresh_cache():
+    """刷新機場快取"""
+    try:
+        from service import linebot_service
+        linebot_service.refresh_airport_cache()
+        return jsonify({"success": True, "message": "快取已刷新"})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)})
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)

@@ -2,6 +2,66 @@ from service import search_service
 from datetime import datetime, timedelta
 import re
 
+# 機場資料快取
+_airport_cache = None
+_airport_lookup = None  # HashMap 快速查找表
+
+def get_cached_airports():
+    """取得快取的機場資料，避免重複查詢資料庫"""
+    global _airport_cache, _airport_lookup
+    if _airport_cache is None:
+        print("🔄 載入機場資料到快取...")
+        d_airports = search_service.get_airport_data('1')  # 國外機場
+        a_airports = search_service.get_airport_data('0')  # 國內機場
+
+        if d_airports["success"] and a_airports["success"]:
+            _airport_cache = d_airports["data"] + a_airports["data"]
+
+            # 建立 HashMap 快速查找表
+            _airport_lookup = {}
+            for airport in _airport_cache:
+                airport_id = airport.get('Airport_Id', '')
+                airport_name_zh = airport.get('Airport_Name_ZH', '')
+                airport_name = airport.get('Airport_Name', '')
+
+                # 機場代碼查找
+                if airport_id:
+                    _airport_lookup[airport_id.upper()] = airport_id
+
+                # 中文名稱查找
+                if airport_name_zh:
+                    _airport_lookup[airport_name_zh] = airport_id
+
+                # 英文名稱查找（部分匹配會在後面處理）
+                if airport_name:
+                    _airport_lookup[airport_name.upper()] = airport_id
+
+            print(f"✅ 機場資料快取完成，共 {len(_airport_cache)} 個機場，{len(_airport_lookup)} 個查找項目")
+        else:
+            print("❌ 機場資料載入失敗")
+            _airport_cache = []
+            _airport_lookup = {}
+
+    return _airport_cache
+
+def get_airport_lookup():
+    """取得機場查找表"""
+    get_cached_airports()  # 確保快取已載入
+    return _airport_lookup
+
+def clear_airport_cache():
+    """清除機場快取，強制重新載入"""
+    global _airport_cache, _airport_lookup
+    _airport_cache = None
+    _airport_lookup = None
+    print("🗑️ 機場快取已清除")
+
+def refresh_airport_cache():
+    """刷新機場快取"""
+    clear_airport_cache()
+    get_cached_airports()
+    print("🔄 機場快取已刷新")
+
 def format_flight_info(flight):
     """格式化航班資訊為 LINE 訊息"""
     try:
@@ -52,16 +112,11 @@ def search_flights_by_message(message):
 
         # 取得機場資料來匹配用戶輸入
         print(f"🔍 開始查詢航班: {from_location} -> {to_location}")
-        d_airports = search_service.get_airport_data('1')  # 國外機場
-        a_airports = search_service.get_airport_data('0')  # 國內機場
+        all_airports = get_cached_airports()
 
-        print(f"🔍 國外機場查詢結果: success={d_airports['success']}, 數量={len(d_airports.get('data', []))}")
-        print(f"🔍 國內機場查詢結果: success={a_airports['success']}, 數量={len(a_airports.get('data', []))}")
-
-        if not d_airports["success"] or not a_airports["success"]:
+        if not all_airports:
             return "❌ 無法取得機場資料"
 
-        all_airports = d_airports["data"] + a_airports["data"]
         print(f"🔍 總機場數量: {len(all_airports)}")
 
         # 尋找匹配的機場
@@ -109,13 +164,12 @@ def search_flights_by_message(message):
         return f"❌ 搜尋航班時發生錯誤：{str(e)}"
 
 def find_airport_id(location_input, airports):
-    """根據用戶輸入找到對應的機場ID"""
+    """根據用戶輸入找到對應的機場ID - 使用 HashMap 優化版本"""
     # 保留原始輸入用於中文比對
     original_input = location_input.strip()
     location_input_upper = location_input.upper()
 
     print(f"🔍 查找機場: 原始輸入='{original_input}', 大寫輸入='{location_input_upper}'")
-    print(f"🔍 機場總數: {len(airports)}")
 
     # 城市別名映射
     city_aliases = {
@@ -129,33 +183,39 @@ def find_airport_id(location_input, airports):
     # 先檢查城市別名
     if original_input in city_aliases:
         target_code = city_aliases[original_input]
-        for airport in airports:
-            if airport.get('Airport_Id', '') == target_code:
-                print(f"✅ 找到城市別名匹配: {target_code} (輸入: {original_input})")
-                return target_code
+        print(f"✅ 找到城市別名匹配: {target_code} (輸入: {original_input})")
+        return target_code
 
-    for i, airport in enumerate(airports):
+    # 使用 HashMap 快速查找
+    airport_lookup = get_airport_lookup()
+
+    # 1. 精確匹配機場代碼
+    if location_input_upper in airport_lookup:
+        result = airport_lookup[location_input_upper]
+        print(f"✅ 找到機場代碼匹配: {result}")
+        return result
+
+    # 2. 精確匹配中文名稱
+    if original_input in airport_lookup:
+        result = airport_lookup[original_input]
+        print(f"✅ 找到中文名稱匹配: {result}")
+        return result
+
+    # 3. 部分匹配（fallback 到原始方法，但只在 HashMap 找不到時使用）
+    print("🔍 使用部分匹配搜尋...")
+    for airport in airports:
         airport_id = airport.get('Airport_Id', '')
         airport_name_zh = airport.get('Airport_Name_ZH', '')
         airport_name = airport.get('Airport_Name', '')
 
-        # 只打印前5個機場作為樣本
-        if i < 5:
-            print(f"🔍 機場{i+1}: ID='{airport_id}', 中文='{airport_name_zh}', 英文='{airport_name}'")
-
-        # 檢查機場代碼
-        if airport_id.upper() == location_input_upper:
-            print(f"✅ 找到機場代碼匹配: {airport_id}")
+        # 檢查中文名稱部分匹配
+        if original_input in airport_name_zh and original_input != '':
+            print(f"✅ 找到中文名稱部分匹配: {airport_id} ({airport_name_zh})")
             return airport_id
 
-        # 檢查中文名稱（使用原始輸入，不轉大寫）
-        if original_input in airport_name_zh:
-            print(f"✅ 找到中文名稱匹配: {airport_id} ({airport_name_zh})")
-            return airport_id
-
-        # 檢查英文名稱
-        if location_input_upper in airport_name.upper():
-            print(f"✅ 找到英文名稱匹配: {airport_id} ({airport_name})")
+        # 檢查英文名稱部分匹配
+        if location_input_upper in airport_name.upper() and location_input_upper != '':
+            print(f"✅ 找到英文名稱部分匹配: {airport_id} ({airport_name})")
             return airport_id
 
     print(f"❌ 未找到匹配的機場: '{original_input}'")
@@ -198,4 +258,4 @@ def process_line_message(message_text):
         return search_flights_by_message(message)
 
     # 預設回應
-    return f"請參考以下對話框輸入格式\n\n" + get_help_message()
+    return "請參考以下對話框輸入格式\n\n" + get_help_message()
