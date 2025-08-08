@@ -42,7 +42,7 @@ WHERE User_Id = %s AND Password_Hash = %s
             conn.close()
     
 # 註冊用戶：寫入 User_Id、User_Name、密碼雜湊與建立時間
-def RegisterUser(user_id, user_name, password):
+def RegisterUser(user_id, user_name, password, user_email):
     try:
         conn = pymssql.connect(**conn_args)
         cursor = conn.cursor()
@@ -59,9 +59,9 @@ def RegisterUser(user_id, user_name, password):
 
         # 寫入新使用者（User_Img 可為 NULL，這邊先放空字串或 None）
         cursor.execute("""
-INSERT INTO [User] (User_Id, User_Name, Password_Hash, User_Img, Create_At, Modify_At)
-VALUES (%s, %s, %s, %s, %s, %s)
-        """, (user_id, user_name, password_hash, None, now, now))
+INSERT INTO [User] (User_Id, User_Name, Password_Hash, User_Email, User_Img, User_Grade, Create_At, Modify_At)
+VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """, (user_id, user_name, password_hash, user_email, None, '001' , now, now))
         conn.commit()
 
         return {"success": True, "message": "註冊成功"}

@@ -116,23 +116,25 @@ def register():
     data = request.get_json()
     user_id = data.get("user_id", "").strip()
     user_name = data.get("user_name", "").strip()
+    user_email = data.get("user_email", "").strip()
     password = data.get("password", "").strip()
     confirm_password = data.get("confirmPassword", "").strip()
+
     print("user_id:", user_id)
     print("user_name:", user_name)
+    print("user_email:", user_email)
     print("password:", password)
     print("confirm_password:", confirm_password)
-    # 檢查欄位是否為空
-    if not user_id or not user_name or not password:
+
+    if not user_id or not user_name or not password or not user_email:
         return jsonify({"success": False, "message": "請輸入完整資料"})
 
-    # 檢查密碼是否一致
     if password != confirm_password:
         return jsonify({"success": False, "message": "兩次輸入的密碼不一致"})
 
-    # 呼叫 user_service 裡的註冊函式
-    result = user_service.RegisterUser(user_id, user_name, password)
+    result = user_service.RegisterUser(user_id, user_name, password, user_email)
     return jsonify(result)
+
 
 
 # 登出
