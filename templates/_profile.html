@@ -1,125 +1,135 @@
 <!-- Edit Profile Modal -->
 <div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h5 class="modal-title" id="editProfileModalLabel">編輯個人資料</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title" id="editProfileModalLabel">編輯個人資料</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+
+      <form id="editProfileForm" method="POST" enctype="multipart/form-data">
         <div class="modal-body">
-          <form id="editProfileForm" enctype="multipart/form-data">
-            <div class="text-center mb-4">
-              <label for="photoUpload" class="profile-photo-container position-relative mx-auto d-block" style="cursor: pointer; width: 120px; height: 120px;">
-                <img src="{{ user.User_Img }}" alt="使用者照片預覽" class="rounded-circle" style="width: 120px; height: 120px; object-fit: cover;" id="modalProfilePhotoPreview">
-                <div class="profile-photo-overlay position-absolute top-0 start-0 w-100 h-100 rounded-circle d-flex justify-content-center align-items-center text-white">
-                    <i class="fas fa-camera fa-lg"></i> <span class="ms-2">更換頭像</span>
-                </div>
-              </label>
-              <input type="file" id="photoUpload" name="user_img" class="d-none" accept="image/*">
-            </div>
-            <div class="mb-3">
-              <label for="username" class="form-label">使用者名稱</label>
-              <input type="text" class="form-control" id="username" name="user_name" value="{{ user.User_Name }}" required>
-            </div>
-            <div class="mb-3">
-              <label for="user_email" class="form-label">電子郵件</label>
-              <input type="email" class="form-control" id="user_email" name="user_email" value="{{ user.User_Email }}" readonly>
-              <small class="form-text text-muted">電子郵件作為帳號唯一識別，不提供變更</small>
-            </div>
-            <div class="mb-3">
-              <label for="old_password" class="form-label">舊密碼</label>
-              <input type="password" class="form-control" id="old_password" name="old_password" placeholder="如需變更密碼請輸入舊密碼">
-              <small class="form-text text-muted">若不需變更密碼，此欄位請留空</small>
-            </div>
-            <div class="mb-3">
-              <label for="new_password" class="form-label">新密碼</label>
-              <input type="password" class="form-control" id="new_password" name="new_password" placeholder="輸入新密碼">
-            </div>
-          </form>
+          <div class="text-center mb-4">
+            <label for="photoUpload" class="profile-photo-container position-relative mx-auto d-block" style="cursor: pointer; width: 120px; height: 120px;">
+              <img src="{{ url_for('static', filename='user_photos/' + (user.User_Img or 'default_user.png')) }}"
+                   alt="使用者照片預覽"
+                   class="rounded-circle"
+                   style="width: 120px; height: 120px; object-fit: cover;"
+                   id="modalProfilePhotoPreview">
+              <div class="profile-photo-overlay position-absolute top-0 start-0 w-100 h-100 rounded-circle d-flex justify-content-center align-items-center text-white">
+                <i class="fas fa-camera fa-lg"></i> <span class="ms-2">更換頭像</span>
+              </div>
+            </label>
+            <input type="file" id="photoUpload" name="user_img" class="d-none" accept="image/*">
+          </div>
+
+          <div class="mb-3">
+            <label for="username" class="form-label">使用者名稱</label>
+            <input type="text" class="form-control" id="username" name="user_name" value="{{ user.User_Name }}" required>
+          </div>
+
+          <div class="mb-3">
+            <label for="user_email" class="form-label">電子郵件</label>
+            <input type="text"
+                   class="form-control"
+                   id="user_email"
+                   value="{{ user.User_Email or '' }}"
+                   readonly
+                   disabled>
+            <small class="form-text text-muted">電子郵件作為帳號唯一識別，不提供變更</small>
+          </div>
+
+          <div class="mb-3">
+            <label for="old_password" class="form-label">舊密碼</label>
+            <input type="password" class="form-control" id="old_password" name="old_password" placeholder="如需變更密碼請輸入舊密碼">
+            <small class="form-text text-muted">若不需變更密碼，此欄位請留空</small>
+          </div>
+
+          <div class="mb-3">
+            <label for="new_password" class="form-label">新密碼</label>
+            <input type="password" class="form-control" id="new_password" name="new_password" placeholder="輸入新密碼">
+          </div>
         </div>
+
         <div class="modal-footer">
           <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-          <button type="submit" form="editProfileForm" class="btn btn-primary">儲存變更</button>
+          <button type="submit" class="btn btn-primary">儲存變更</button>
         </div>
-      </div>
+      </form>
     </div>
+  </div>
 </div>
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const editProfileForm = document.getElementById('editProfileForm');
-    if (!editProfileForm) {
-        return;
+  const editProfileForm = document.getElementById('editProfileForm');
+  const photoUpload = document.getElementById('photoUpload');
+  const modalProfilePhotoPreview = document.getElementById('modalProfilePhotoPreview');
+  const editProfileModalEl = document.getElementById('editProfileModal');
+  const editProfileModal = bootstrap.Modal.getOrCreateInstance(editProfileModalEl);
+  const originalImgSrc = modalProfilePhotoPreview.src;
+
+  // 頭像預覽
+  photoUpload.addEventListener('change', function (event) {
+    const file = event.target.files[0];
+    if (file && modalProfilePhotoPreview) {
+      const reader = new FileReader();
+      reader.onload = function (e) {
+        modalProfilePhotoPreview.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  });
+
+  // 表單提交
+  editProfileForm.addEventListener('submit', function (event) {
+    event.preventDefault();
+
+    const formData = new FormData(editProfileForm);
+    const newPassword = formData.get('new_password');
+    const oldPassword = formData.get('old_password');
+
+    if (newPassword && !oldPassword) {
+      alert('若要變更密碼，請提供您的舊密碼。');
+      return;
     }
 
-    const photoUpload = document.getElementById('photoUpload');
-    const modalProfilePhotoPreview = document.getElementById('modalProfilePhotoPreview');
-    const editProfileModalEl = document.getElementById('editProfileModal');
-    const editProfileModal = bootstrap.Modal.getOrCreateInstance(editProfileModalEl);
+    const submitButton = editProfileForm.querySelector('button[type="submit"]');
+    const originalButtonText = submitButton.innerHTML;
+    submitButton.disabled = true;
+    submitButton.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 儲存中...`;
 
-    // Update photo preview
-    if(photoUpload) {
-        photoUpload.addEventListener('change', function(event) {
-            const file = event.target.files[0];
-            if (file && modalProfilePhotoPreview) {
-                const reader = new FileReader();
-                reader.onload = function(e) {
-                    modalProfilePhotoPreview.src = e.target.result;
-                }
-                reader.readAsDataURL(file);
-            }
-        });
-    }
-
-    editProfileForm.addEventListener('submit', function(event) {
-        event.preventDefault();
-
-        const formData = new FormData(editProfileForm);
-        const newPassword = formData.get('new_password');
-        const oldPassword = formData.get('old_password');
-
-        if (newPassword && !oldPassword) {
-            alert('若要變更密碼，請提供您的舊密碼。');
-            return;
+    fetch('/update_profile', {
+      method: 'POST',
+      body: formData
+    })
+      .then(response => response.json().then(data => ({ ok: response.ok, data })))
+      .then(({ ok, data }) => {
+        if (!ok || !data.success) {
+          throw new Error(data.message || '更新失敗');
         }
 
-        const submitButton = editProfileForm.querySelector('button[type="submit"]');
-        const originalButtonText = submitButton.innerHTML;
-        submitButton.disabled = true;
-        submitButton.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 儲存中...`;
+        alert(data.message || '更新成功！');
+        editProfileModal.hide();
+        editProfileModalEl.addEventListener('hidden.bs.modal', function () {
+          location.reload();
+        }, { once: true });
+      })
+      .catch(error => {
+        console.error('❌ 發生錯誤:', error);
+        alert(error.message);
+      })
+      .finally(() => {
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
+      });
+  });
 
-        fetch('/api/user', {
-            method: 'POST',
-            body: formData,
-        })
-        .then(response => response.json().then(data => ({ ok: response.ok, data })))
-        .then(({ ok, data }) => {
-            if (!ok) {
-                throw new Error(data.message || '更新個人資料時發生錯誤。');
-            }
-            alert(data.message || '個人資料更新成功！');
-            editProfileModal.hide();
-            
-            editProfileModalEl.addEventListener('hidden.bs.modal', function () {
-                location.reload();
-            }, { once: true });
-
-        })
-        .catch(error => {
-            console.error('更新錯誤:', error);
-            alert(error.message);
-        })
-        .finally(() => {
-            submitButton.disabled = false;
-            submitButton.innerHTML = originalButtonText;
-        });
-    });
-
-    editProfileModalEl.addEventListener('hidden.bs.modal', function () {
-        editProfileForm.reset();
-        if (modalProfilePhotoPreview) {
-             modalProfilePhotoPreview.src = '{{ user.User_Img }}';
-        }
-    });
+  // 關閉時重設
+  editProfileModalEl.addEventListener('hidden.bs.modal', function () {
+    editProfileForm.reset();
+    modalProfilePhotoPreview.src = originalImgSrc;
+  });
 });
 </script>

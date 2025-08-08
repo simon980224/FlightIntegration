@@ -1,6 +1,9 @@
 import pymssql
 import hashlib
 import datetime
+import os
+import uuid
+from werkzeug.utils import secure_filename
 
 # 連接字串配置
 conn_args = {
@@ -9,6 +12,13 @@ conn_args = {
     "password": "Flight_admin123@",
     "database": "114-FlightIntegration_DB"
 }
+
+# 設定上傳資料夾路徑
+UPLOAD_FOLDER = os.path.join('static', 'user_photos')
+
+# 產生亂數檔名
+def generate_random_filename(extension):
+    return f"{uuid.uuid4().hex[:4]}-{uuid.uuid4().hex[:4]}-{uuid.uuid4().hex[:4]}-{uuid.uuid4().hex[:4]}{extension}"
 
 # 驗證用戶登入 密碼用hash加密進行驗證
 def AuthenticateUser(user_id, password):
@@ -104,8 +114,7 @@ def UpdateUserInfo(
     user_name=None,
     old_password=None,
     new_password=None,
-    user_img=None,
-    create_at=None
+    user_img=None,  # 這是 request.files['user_img'] 傳進來的 FileStorage
 ):
     try:
         conn = pymssql.connect(**conn_args)
@@ -139,9 +148,19 @@ def UpdateUserInfo(
             fields.append("Password_Hash = %s")
             params.append(new_password_hash)
 
-        if user_img is not None:
+        if user_img and user_img.filename != "":
+            ext = os.path.splitext(secure_filename(user_img.filename))[-1]
+            filename = generate_random_filename(ext)
+
+            # 確保資料夾存在
+            os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+
+            save_path = os.path.join(UPLOAD_FOLDER, filename)
+            user_img.save(save_path)
+
             fields.append("User_Img = %s")
-            params.append(user_img)
+            params.append(filename)
+
 
         fields.append("Modify_At = %s")
         params.append(modify_at)
@@ -157,8 +176,6 @@ WHERE User_Id = %s
         """
         params.append(user_id)
 
-        # 執行更新
-        cursor = conn.cursor()
         cursor.execute(query, tuple(params))
         conn.commit()
 
@@ -169,7 +186,7 @@ WHERE User_Id = %s
 
     except Exception as e:
         return {"success": False, "message": f"更新失敗：{str(e)}"}
-    
+
     finally:
         if cursor:
             cursor.close()

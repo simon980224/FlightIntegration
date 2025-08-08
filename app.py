@@ -171,33 +171,31 @@ def profile():
 @login_required
 def update_profile():
     user_id = session.get('user_id')
-    data = request.get_json()
+    
+    # 接收來自 form 表單的欄位資料（非 JSON）
+    user_name = request.form.get("user_name")
+    old_password = request.form.get("old_password")
+    new_password = request.form.get("new_password")
+    
+    # 接收圖片檔案（type="file"）
+    user_img = request.files.get("user_img")
 
-    user_name = data.get("user_name")              # 要改的名字
-    old_password = data.get("old_password")        # 舊密碼（用來驗證）
-    new_password = data.get("new_password")        # 新密碼（可選）
-    user_img = data.get("user_img")                # 用戶頭像檔名或 URL
-    create_at = data.get("create_at")              # 可選，如果你允許修改建立時間
-
+    # 呼叫 service 更新
     result = user_service.UpdateUserInfo(
         user_id=user_id,
         user_name=user_name,
         old_password=old_password,
         new_password=new_password,
         user_img=user_img,
-        create_at=create_at
     )
 
-    return jsonify({
-    "success": True,
-    "message": "更新成功",
-    "user": {
-        "user_id": user_id,
-        "user_name": user_name,
-        "user_img": user_img,
-        "created_at": create_at
-    }
-})
+    if result["success"]:
+        flash("更新成功")
+    else:
+        flash(result["message"])
+
+    return redirect(url_for('profile_page'))
+
 
 
 @app.route('/update_profile', methods=['GET'])
@@ -210,7 +208,7 @@ def profile_page():
     user_data_result = user_service.GetUserInfo(user_id)
     if user_data_result["success"]:
         user_data_result = user_data_result["data"]
-        return render_template('update_profile.html', user=user_data_result)
+        return render_template('_profile.html', user=user_data_result)
     else:
         return jsonify({'success': False, 'message': '無法獲取使用者資料'})
     
