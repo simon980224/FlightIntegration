@@ -96,6 +96,11 @@
   </div>
 </div>
 
+<!-- 回到頂部按鈕 -->
+<button id="scrollToTopBtn" class="btn btn-primary position-fixed bottom-0 end-0 m-4 rounded-circle shadow" style="width: 60px; height: 60px; z-index: 1000; display: none;" title="回到頂部">
+  <i class="fas fa-chevron-up"></i>
+</button>
+
 <script>
   document.addEventListener("DOMContentLoaded", init);
 
@@ -174,6 +179,9 @@
     airlineCheckboxes = document.querySelectorAll('.airline-checkbox');
     departureDateInput = document.getElementById('departure_date');
     resultsContainer = document.getElementById('flight-results');
+
+    // 初始化回到頂部按鈕
+    initScrollToTopButton();
 
 
     // 初始化日期選擇器：出發日
@@ -332,6 +340,30 @@
         showToast('連線錯誤', '無法連線至伺服器，請稍後再試。', 'error');
         console.error(error);
       });
+  }
+
+  // 初始化回到頂部按鈕功能
+  function initScrollToTopButton() {
+    const scrollToTopBtn = document.getElementById('scrollToTopBtn');
+    
+    // 監聽頁面滾動事件
+    window.addEventListener('scroll', function() {
+      // 當頁面滾動超過300px時顯示按鈕
+      if (window.pageYOffset > 300) {
+        scrollToTopBtn.style.display = 'block';
+      } else {
+        scrollToTopBtn.style.display = 'none';
+      }
+    });
+    
+    // 點擊按鈕時滾動到頂部
+    scrollToTopBtn.addEventListener('click', function() {
+      // 使用smooth滾動效果
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    });
   }
 </script>
 
