@@ -118,13 +118,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const formData = new FormData(editProfileForm);
     const newPassword = formData.get('new_password');
     const oldPassword = formData.get('old_password');
-    for (const [key, value] of formData.entries()) {
-      if (value instanceof File) {
-        console.log(`${key}: File{name=${value.name}, type=${value.type}, size=${value.size} bytes}`);
-      } else {
-        console.log(`${key}:`, value);
-      }
-    }
+    
     if (newPassword && !oldPassword) {
       alert('若要變更密碼，請提供您的舊密碼。');
       return;
