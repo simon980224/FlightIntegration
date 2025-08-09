@@ -99,6 +99,22 @@
 <script>
   document.addEventListener("DOMContentLoaded", init);
 
+  // 處理訂票按鈕點擊事件
+  function handleBookingClick(flightId, flightNo, airlineId) {
+    // 檢查用戶是否已登入 - 從 body 的 data 屬性讀取
+    const isLoggedIn = document.body.getAttribute('data-logged-in') === 'true';
+    
+    if (!isLoggedIn) {
+      showToast('提示', '請先登入才能訂票', 'info');
+      const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+      loginModal.show();
+      return;
+    }
+    
+    // 已登入則導向訂票頁面
+    window.location.href = `/booking/${flightId}`;
+  }
+
   // 將 DOM 元素變數移至此處，讓所有函式都能共用
   let fromAirportInput, toAirportInput, unlimitedCheckbox, airlineCheckboxes,
     departureDateInput, resultsContainer;
@@ -215,9 +231,11 @@
                       <div>
                         ${flight.ticket_status === 1 ? `
                         <button 
-                          class="btn btn-success" style="width: 100px;"
+                          class="btn btn-success booking-btn" style="width: 100px;"
+                          data-flight-id="${flight.Flight_Id}"
                           data-flight-no="${flight.No}"
                           data-airline="${flight.Airline_Id}"
+                          onclick="handleBookingClick('${flight.Flight_Id}', '${flight.No}', '${flight.Airline_Id}')"
                         ><i class="fa-solid fa-ticket"></i> 訂票</button>
                         ` : `
                         <button class="btn btn-secondary" style="width: 100px;" disabled>
@@ -253,6 +271,8 @@
             
               resultsContainer.insertAdjacentHTML('beforeend', flightCard);
           });
+          
+          // 訂票按鈕點擊事件已經在按鈕的onclick屬性中處理
         } else if (json.success) { // 成功但沒資料
           showToast('提示', '找不到符合條件的航班。', 'info');
         } else {  // 失敗：顯示後端回傳的錯誤訊息
