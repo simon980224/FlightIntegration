@@ -1,13 +1,13 @@
 # service/ticket_service.py
 import pymssql
 from datetime import datetime, timedelta
+from flask import session
 
 # ===== 價格設定（可之後改成從 DB 或設定檔讀）=====
 FARE = 10000
 AIRPORT_TAX = 500
 FUEL_SURCHARGE = 1000
 SERVICE_FEE = 87
-
 
 # ===== 資料庫連線設定 =====
 conn_args = {
@@ -17,60 +17,69 @@ conn_args = {
     "database": "114-FlightIntegration_DB"
 }
 
-def _format_duration(d_time, a_time):
-    """處理跨天飛行時間計算，回傳 'HH時MM分' 字串"""
+def _format_duration(d_time, a_time):#"""處理跨天飛行時間計算，回傳 'HH時MM分' 字串"""
     if a_time < d_time:
-        a_time += timedelta(days=1)  # 抵達時間加一天
-
+        a_time += timedelta(days=1)
     td = a_time - d_time
     total_minutes = int(td.total_seconds() // 60)
     hours, minutes = divmod(total_minutes, 60)
     return f"{hours}時{minutes}分"
 
 def get_booking_imf(flight_id):
-    """依 Flight_Id 查詢航班，並附加票券資訊與價格彙總"""
+    conn = None
+    cursor = None
     try:
+        # 1) 先查航班資料 + 航空公司 + 出發/抵達機場中文名
         conn = pymssql.connect(**conn_args)
         cursor = conn.cursor(as_dict=True)
-
-        query = """
+        flight_sql = """
         SELECT 
             F.Flight_Id,
             F.No,
             F.Airline_Id,
-            A.Airline_Name_ZH, 
+            AL.Airline_Name_ZH,
             F.D_Airport_Id,
+            DAP.Airport_Name_ZH AS D_Airport_Name_ZH,
             F.A_Airport_Id,
+            AAP.Airport_Name_ZH AS A_Airport_Name_ZH,
             F.D_Time,
             F.A_Time
         FROM Flight AS F
-        INNER JOIN Airline AS A
-            ON F.Airline_Id = A.Airline_Id
+        INNER JOIN Airline AS AL
+            ON F.Airline_Id = AL.Airline_Id
+        LEFT JOIN Airport AS DAP
+            ON F.D_Airport_Id = DAP.Airport_Id
+        LEFT JOIN Airport AS AAP
+            ON F.A_Airport_Id = AAP.Airport_Id
         WHERE F.Flight_Id = %s
         """
-        cursor.execute(query, (flight_id,))
+        cursor.execute(flight_sql, (flight_id,))
         row = cursor.fetchone()
-
-
         if not row:
             return {"success": False, "message": "查無此航班"}
 
-        d_time = row["D_Time"]
-        a_time = row["A_Time"]
+        # 2) 從 session 取得目前登入的 user_id，去 User 表撈 User_Name
+        user_id = session.get("user_id")
+        user_name = None
+        if user_id:
+            cursor.execute("SELECT User_Name FROM [User] WHERE User_Id = %s", (user_id,))
+            u = cursor.fetchone()
+            user_name = u["User_Name"] if u else None
 
-        # ---- 計算飛行時間（支援跨天）----
-        if d_time and a_time:
-            dur_str = _format_duration(d_time, a_time)
-        else:
-            dur_str = None
+        # 3) 計算飛行時間
+        d_time = row.get("D_Time")
+        a_time = row.get("A_Time")
+        dur_str = _format_duration(d_time, a_time) if (d_time and a_time) else None
 
-        # ---- 價格計算 ----
+        # 4) 票價彙總
         total_price = FARE + AIRPORT_TAX + FUEL_SURCHARGE + SERVICE_FEE
         today = datetime.now().strftime("%Y-%m-%d")
-        # ---- 附加欄位 ----
+
+        # 5) 附加欄位
         row.update({
-            "Flight_Duration": dur_str,          # 例如 "2時35分"
-            "Booking_Date": today,               # 當前日期
+            "User_Name": user_name,             # 目前登入者名稱（若無登入則為 None）
+            "Flight_Duration": dur_str,
+            "Booking_Date": today,
             "Cabin_Class": "經濟艙",
             "Seat_No": "12-5D",
             "Fare": FARE,
@@ -86,16 +95,11 @@ def get_booking_imf(flight_id):
         return {"success": False, "error": str(e)}
     finally:
         try:
-            cursor.close()
-        except:
-            pass
-        try:
-            conn.close()
-        except:
-            pass
+            if cursor: cursor.close()
+        finally:
+            if conn: conn.close()
 
 if __name__ == "__main__":
+    # 僅供本檔單獨執行測試時參考；實際在 Flask route 中呼叫即可
     test_flight_id = "EVA_20250809_BR016_TPE_LAX"
-    result = get_booking_imf(test_flight_id)
-    print(result)
-
+    print(get_booking_imf(test_flight_id))
