@@ -266,13 +266,6 @@ def handle_message(event):
 def bookings():
     return render_template('booking.html')
 
-# 訂票頁面
-@app.route('/booking/<flight_id>')
-@login_required
-def booking(flight_id):
-    # 這裡之後可以加入獲取航班資訊的邏輯
-    return render_template('booking.html')
-
 # 處理訂票
 @app.route('/booking/<flight_id>', methods=['POST'])
 @login_required
