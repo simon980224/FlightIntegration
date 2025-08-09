@@ -17,8 +17,8 @@
       <div class="card shadow-lg border-0">
         <div class="card-body p-4 p-md-5">
           <!-- 功能卡片區塊 -->
-          <div class="row g-4 mb-5">
-            <div class="col-md-4">
+          <div class="row g-4 mb-5 justify-content-center">
+            <div class="col-md-5">
               <div class="card h-100 shadow-sm border-0">
                 <div class="card-body text-center p-4">
                   <div class="mb-3">
@@ -33,22 +33,7 @@
               </div>
             </div>
             
-            <div class="col-md-4">
-              <div class="card h-100 shadow-sm border-0">
-                <div class="card-body text-center p-4">
-                  <div class="mb-3">
-                    <i class="fas fa-ticket-alt fa-3x text-success"></i>
-                  </div>
-                  <h5 class="card-title fw-bold">線上訂票</h5>
-                  <p class="card-text text-muted">便捷的線上訂票服務，輕鬆完成購票</p>
-                  <a href="/ticket" class="btn btn-success">
-                    <i class="fas fa-ticket-alt me-2"></i>立即訂票
-                  </a>
-                </div>
-              </div>
-            </div>
-            
-            <div class="col-md-4">
+            <div class="col-md-5">
               <div class="card h-100 shadow-sm border-0">
                 <div class="card-body text-center p-4">
                   <div class="mb-3">
@@ -56,9 +41,15 @@
                   </div>
                   <h5 class="card-title fw-bold">會員服務</h5>
                   <p class="card-text text-muted">查看個人資料、訂票記錄等會員專屬服務</p>
-                  <a href="/profile" class="btn btn-info text-white">
-                    <i class="fas fa-user-circle me-2"></i>會員中心
-                  </a>
+                  {% if user_id %}
+                    <a href="/profile" class="btn btn-info text-white">
+                      <i class="fas fa-user-circle me-2"></i>會員中心
+                    </a>
+                  {% else %}
+                    <a href="#" class="btn btn-info text-white" id="profile-link-unauthenticated">
+                      <i class="fas fa-user-circle me-2"></i>會員中心
+                    </a>
+                  {% endif %}
                 </div>
               </div>
             </div>
@@ -159,4 +150,14 @@
   </div>
 </div>
 
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const profileLink = document.getElementById('profile-link-unauthenticated');
+    if (profileLink) {
+        profileLink.addEventListener('click', showLoginModal);
+    }
+});
+</script>
 {% endblock %}

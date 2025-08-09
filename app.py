@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
-from service import search_service,user_service,linebot_service
+from service import search_service,user_service,linebot_service,ticket_service
 from functools import wraps
 from datetime import datetime
 import json
@@ -262,27 +262,25 @@ def handle_message(event):
 
 #########################進度條###########################
 # 我的訂票頁面
-@app.route('/bookings')
+@app.route('/ticket', methods=['GET'])
 @login_required
 def bookings():
-    return render_template('booking.html')
-
-# 訂票頁面
-@app.route('/booking/<flight_id>')
-@login_required
-def booking(flight_id):
-    # 這裡之後可以加入獲取航班資訊的邏輯
-    return render_template('booking.html')
+    return render_template('ticket.html')
 
 # 處理訂票
-@app.route('/booking/<flight_id>', methods=['POST'])
+@app.route('/booking/<flight_id>', methods=['POST','GET'])
 @login_required
 def process_booking(flight_id):
-    # 這裡之後可以加入處理訂票的邏輯
-    return jsonify({
-        'success': True,
-        'message': '訂票成功'
-    })
+    print("🧪 process_booking 被呼叫")
+    # 取航班資料（含票券資訊）
+    result = ticket_service.get_booking_imf(flight_id)
+    if not result["success"]:
+        flash(result.get("message", "查詢航班失敗"))
+        return redirect(url_for('index'))
+
+    # 將航班資訊傳到 booking.html
+    return render_template('booking.html', flight=result["data"])
+
 
 @app.route('/ticket')
 @login_required
