@@ -106,7 +106,7 @@ document.addEventListener('DOMContentLoaded', function () {
       // 檔案類型檢查
       const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
       if (!allowedTypes.includes(file.type)) {
-        alert('上傳失敗！僅允許 JPG, JPEG, PNG 格式的圖片。');
+        showToast('上傳失敗！', '僅允許 JPG, JPEG, PNG 格式的圖片。', 'error');
         event.target.value = ''; // 清空 file input
         return;
       }
@@ -114,7 +114,7 @@ document.addEventListener('DOMContentLoaded', function () {
       // 檔案大小檢查 (5MB)
       const maxSizeInBytes = 5 * 1024 * 1024;
       if (file.size > maxSizeInBytes) {
-        alert('上傳失敗！檔案大小不能超過 5MB。');
+        showToast('上傳失敗！', '檔案大小不能超過 5MB。', 'error');
         event.target.value = ''; // 清空 file input
         return;
       }
@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const oldPassword = formData.get('old_password');
     
     if (newPassword && !oldPassword) {
-      alert('若要變更密碼，請提供您的舊密碼。');
+      showToast('操作失敗', '若要變更密碼，請提供您的舊密碼。', 'warning');
       return;
     }
 
@@ -150,9 +150,8 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     const submitButton = editProfileForm.querySelector('button[type="submit"]');
-    const originalButtonText = submitButton.innerHTML;
     submitButton.disabled = true;
-    submitButton.innerHTML = `<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> 儲存中...`;
+    showLoading('儲存中...', '請稍候');
 
     fetch('/update_profile', {
       method: 'POST',
@@ -160,23 +159,23 @@ document.addEventListener('DOMContentLoaded', function () {
     })
       .then(response => response.json().then(data => ({ ok: response.ok, data })))
       .then(({ ok, data }) => {
+        closeLoading();
         if (!ok || !data.success) {
           throw new Error(data.message || '更新失敗');
         }
 
-        alert(data.message || '更新成功！');
-        editProfileModal.hide();
-        editProfileModalEl.addEventListener('hidden.bs.modal', function () {
-          location.reload();
-        }, { once: true });
+        showToast('成功', data.message || '更新成功！', 'success').then(() => {
+            editProfileModal.hide();
+            editProfileModalEl.addEventListener('hidden.bs.modal', function () {
+              location.reload();
+            }, { once: true });
+        });
       })
       .catch(error => {
+        closeLoading();
         console.error('❌ 發生錯誤:', error);
-        alert(error.message);
-      })
-      .finally(() => {
+        showToast('錯誤', error.message, 'error');
         submitButton.disabled = false;
-        submitButton.innerHTML = originalButtonText;
       });
   });
 

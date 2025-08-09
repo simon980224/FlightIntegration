@@ -254,15 +254,15 @@
               resultsContainer.insertAdjacentHTML('beforeend', flightCard);
           });
         } else if (json.success) { // 成功但沒資料
-          resultsContainer.innerHTML = '<div class="alert alert-info text-center fs-5 p-4"><i class="fas fa-info-circle me-2"></i>找不到符合條件的航班。</div>';
+          showToast('提示', '找不到符合條件的航班。', 'info');
         } else {  // 失敗：顯示後端回傳的錯誤訊息
-          resultsContainer.innerHTML = `<div class="alert alert-danger text-center fs-5 p-4"><i class="fas fa-exclamation-triangle me-2"></i>查詢失敗：${json.error}</div>`;
+          showToast('查詢失敗', json.error, 'error');
         }
       })
 
       .catch(error => {// 網路或伺服器無法連線
         closeLoading();
-        resultsContainer.innerHTML = '<div class="alert alert-danger text-center fs-5 p-4"><i class="fas fa-server me-2"></i>無法連線至伺服器，請稍後再試。</div>';
+        showToast('連線錯誤', '無法連線至伺服器，請稍後再試。', 'error');
         console.error(error);
       });
   }
