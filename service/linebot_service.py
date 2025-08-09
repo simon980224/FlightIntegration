@@ -22,6 +22,9 @@ TAIWAN_AIRPORT_ALIASES = {
     '清泉崗': 'RMQ',  # 清泉崗 → 清泉崗機場
 }
 
+# 網頁連結常量
+WEBSITE_URL = "https://d6c8ff7b0ead.ngrok-free.app"
+
 # 設定 API Log
 def setup_api_logger():
     """設定 API 呼叫記錄器"""
@@ -329,10 +332,10 @@ def search_flights_by_message(message):
         for i, flight in enumerate(flights[:5]):
             response += format_flight_info(flight)
             if i < len(flights[:5]) - 1:
-                response += "\n" + "─" * 20 + "\n"
+                response += "\n" + "─" * 16 + "\n"
 
         if len(flights) > 5:
-            response += f"\n... 還有 {len(flights) - 5} 筆航班\n\n💻 想查詢更多航班請至網頁版"
+            response += f"\n... 還有 {len(flights) - 5} 筆航班\n\n💻 想查詢更多航班請至網頁版\n🔗 {WEBSITE_URL}"
 
         return response
 
@@ -758,7 +761,7 @@ def generate_partial_search_response(destination):
         for _, name in country_airports:
             response += f"• 桃園到{name}\n"
         response += f"\n請輸入您想要的路線，例如：「桃園到{country_airports[0][1]}」\n"
-        response += f"或到網頁查詢更多{destination}城市！"
+        response += f"或到網頁查詢更多{destination}城市！\n🔗 {WEBSITE_URL}"
     else:
         # 如果是具體機場/城市，直接查詢所有台灣機場到該目的地的航班
         response = search_all_taiwan_to_destination(destination)
@@ -800,7 +803,7 @@ def search_all_taiwan_to_destination(destination):
                         line.strip().startswith('🕑')
                     ):
                         flight_details.append(line)
-                    elif in_flight_section and line.strip() == '────────────────────':
+                    elif in_flight_section and line.strip() == '─' * 16:
                         flight_details.append(line)
                     elif in_flight_section and line.strip() == '':
                         flight_details.append(line)
