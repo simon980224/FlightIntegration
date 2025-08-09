@@ -261,10 +261,10 @@ def handle_message(event):
 
 #########################進度條###########################
 # 我的訂票頁面
-@app.route('/bookings')
+@app.route('/ticket', methods=['GET'])
 @login_required
 def bookings():
-    return render_template('booking.html')
+    return render_template('ticket.html')
 
 # 處理訂票
 @app.route('/booking/<flight_id>', methods=['POST','GET'])
