@@ -35,15 +35,18 @@ def get_booking_imf(flight_id):
 
         query = """
         SELECT 
-            Flight_Id,
-            No,
-            Airline_Id,
-            D_Airport_Id,
-            A_Airport_Id,
-            D_Time,
-            A_Time
-        FROM Flight
-        WHERE Flight_Id = %s
+            F.Flight_Id,
+            F.No,
+            F.Airline_Id,
+            A.Airline_Name_ZH, 
+            F.D_Airport_Id,
+            F.A_Airport_Id,
+            F.D_Time,
+            F.A_Time
+        FROM Flight AS F
+        INNER JOIN Airline AS A
+            ON F.Airline_Id = A.Airline_Id
+        WHERE F.Flight_Id = %s
         """
         cursor.execute(query, (flight_id,))
         row = cursor.fetchone()
