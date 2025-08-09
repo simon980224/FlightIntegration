@@ -143,7 +143,7 @@ def UpdateUserInfo(
             fields.append("User_Name = %s")
             params.append(user_name)
 
-        if new_password is not None:
+        if new_password:
             new_password_hash = hashlib.sha256(new_password.encode('utf-8')).hexdigest()
             fields.append("Password_Hash = %s")
             params.append(new_password_hash)

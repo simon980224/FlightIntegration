@@ -67,7 +67,7 @@
                         <!-- 右邊：大頭貼 -->
                         <div class="col-lg-4 d-flex justify-content-center align-items-start mb-3">
                             <div class="profile-photo-container position-relative">
-                                <img src="{{ user.User_Img }}" alt="使用者照片" class="rounded-circle" style="width: 200px; height: 200px; object-fit: cover;" id="mainProfilePhoto">
+                                <img src="{{ url_for('static', filename='user_photos/' + (user.User_Img or 'default_user.png')) }}" alt="使用者照片" class="rounded-circle" style="width: 200px; height: 200px; object-fit: cover;" id="mainProfilePhoto">
                             </div>
                         </div>
                     </div>                      

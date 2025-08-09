@@ -180,6 +180,10 @@ def update_profile():
     # 接收圖片檔案（type="file"）
     user_img = request.files.get("user_img")
 
+    # 如果使用者未輸入新密碼（傳來的是空字串），則將其設為 None，避免觸發密碼更新
+    if not new_password:
+        new_password = None
+
     # 呼叫 service 更新
     result = user_service.UpdateUserInfo(
         user_id=user_id,
@@ -189,12 +193,7 @@ def update_profile():
         user_img=user_img,
     )
 
-    if result["success"]:
-        flash("更新成功")
-    else:
-        flash(result["message"])
-
-    return redirect(url_for('profile_page'))
+    return jsonify(result)
 
 
 

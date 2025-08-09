@@ -31,12 +31,7 @@
 
           <div class="mb-3">
             <label for="user_email" class="form-label">電子郵件</label>
-            <input type="text"
-                   class="form-control"
-                   id="user_email"
-                   value="{{ user.User_Email or '' }}"
-                   readonly
-                   disabled>
+            <input type="text" class="form-control" id="user_email" value="{{ user.User_Email or '' }}" readonly>
             <small class="form-text text-muted">電子郵件作為帳號唯一識別，不提供變更</small>
           </div>
 
@@ -93,6 +88,12 @@ document.addEventListener('DOMContentLoaded', function () {
     if (newPassword && !oldPassword) {
       alert('若要變更密碼，請提供您的舊密碼。');
       return;
+    }
+
+    // 如果新密碼為空，則從 formData 中刪除密碼欄位，避免後端誤判
+    if (!newPassword) {
+      formData.delete('new_password');
+      formData.delete('old_password');
     }
 
     const submitButton = editProfileForm.querySelector('button[type="submit"]');
