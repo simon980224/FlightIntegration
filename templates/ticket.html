@@ -1,71 +1,97 @@
 {% extends 'base.html' %}
+{% block body_class %}bg-ticket{% endblock %}
 {% block title %}票券 - 航班查詢系統{% endblock %}
 {% block content %}
 
-<div class="container">
+<div class="container my-5">
+  <!-- 頁首標題 -->
+  <div class="text-center mb-5">
+    <h1 class="display-4 fw-bold text-dark">票券資訊</h1>
+    <p class="lead text-dark">查看您的航班票券詳細資訊</p>
+  </div>
+
   <div class="row justify-content-center">
-    <div class="col-lg-8">
-      <!-- 頁面標題 -->
-      <div class="text-center mb-5">
-        <h1 class="display-5 fw-bold text-primary">
-          <i class="fas fa-ticket-alt me-3"></i>票券資訊
-        </h1>
-        <p class="lead text-muted">查看您的航班票券詳細資訊</p>
-      </div>
+    <div class="col-lg-10">
 
       <!-- 票券卡片 -->
-      <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-primary text-white">
-          <div class="d-flex justify-content-between align-items-center">
-            <h5 class="mb-0">
-              <i class="fas fa-plane me-2"></i>航班資訊
-            </h5>
-            <span class="badge bg-success fs-6">已確認</span>
+      <div class="bg-white bg-opacity-25 rounded-3 shadow-lg p-4 mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+          <div class="d-flex align-items-center">
+            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;">
+              <i class="fas fa-plane text-white"></i>
+            </div>
+            <h4 class="fw-bold mb-0 text-dark">航班資訊</h5>
           </div>
         </div>
-        <div class="card-body p-4">
+        <div class="bg-white rounded-3 p-4">
           <!-- 航空公司資訊 -->
           <div class="row mb-4">
             <div class="col-md-6">
               <div class="d-flex align-items-center">
                 <div class="me-3">
-                  <i class="fas fa-plane fa-2x text-primary"></i>
+                  <div class="bg-primary bg-gradient rounded-circle d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
+                    <i class="fas fa-plane fa-lg text-white"></i>
+                  </div>
                 </div>
                 <div>
-                  <h6 class="mb-1 fw-bold">中華航空</h6>
-                  <small class="text-muted">航班編號：CI123</small>
+                  <h5 class="mb-1 fw-bold text-primary">中華航空</h5>
+                  <div class="d-flex align-items-center">
+                    <span class="badge bg-secondary me-2">CI123</span>
+                    <small class="text-muted">Boeing 737-800</small>
+                  </div>
                 </div>
               </div>
             </div>
             <div class="col-md-6 text-end">
-              <div class="text-muted">
-                <small>訂票日期：2024-03-15</small><br>
-                <small>票券編號：TKT-2024-001</small>
+              <div class="bg-light rounded p-3">
+                <div class="text-muted mb-1">
+                  <i class="fas fa-calendar-check me-1"></i>
+                  <small>訂票日期：2024-03-15</small>
+                </div>
+                <div class="text-muted">
+                  <i class="fas fa-ticket-alt me-1"></i>
+                  <small>票券編號：TKT-2024-001</small>
+                </div>
               </div>
             </div>
           </div>
 
           <!-- 航班路線 -->
-          <div class="row align-items-center mb-4">
-            <div class="col-md-5 text-center">
-              <div class="mb-2">
-                <h4 class="fw-bold mb-1">14:30</h4>
-                <p class="text-muted mb-1">台北桃園機場</p>
-                <small class="text-muted">2024-03-20</small>
+          <div class="bg-gradient bg-light rounded-3 p-4 mb-4">
+            <div class="row align-items-center">
+              <div class="col-md-5 text-center">
+                <div class="bg-white rounded-3 shadow-sm p-3 mb-2">
+                  <div class="text-primary fw-bold mb-1">
+                    <i class="fas fa-plane-departure me-2"></i>出發
+                  </div>
+                  <h3 class="fw-bold mb-1 text-dark">14:30</h3>
+                  <h6 class="text-primary mb-1">台北桃園機場</h6>
+                  <small class="text-muted">TPE • 2024-03-20</small>
+                </div>
               </div>
-            </div>
-            <div class="col-md-2 text-center">
-              <div class="position-relative">
-                <hr class="border-2 border-primary">
-                <i class="fas fa-plane fa-2x text-primary position-absolute top-50 start-50 translate-middle bg-white px-2"></i>
+              <div class="col-md-2 text-center">
+                <div class="position-relative my-3">
+                  <div class="border-top border-primary border-3 position-relative">
+                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center position-absolute top-50 start-50 translate-middle" style="width: 50px; height: 50px;">
+                      <i class="fa-solid fa-plane fa-bounce"></i>
+                    </div>
+                  </div>
+                </div>
+                <div class="bg-white rounded-pill px-3 py-1 shadow-sm d-inline-block mt-3">
+                  <small class="text-muted fw-bold">
+                    <i class="fas fa-clock me-1"></i>2小時15分
+                  </small>
+                </div>
               </div>
-              <small class="text-muted">飛行時間：2小時15分</small>
-            </div>
-            <div class="col-md-5 text-center">
-              <div class="mb-2">
-                <h4 class="fw-bold mb-1">16:45</h4>
-                <p class="text-muted mb-1">東京成田機場</p>
-                <small class="text-muted">2024-03-20</small>
+              <div class="col-md-5 text-center">
+                <div class="bg-white rounded-3 shadow-sm p-3 mb-2">
+                  <div class="text-success fw-bold mb-1">
+                    <i class="fas fa-plane-arrival me-2"></i>抵達
+                  </div>
+                  <h3 class="fw-bold mb-1 text-dark">16:45</h3>
+                  <h6 class="text-success mb-1">東京成田機場</h6>
+                  <small class="text-muted">NRT • 2024-03-20</small>
+                </div>
               </div>
             </div>
           </div>
@@ -73,73 +99,166 @@
           <!-- 乘客資訊 -->
           <div class="row mb-4">
             <div class="col-12">
-              <h6 class="fw-bold mb-3">
-                <i class="fas fa-user me-2"></i>乘客資訊
-              </h6>
-              <div class="table-responsive">
-                <table class="table table-bordered">
-                  <thead class="table-light">
-                    <tr>
-                      <th>姓名</th>
-                      <th>艙等</th>
-                      <th>座位</th>
-                      <th>票價</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>王小明</td>
-                      <td><span class="badge bg-primary">經濟艙</span></td>
-                      <td>12A</td>
-                      <td>NT$ 12,500</td>
-                    </tr>
-                  </tbody>
-                </table>
+              <div class="d-flex align-items-center mb-3">
+                <div class="bg-info bg-gradient rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                  <i class="fas fa-user text-white"></i>
+                </div>
+                <h5 class="fw-bold mb-0 text-info">乘客資訊</h5>
+              </div>
+              <div class="bg-white rounded-3 shadow-sm border-0 overflow-hidden">
+                <div class="bg-info bg-gradient text-white p-3">
+                  <div class="row fw-bold">
+                    <div class="col-3">姓名</div>
+                    <div class="col-3">艙等</div>
+                    <div class="col-3">座位</div>
+                    <div class="col-3">票價</div>
+                  </div>
+                </div>
+                <div class="p-3">
+                  <div class="row align-items-center">
+                    <div class="col-3">
+                      <div class="d-flex align-items-center">
+                        <div class="bg-secondary bg-gradient rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 30px; height: 30px;">
+                          <i class="fas fa-user-tie text-white fa-sm"></i>
+                        </div>
+                        <span class="fw-bold">王小明</span>
+                      </div>
+                    </div>
+                    <div class="col-3">
+                      <span class="badge bg-primary bg-gradient fs-6 px-3 py-2">
+                        <i class="fas fa-couch me-1"></i>經濟艙
+                      </span>
+                    </div>
+                    <div class="col-3">
+                      <span class="bg-light rounded-pill px-3 py-2 fw-bold text-primary">
+                        <i class="fas fa-chair me-1"></i>12A
+                      </span>
+                    </div>
+                    <div class="col-3">
+                      <span class="h5 fw-bold text-success mb-0">
+                        <i class="fas fa-dollar-sign me-1"></i>NT$ 12,500
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
           <!-- 費用明細 -->
           <div class="row">
-            <div class="col-md-8">
-              <h6 class="fw-bold mb-3">
-                <i class="fas fa-calculator me-2"></i>費用明細
-              </h6>
-              <div class="table-responsive">
-                <table class="table table-borderless">
-                  <tbody>
-                    <tr>
-                      <td>機票費用</td>
-                      <td class="text-end">NT$ 11,500</td>
-                    </tr>
-                    <tr>
-                      <td>機場稅</td>
-                      <td class="text-end">NT$ 500</td>
-                    </tr>
-                    <tr>
-                      <td>燃油附加費</td>
-                      <td class="text-end">NT$ 300</td>
-                    </tr>
-                    <tr>
-                      <td>服務費</td>
-                      <td class="text-end">NT$ 200</td>
-                    </tr>
-                    <tr class="border-top">
-                      <td class="fw-bold">總計</td>
-                      <td class="text-end fw-bold text-primary fs-5">NT$ 12,500</td>
-                    </tr>
-                  </tbody>
-                </table>
+            <div class="col-12">
+              <div class="d-flex align-items-center mb-3">
+                <div class="bg-success bg-gradient rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
+                  <i class="fas fa-calculator text-white"></i>
+                </div>
+                <h5 class="fw-bold mb-0 text-success">費用明細</h5>
+              </div>
+              <div class="bg-white rounded-3 shadow-sm p-4">
+                <div class="row mb-3">
+                  <div class="col-6 d-flex align-items-center">
+                    <i class="fas fa-plane text-primary me-2"></i>
+                    <span>機票費用</span>
+                  </div>
+                  <div class="col-6 text-end fw-bold">NT$ 11,500</div>
+                </div>
+                <div class="row mb-3">
+                  <div class="col-6 d-flex align-items-center">
+                    <i class="fas fa-building text-warning me-2"></i>
+                    <span>機場稅</span>
+                  </div>
+                  <div class="col-6 text-end fw-bold">NT$ 500</div>
+                </div>
+                <div class="row mb-3">
+                  <div class="col-6 d-flex align-items-center">
+                    <i class="fas fa-gas-pump text-danger me-2"></i>
+                    <span>燃油附加費</span>
+                  </div>
+                  <div class="col-6 text-end fw-bold">NT$ 300</div>
+                </div>
+                <div class="row mb-3 pb-3 border-bottom">
+                  <div class="col-6 d-flex align-items-center">
+                    <i class="fas fa-concierge-bell text-info me-2"></i>
+                    <span>服務費</span>
+                  </div>
+                  <div class="col-6 text-end fw-bold">NT$ 200</div>
+                </div>
+                <div class="row">
+                  <div class="col-6">
+                    <span class="h5 fw-bold text-dark">
+                      <i class="fas fa-receipt text-success me-2"></i>總計
+                    </span>
+                  </div>
+                  <div class="col-6 text-end">
+                    <span class="h4 fw-bold text-success">NT$ 12,500</span>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="col-md-4">
-              <div class="card bg-light border-0">
-                <div class="card-body text-center">
-                  <h6 class="fw-bold mb-3">QR Code</h6>
-                  <div class="bg-white p-3 rounded">
-                    <i class="fas fa-qrcode fa-4x text-muted"></i>
+
+          </div>
+        </div>
+      </div>
+
+      <!-- 重要提醒 -->
+      <div class="bg-white bg-opacity-25 rounded-3 shadow-lg p-4 mb-4">
+        <div class="d-flex align-items-center mb-3">
+          <div class="bg-warning rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;">
+            <i class="fas fa-exclamation-triangle text-white fa-lg"></i>
+          </div>
+          <h5 class="fw-bold mb-0 text-dark">重要出行提醒</h5>
+        </div>
+        <div class="bg-white rounded-3 p-3">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <div class="bg-white rounded-3 p-3 h-100">
+                <div class="d-flex align-items-start">
+                  <div class="bg-info bg-gradient rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 35px; height: 35px;">
+                    <i class="fas fa-clock text-white fa-sm"></i>
                   </div>
-                  <small class="text-muted mt-2 d-block">掃描此 QR Code 辦理登機</small>
+                  <div>
+                    <h6 class="fw-bold text-info mb-1">登機時間</h6>
+                    <small class="text-muted">請於起飛前 2 小時抵達機場辦理登機手續</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="bg-white rounded-3 p-3 h-100">
+                <div class="d-flex align-items-start">
+                  <div class="bg-success bg-gradient rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 35px; height: 35px;">
+                    <i class="fas fa-id-card text-white fa-sm"></i>
+                  </div>
+                  <div>
+                    <h6 class="fw-bold text-success mb-1">證件檢查</h6>
+                    <small class="text-muted">請攜帶有效身分證件（護照或身分證）</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="bg-white rounded-3 p-3 h-100">
+                <div class="d-flex align-items-start">
+                  <div class="bg-primary bg-gradient rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 35px; height: 35px;">
+                    <i class="fas fa-suitcase text-white fa-sm"></i>
+                  </div>
+                  <div>
+                    <h6 class="fw-bold text-primary mb-1">行李限制</h6>
+                    <small class="text-muted">托運：20公斤 / 手提：7公斤</small>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="bg-white rounded-3 p-3 h-100">
+                <div class="d-flex align-items-start">
+                  <div class="bg-danger bg-gradient rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 35px; height: 35px;">
+                    <i class="fas fa-phone text-white fa-sm"></i>
+                  </div>
+                  <div>
+                    <h6 class="fw-bold text-danger mb-1">客服專線</h6>
+                    <small class="text-muted">0800-123-456</small>
+                  </div>
                 </div>
               </div>
             </div>
@@ -147,46 +266,19 @@
         </div>
       </div>
 
-      <!-- 重要提醒 -->
-      <div class="card shadow-sm border-0 mb-4">
-        <div class="card-header bg-warning text-dark">
-          <h6 class="mb-0">
-            <i class="fas fa-exclamation-triangle me-2"></i>重要提醒
-          </h6>
-        </div>
-        <div class="card-body">
-          <ul class="list-unstyled mb-0">
-            <li class="mb-2">
-              <i class="fas fa-clock text-primary me-2"></i>
-              請於起飛前 2 小時抵達機場辦理登機手續
-            </li>
-            <li class="mb-2">
-              <i class="fas fa-id-card text-primary me-2"></i>
-              請攜帶有效身分證件（護照或身分證）
-            </li>
-            <li class="mb-2">
-              <i class="fas fa-suitcase text-primary me-2"></i>
-              托運行李重量限制：20公斤，手提行李：7公斤
-            </li>
-            <li>
-              <i class="fas fa-phone text-primary me-2"></i>
-              如有問題請聯繫客服專線：0800-123-456
-            </li>
-          </ul>
-        </div>
-      </div>
-
       <!-- 操作按鈕 -->
-      <div class="d-flex justify-content-center gap-3">
-        <button class="btn btn-primary">
-          <i class="fas fa-download me-2"></i>下載票券
-        </button>
-        <button class="btn btn-outline-primary">
-          <i class="fas fa-print me-2"></i>列印票券
-        </button>
-        <button class="btn btn-outline-secondary" onclick="history.back()">
-          <i class="fas fa-arrow-left me-2"></i>返回
-        </button>
+      <div class="bg-white bg-opacity-25 rounded-3 p-4">
+        <div class="d-flex flex-wrap justify-content-center gap-3">
+          <button class="btn btn-primary btn-lg px-4 shadow-sm">
+            <i class="fas fa-download me-2"></i>下載票券
+          </button>
+          <button class="btn btn-outline-light btn-lg px-4 shadow-sm border-2">
+            <i class="fas fa-print me-2"></i>列印票券
+          </button>
+          <button class="btn btn-outline-light btn-lg px-4 shadow-sm border-2" onclick="history.back()">
+            <i class="fas fa-arrow-left me-2"></i>返回
+          </button>
+        </div>
       </div>
     </div>
   </div>
