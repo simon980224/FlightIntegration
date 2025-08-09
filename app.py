@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session, jsonify
-from service import search_service,user_service,linebot_service
+from service import search_service,user_service,linebot_service,ticket_service
 from functools import wraps
 from datetime import datetime
 import json
@@ -277,11 +277,15 @@ def booking(flight_id):
 @app.route('/booking/<flight_id>', methods=['POST'])
 @login_required
 def process_booking(flight_id):
-    # 這裡之後可以加入處理訂票的邏輯
-    return jsonify({
-        'success': True,
-        'message': '訂票成功'
-    })
+    # 取航班資料（含票券資訊）
+    result = ticket_service.get_booking_imf(flight_id)
+    if not result["success"]:
+        flash(result.get("message", "查詢航班失敗"))
+        return redirect(url_for('index'))
+
+    # 將航班資訊傳到 booking.html
+    return render_template('booking.html', flight=result["data"])
+
 
 @app.route('/ticket')
 @login_required
