@@ -64,7 +64,7 @@
                     <i class="fas fa-plane-departure me-2"></i>出發
                   </div>
                   <h3 class="fw-bold mb-1 text-dark">{{ flight.D_Time.strftime('%H:%M') if flight and flight.D_Time else '' }}</h3>
-                  <h6 class="text-primary mb-1">台北桃園機場</h6>
+                  <h6 class="text-primary mb-1">{{ flight.D_Airport_Name_ZH if flight }}</h6>
                   <small class="text-muted">{{ flight.D_Airport_Id if flight }} • {{ flight.D_Time.strftime('%Y-%m-%d') if flight and flight.D_Time else '' }}</small>
                 </div>
               </div>
@@ -88,7 +88,7 @@
                     <i class="fas fa-plane-arrival me-2"></i>抵達
                   </div>
                   <h3 class="fw-bold mb-1 text-dark">{{ flight.A_Time.strftime('%H:%M') if flight and flight.A_Time else '' }}</h3>
-                  <h6 class="text-success mb-1">東京成田機場</h6>
+                  <h6 class="text-success mb-1">{{ flight.A_Airport_Name_ZH if flight }}</h6>
                   <small class="text-muted">{{ flight.A_Airport_Id if flight }} • {{ flight.A_Time.strftime('%Y-%m-%d') if flight and flight.A_Time else '' }}</small>
                 </div>
               </div>
@@ -117,10 +117,7 @@
                   <div class="row align-items-center">
                     <div class="col-3">
                       <div class="d-flex align-items-center">
-                        <div class="bg-secondary bg-gradient rounded-circle d-flex align-items-center justify-content-center me-2" style="width: 30px; height: 30px;">
-                          <i class="fas fa-user-tie text-white fa-sm"></i>
-                        </div>
-                        <span class="fw-bold">王小明</span>
+                        <span class="fw-bold">{{ flight.User_Name if flight }}</span>
                       </div>
                     </div>
                     <div class="col-3">
@@ -267,15 +264,9 @@
 
       <!-- 操作按鈕 -->
       <div class="bg-white bg-opacity-25 rounded-3 p-4">
-        <div class="d-flex flex-wrap justify-content-center gap-3">
-          <button class="btn btn-primary btn-lg px-4 shadow-sm">
-            <i class="fas fa-download me-2"></i>下載票券
-          </button>
-          <button class="btn btn-outline-light btn-lg px-4 shadow-sm border-2">
-            <i class="fas fa-print me-2"></i>列印票券
-          </button>
-          <button class="btn btn-outline-light btn-lg px-4 shadow-sm border-2" onclick="history.back()">
-            <i class="fas fa-arrow-left me-2"></i>返回
+        <div class="d-flex justify-content-center">
+          <button class="btn btn-success btn-lg px-5 shadow-lg" onclick="confirmBooking()">
+            <i class="fas fa-check-circle me-2"></i>確認訂票
           </button>
         </div>
       </div>
@@ -283,4 +274,20 @@
   </div>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+<script>
+function confirmBooking() {
+  // 顯示載入中
+  showLoading('處理中', '正在確認您的訂票...');
+  
+  // 模擬訂票處理時間
+  setTimeout(function() {
+    closeLoading();
+    // 顯示成功 toast
+    showToast('訂購成功！', '您的航班票券已成功訂購', 'success');
+  }, 1000);
+}
+</script>
 {% endblock %} 
