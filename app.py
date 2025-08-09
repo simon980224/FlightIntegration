@@ -177,8 +177,11 @@ def update_profile():
     old_password = request.form.get("old_password")
     new_password = request.form.get("new_password")
     
+
     # 接收圖片檔案（type="file"）
     user_img = request.files.get("user_img")
+
+    user_email = request.form.get("user_email")
 
     # 如果使用者未輸入新密碼（傳來的是空字串），則將其設為 None，避免觸發密碼更新
     if not new_password:
@@ -191,6 +194,7 @@ def update_profile():
         old_password=old_password,
         new_password=new_password,
         user_img=user_img,
+        user_email=user_email
     )
 
     return jsonify(result)

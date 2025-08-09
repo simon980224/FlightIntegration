@@ -115,6 +115,7 @@ def UpdateUserInfo(
     old_password=None,
     new_password=None,
     user_img=None,  # 這是 request.files['user_img'] 傳進來的 FileStorage
+    user_email=None
 ):
     try:
         conn = pymssql.connect(**conn_args)
@@ -161,6 +162,9 @@ def UpdateUserInfo(
             fields.append("User_Img = %s")
             params.append(filename)
 
+        if user_email is not None:
+            fields.append("User_Email = %s")
+            params.append(user_email)
 
         fields.append("Modify_At = %s")
         params.append(modify_at)
