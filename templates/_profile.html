@@ -21,7 +21,7 @@
                 <i class="fas fa-camera fa-lg"></i> <span class="ms-2">更換頭像</span>
               </div>
             </label>
-            <input type="file" id="photoUpload" name="user_img" class="d-none" accept="image/*">
+            <input type="file" id="photoUpload" name="user_img" class="d-none" accept="image/jpeg, image/png, image/jpg">
           </div>
 
           <div class="mb-3">
@@ -102,12 +102,31 @@ document.addEventListener('DOMContentLoaded', function () {
   // 頭像預覽
   photoUpload.addEventListener('change', function (event) {
     const file = event.target.files[0];
-    if (file && modalProfilePhotoPreview) {
-      const reader = new FileReader();
-      reader.onload = function (e) {
-        modalProfilePhotoPreview.src = e.target.result;
-      };
-      reader.readAsDataURL(file);
+    if (file) {
+      // 檔案類型檢查
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('上傳失敗！僅允許 JPG, JPEG, PNG 格式的圖片。');
+        event.target.value = ''; // 清空 file input
+        return;
+      }
+
+      // 檔案大小檢查 (5MB)
+      const maxSizeInBytes = 5 * 1024 * 1024;
+      if (file.size > maxSizeInBytes) {
+        alert('上傳失敗！檔案大小不能超過 5MB。');
+        event.target.value = ''; // 清空 file input
+        return;
+      }
+      
+      // 預覽圖片
+      if (modalProfilePhotoPreview) {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          modalProfilePhotoPreview.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
+      }
     }
   });
 
@@ -118,13 +137,7 @@ document.addEventListener('DOMContentLoaded', function () {
     const formData = new FormData(editProfileForm);
     const newPassword = formData.get('new_password');
     const oldPassword = formData.get('old_password');
-    for (const [key, value] of formData.entries()) {
-      if (value instanceof File) {
-        console.log(`${key}: File{name=${value.name}, type=${value.type}, size=${value.size} bytes}`);
-      } else {
-        console.log(`${key}:`, value);
-      }
-    }
+    
     if (newPassword && !oldPassword) {
       alert('若要變更密碼，請提供您的舊密碼。');
       return;

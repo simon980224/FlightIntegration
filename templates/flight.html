@@ -213,11 +213,17 @@
                         <div class="small text-muted">航班 ${flight.No}</div>                        
                       </div>
                       <div>
+                        ${flight.ticket_status === 1 ? `
                         <button 
-                          class="btn btn-success w-auto"
+                          class="btn btn-success" style="width: 100px;"
                           data-flight-no="${flight.No}"
                           data-airline="${flight.Airline_Id}"
                         ><i class="fa-solid fa-ticket"></i> 訂票</button>
+                        ` : `
+                        <button class="btn btn-secondary" style="width: 100px;" disabled>
+                          <i class="fa-solid fa-plane-departure"></i> 已起飛
+                        </button>
+                        `}
                       </div>
                     </div>
                     <div class="col-lg-9">
