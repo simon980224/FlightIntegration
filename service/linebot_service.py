@@ -1,10 +1,65 @@
 from service import search_service
 from datetime import datetime, timedelta
 import re
+import logging
+import time
+import json
+import os
 
 # 機場資料快取
 _airport_cache = None
 _airport_lookup = None  # HashMap 快速查找表
+
+# 設定 API Log
+def setup_api_logger():
+    """設定 API 呼叫記錄器"""
+    # 確保 logs/LineBotApiLog 目錄存在
+    log_dir = 'logs/LineBotApiLog'
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+    # 取得今天的日期作為檔案名稱
+    today = datetime.now().strftime('%Y%m%d')
+    log_filename = f'{log_dir}/{today}.log'
+
+    # 設定 logger
+    logger = logging.getLogger('linebot_api')
+    logger.setLevel(logging.INFO)
+
+    # 避免重複添加 handler
+    if not logger.handlers:
+        # 檔案 handler
+        file_handler = logging.FileHandler(log_filename, encoding='utf-8')
+        file_handler.setLevel(logging.INFO)
+
+        # 格式設定
+        formatter = logging.Formatter(
+            '%(asctime)s - %(levelname)s - %(message)s',
+            datefmt='%Y-%m-%d %H:%M:%S'
+        )
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+    return logger
+
+def log_api_call(user_id, input_message, response_type, execution_time, response_content=None, error=None):
+    """記錄 API 呼叫詳情"""
+    logger = setup_api_logger()
+
+    log_data = {
+        "user_id": user_id or "unknown",
+        "input_message": input_message,
+        "response_type": response_type,  # "success", "error", "help", "flight_search", "default"
+        "execution_time_seconds": round(execution_time, 3),
+        "response_length": len(response_content) if response_content else 0,
+        "error": error
+    }
+
+    # 記錄完整內容（可選）
+    if response_content and len(response_content) < 1000:  # 避免過長的回應
+        log_data["response_preview"] = response_content[:200] + "..." if len(response_content) > 200 else response_content
+
+    logger.info(f"API_CALL: {json.dumps(log_data, ensure_ascii=False)}")
 
 def get_cached_airports():
     """取得快取的機場資料，避免重複查詢資料庫"""
@@ -241,21 +296,45 @@ def get_help_message():
 
 輸入「幫助」查看此訊息"""
 
-def process_line_message(message_text):
-    """處理 LINE 訊息的主要函數"""
+def process_line_message(message_text, user_id=None):
+    """處理 LINE 訊息的主要函數 - 加入 API log 記錄"""
+    start_time = time.time()
     message = message_text.strip()
+    response = None
+    response_type = "unknown"
 
-    # 幫助訊息
-    if message in ['幫助', 'help', '說明', '指令']:
-        return get_help_message()
+    try:
+        # 幫助訊息
+        if message in ['幫助', 'help', '說明', '指令']:
+            response = get_help_message()
+            response_type = "help"
 
-    # 測試訊息
-    if message in ['測試', '/測試']:
-        return "Hello"
+        # 測試訊息
+        elif message in ['測試', '/測試']:
+            response = "Hello"
+            response_type = "test"
 
-    # 航班查詢
-    if any(keyword in message for keyword in ['查詢航班', '航班', '查航班', '找航班', '搜尋航班']):
-        return search_flights_by_message(message)
+        # 航班查詢
+        elif any(keyword in message for keyword in ['查詢航班', '航班', '查航班', '找航班', '搜尋航班']):
+            response = search_flights_by_message(message)
+            response_type = "flight_search"
 
-    # 預設回應
-    return "請參考以下對話框輸入格式\n\n" + get_help_message()
+        # 預設回應
+        else:
+            response = "請參考以下對話框輸入格式\n\n" + get_help_message()
+            response_type = "default"
+
+        # 記錄成功的 API 呼叫
+        execution_time = time.time() - start_time
+        log_api_call(user_id, message, response_type, execution_time, response)
+
+        return response
+
+    except Exception as e:
+        # 記錄錯誤的 API 呼叫
+        execution_time = time.time() - start_time
+        error_response = f"❌ 處理訊息時發生錯誤，請稍後再試。\n\n輸入「幫助」查看使用說明。"
+        log_api_call(user_id, message, "error", execution_time, error_response, str(e))
+
+        # 重新拋出異常，讓上層處理
+        raise

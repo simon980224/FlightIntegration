@@ -240,9 +240,10 @@ def Api():
 def handle_message(event):
     try:
         message = event.message.text.strip()
+        user_id = event.source.user_id  # 取得用戶 ID
 
-        # 使用 linebot_service 處理訊息
-        response_text = linebot_service.process_line_message(message)
+        # 使用 linebot_service 處理訊息，傳入 user_id 用於 log 記錄
+        response_text = linebot_service.process_line_message(message, user_id)
 
         # 回覆訊息
         line_bot_api.reply_message(
@@ -252,7 +253,7 @@ def handle_message(event):
 
     except Exception as e:
         # 錯誤處理
-        error_message = f"❌ 處理訊息時發生錯誤，請稍後再試。\n\n輸入「幫助」查看使用說明。"
+        error_message = "❌ 處理訊息時發生錯誤，請稍後再試。\n\n輸入「幫助」查看使用說明。"
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text=error_message)
