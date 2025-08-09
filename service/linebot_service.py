@@ -11,6 +11,10 @@ from difflib import SequenceMatcher
 _airport_cache = None
 _airport_lookup = None  # HashMap 快速查找表
 
+# 航班查詢快取（短期快取，5分鐘）
+_flight_cache = {}
+_flight_cache_timeout = 300  # 5分鐘
+
 # 台灣機場別名常量
 TAIWAN_AIRPORT_ALIASES = {
     '台北': 'TSA',  # 台北 → 松山機場
@@ -57,7 +61,8 @@ def setup_api_logger():
 
     return logger
 
-def log_api_call(user_id, input_message, response_type, execution_time, response_content=None, error=None):
+def log_api_call(user_id, input_message, response_type, execution_time,
+                 response_content=None, error=None):
     """記錄 API 呼叫詳情"""
     logger = setup_api_logger()
 
@@ -72,7 +77,10 @@ def log_api_call(user_id, input_message, response_type, execution_time, response
 
     # 記錄完整內容（可選）
     if response_content and len(response_content) < 1000:  # 避免過長的回應
-        log_data["response_preview"] = response_content[:200] + "..." if len(response_content) > 200 else response_content
+        if len(response_content) > 200:
+            log_data["response_preview"] = response_content[:200] + "..."
+        else:
+            log_data["response_preview"] = response_content
 
     logger.info(f"API_CALL: {json.dumps(log_data, ensure_ascii=False)}")
 
@@ -131,6 +139,41 @@ def refresh_airport_cache():
     clear_airport_cache()
     get_cached_airports()
     print("🔄 機場快取已刷新")
+
+def get_cached_flight_data(from_id, to_id, dep_time):
+    """取得航班資料（帶快取功能）"""
+    global _flight_cache
+    import time
+
+    # 建立快取鍵值
+    cache_key = f"{from_id}_{to_id}_{dep_time}"
+    current_time = time.time()
+
+    # 檢查快取是否存在且未過期
+    if cache_key in _flight_cache:
+        cached_data, cached_time = _flight_cache[cache_key]
+        if current_time - cached_time < _flight_cache_timeout:
+            print(f"✅ 使用航班快取: {cache_key}")
+            return cached_data
+        else:
+            # 快取過期，移除
+            del _flight_cache[cache_key]
+            print(f"🔄 航班快取過期，重新查詢: {cache_key}")
+
+    # 查詢資料庫
+    print(f"🔍 查詢資料庫: {cache_key}")
+    result = search_service.get_flight_data(
+        from_id=from_id,
+        to_id=to_id,
+        dep_time=dep_time
+    )
+
+    # 儲存到快取
+    if result.get("success"):
+        _flight_cache[cache_key] = (result, current_time)
+        print(f"💾 航班資料已快取: {cache_key}")
+
+    return result
 
 def format_flight_info(flight):
     """格式化航班資訊為 LINE 訊息"""
@@ -219,9 +262,10 @@ def extract_date_from_message(message):
     # 日期模式匹配
     date_patterns = [
         # 8/7, 08/07, 8-7, 08-07
-        (r'(\d{1,2})[/-](\d{1,2})', lambda m: parse_month_day(int(m.group(1)), int(m.group(2)))),
+        (r'(\d{1,2})[/-](\d{1,2})',
+         lambda m: parse_date_format((int(m.group(1)), int(m.group(2))))),
         # 0807, 0807
-        (r'(\d{4})', lambda m: parse_mmdd(m.group(1))),
+        (r'(\d{4})', lambda m: parse_date_format(m.group(1))),
         # 昨天
         (r'昨天', lambda _: (today - timedelta(days=1)).strftime('%Y-%m-%d')),
         # 明天
@@ -243,21 +287,33 @@ def extract_date_from_message(message):
 
     return default_date, message
 
-def parse_month_day(month, day):
-    """解析月日格式"""
+def parse_date_format(date_input):
+    """統一的日期解析器 - 支援多種格式"""
     current_year = datetime.now().year
-    try:
-        date_obj = datetime(current_year, month, day)
-        return date_obj.strftime('%Y-%m-%d')
-    except:
-        return datetime.now().strftime('%Y-%m-%d')
 
-def parse_mmdd(mmdd_str):
-    """解析 MMDD 格式 (如: 0807)"""
-    if len(mmdd_str) == 4:
-        month = int(mmdd_str[:2])
-        day = int(mmdd_str[2:])
-        return parse_month_day(month, day)
+    try:
+        # 如果是 MMDD 格式 (如: 0807)
+        if isinstance(date_input, str) and len(date_input) == 4 and date_input.isdigit():
+            month = int(date_input[:2])
+            day = int(date_input[2:])
+            date_obj = datetime(current_year, month, day)
+            return date_obj.strftime('%Y-%m-%d')
+
+        # 如果是月日數字格式
+        elif isinstance(date_input, tuple) and len(date_input) == 2:
+            month, day = date_input
+            date_obj = datetime(current_year, month, day)
+            return date_obj.strftime('%Y-%m-%d')
+
+        # 如果是單獨的月和日
+        elif hasattr(date_input, '__iter__') and len(list(date_input)) == 2:
+            month, day = list(date_input)
+            date_obj = datetime(current_year, month, day)
+            return date_obj.strftime('%Y-%m-%d')
+
+    except:
+        pass
+
     return datetime.now().strftime('%Y-%m-%d')
 
 def search_flights_by_message(message):
@@ -294,11 +350,8 @@ def search_flights_by_message(message):
             from_location = parts[0]
             to_location = parts[1]
 
-        # 取得機場資料來匹配用戶輸入
-        all_airports = get_cached_airports()
-
-        if not all_airports:
-            return "❌ 無法取得機場資料"
+        # 確保機場快取已載入
+        get_cached_airports()
 
         # 尋找匹配的機場
         from_airport_id = find_best_airport_match(from_location)
@@ -309,8 +362,8 @@ def search_flights_by_message(message):
         if not to_airport_id:
             return f"❌ 找不到目的地機場：{to_location}"
 
-        # 搜尋航班（使用提取的日期）
-        flights_result = search_service.get_flight_data(
+        # 搜尋航班（使用提取的日期和快取）
+        flights_result = get_cached_flight_data(
             from_id=from_airport_id,
             to_id=to_airport_id,
             dep_time=flight_date
@@ -344,61 +397,7 @@ def search_flights_by_message(message):
 
 
 
-def smart_message_parser(message):
-    """智能訊息解析 - 使用資料庫快取的自然語言處理"""
-    message_original = message.strip()
 
-    # 先移除日期部分，專注於地點解析
-    _, message_without_date = extract_date_from_message(message_original)
-    message_lower = message_without_date.lower()
-
-    # 航班查詢相關關鍵字
-    flight_keywords = [
-        '飛機', '航班', '機票', '班機', '飛', '去', '到', '查', '找', '搜尋',
-        'flight', 'fly', 'plane', 'ticket', 'search'
-    ]
-
-    # 檢查是否包含航班查詢意圖
-    has_flight_intent = any(keyword in message_lower for keyword in flight_keywords)
-
-    # 即使沒有明確的航班關鍵字，也嘗試提取地點
-    locations = extract_locations_from_message(message_without_date)
-
-    if has_flight_intent or len(locations) >= 1:
-        if len(locations) >= 2:
-            return {
-                'intent': 'flight_search',
-                'from': locations[0],
-                'to': locations[1],
-                'confidence': 0.9 if has_flight_intent else 0.7
-            }
-        elif len(locations) == 1:
-            return {
-                'intent': 'flight_search_partial',
-                'location': locations[0],
-                'confidence': 0.7 if has_flight_intent else 0.5
-            }
-
-    # 檢查是否為問候語
-    greetings = ['你好', 'hello', 'hi', '嗨', '哈囉', '早安', '午安', '晚安']
-    if any(greeting in message_lower for greeting in greetings):
-        return {
-            'intent': 'greeting',
-            'confidence': 0.8
-        }
-
-    # 檢查是否為感謝語
-    thanks = ['謝謝', '感謝', 'thank', 'thanks', '3q']
-    if any(thank in message_lower for thank in thanks):
-        return {
-            'intent': 'thanks',
-            'confidence': 0.8
-        }
-
-    return {
-        'intent': 'unknown',
-        'confidence': 0.0
-    }
 
 def extract_locations_from_message(message):
     """從訊息中提取地點資訊 - 使用資料庫快取"""
@@ -447,11 +446,8 @@ def extract_locations_from_message(message):
 
 def smart_extract_two_locations(message):
     """智能提取兩個地點 - 處理「桃園洛杉磯」這種直接相鄰的格式"""
-    # 取得所有可能的地點
-    airports = get_cached_airports()
+    # 預定義地點列表（避免重複查詢資料庫）
     taiwan_locations = ['桃園', '台北', '松山', '高雄', '台中', '小港', '清泉崗']
-
-    # 常見國際城市
     international_cities = [
         '東京', '大阪', '京都', '名古屋', '福岡', '沖繩',
         '首爾', '釜山', '濟州', '曼谷', '清邁', '普吉島',
@@ -461,14 +457,14 @@ def smart_extract_two_locations(message):
         '香港', '澳門'  # 港澳地區
     ]
 
-    # 機場代碼
-    airport_codes = []
-    for airport in airports:
-        code = airport.get('Airport_Id', '')
-        if code and len(code) == 3:
-            airport_codes.append(code.upper())
+    # 常見機場代碼（避免查詢資料庫）
+    common_airport_codes = [
+        'TPE', 'TSA', 'KHH', 'RMQ',  # 台灣
+        'NRT', 'HND', 'KIX', 'ICN', 'GMP', 'BKK', 'SIN', 'HKG',  # 亞洲
+        'LAX', 'JFK', 'SFO', 'LHR', 'CDG', 'FRA'  # 歐美
+    ]
 
-    all_locations = taiwan_locations + international_cities + airport_codes
+    all_locations = taiwan_locations + international_cities + common_airport_codes
 
     # 按長度排序，優先匹配較長的地名
     all_locations.sort(key=len, reverse=True)
@@ -848,57 +844,26 @@ def get_help_message():
 輸入「幫助」查看此訊息"""
 
 def process_line_message(message_text, user_id=None):
-    """處理 LINE 訊息的主要函數 - 支援自然語言處理"""
+    """統一的訊息處理器 - 整合智能解析和回應生成"""
     start_time = time.time()
     message = message_text.strip()
-    response = None
     response_type = "unknown"
 
     try:
-        # 幫助訊息
-        if message in ['幫助', 'help', '說明', '指令']:
-            response = get_help_message()
-            response_type = "help"
+        # 快速回應處理
+        quick_responses = {
+            ('幫助', 'help', '說明', '指令'): (get_help_message(), "help"),
+            ('測試', '/測試'): ("Hello! 我是航班查詢助手，現在支援自然語言對話囉！\n\n試試看說：「我想從桃園飛東京」", "test")
+        }
 
-        # 測試訊息
-        elif message in ['測試', '/測試']:
-            response = "Hello! 我是航班查詢助手，現在支援自然語言對話囉！\n\n試試看說：「我想從桃園飛東京」"
-            response_type = "test"
-
+        for keywords, (resp, resp_type) in quick_responses.items():
+            if message in keywords:
+                response = resp
+                response_type = resp_type
+                break
         else:
-            # 使用智能訊息解析
-            parsed_result = smart_message_parser(message)
-
-            if parsed_result['intent'] == 'flight_search':
-                # 保留原始訊息的日期資訊，直接調用搜尋函數
-                response = search_flights_by_message(message)
-                response_type = "flight_search_smart"
-
-            elif parsed_result['intent'] == 'flight_search_partial':
-                response = generate_partial_search_response(parsed_result['location'])
-                response_type = "flight_search_partial"
-
-            elif parsed_result['intent'] == 'greeting':
-                response = ("您好！我是航班查詢助手 ✈️\n\n"
-                           "您可以直接告訴我想查詢的航班，例如：\n"
-                           "• 我想從桃園飛東京\n"
-                           "• 桃園到大阪有什麼班機\n\n"
-                           "輸入「幫助」查看更多範例")
-                response_type = "greeting"
-
-            elif parsed_result['intent'] == 'thanks':
-                response = "不客氣！很高興能幫助您 😊\n\n如果還需要查詢其他航班，隨時告訴我！"
-                response_type = "thanks"
-
-            else:
-                # 嘗試傳統關鍵字匹配（向後相容）
-                if any(keyword in message for keyword in ['查詢航班', '航班', '查航班', '找航班', '搜尋航班']):
-                    response = search_flights_by_message(message)
-                    response_type = "flight_search_traditional"
-                else:
-                    # 智能建議
-                    response = generate_smart_suggestion(message)
-                    response_type = "smart_suggestion"
+            # 智能訊息解析和處理
+            response, response_type = unified_message_processor(message)
 
         # 記錄成功的 API 呼叫
         execution_time = time.time() - start_time
@@ -914,6 +879,50 @@ def process_line_message(message_text, user_id=None):
 
         # 重新拋出異常，讓上層處理
         raise
+
+def unified_message_processor(message):
+    """統一的訊息處理器 - 合併解析和回應邏輯"""
+    # 先移除日期部分，專注於地點解析
+    _, message_without_date = extract_date_from_message(message)
+    message_lower = message_without_date.lower()
+
+    # 檢查基本意圖
+    greetings = ['你好', 'hello', 'hi', '嗨', '哈囉', '早安', '午安', '晚安']
+    if any(greeting in message_lower for greeting in greetings):
+        return ("您好！我是航班查詢助手 ✈️\n\n"
+               "您可以直接告訴我想查詢的航班，例如：\n"
+               "• 我想從桃園飛東京\n"
+               "• 桃園到大阪有什麼班機\n\n"
+               "輸入「幫助」查看更多範例"), "greeting"
+
+    thanks = ['謝謝', '感謝', 'thank', 'thanks', '3q']
+    if any(thank in message_lower for thank in thanks):
+        return "不客氣！很高興能幫助您 😊\n\n如果還需要查詢其他航班，隨時告訴我！", "thanks"
+
+    # 航班查詢處理
+    flight_keywords = [
+        '飛機', '航班', '機票', '班機', '飛', '去', '到', '查', '找', '搜尋',
+        'flight', 'fly', 'plane', 'ticket', 'search'
+    ]
+    has_flight_intent = any(keyword in message_lower for keyword in flight_keywords)
+
+    # 提取地點
+    locations = extract_locations_from_message(message_without_date)
+
+    if has_flight_intent or len(locations) >= 1:
+        if len(locations) >= 2:
+            # 完整航班查詢
+            return search_flights_by_message(message), "flight_search"
+        elif len(locations) == 1:
+            # 部分航班查詢
+            return generate_partial_search_response(locations[0]), "flight_search_partial"
+
+    # 傳統關鍵字匹配（向後相容）
+    if any(keyword in message for keyword in ['查詢航班', '航班', '查航班', '找航班', '搜尋航班']):
+        return search_flights_by_message(message), "flight_search_traditional"
+
+    # 智能建議
+    return generate_smart_suggestion(message), "smart_suggestion"
 
 def generate_smart_suggestion(message):
     """根據用戶輸入生成智能建議"""
