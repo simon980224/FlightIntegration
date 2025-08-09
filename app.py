@@ -267,9 +267,10 @@ def bookings():
     return render_template('booking.html')
 
 # 處理訂票
-@app.route('/booking/<flight_id>', methods=['POST'])
+@app.route('/booking/<flight_id>', methods=['POST','GET'])
 @login_required
 def process_booking(flight_id):
+    print("🧪 process_booking 被呼叫")
     # 取航班資料（含票券資訊）
     result = ticket_service.get_booking_imf(flight_id)
     if not result["success"]:

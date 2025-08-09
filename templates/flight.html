@@ -111,9 +111,56 @@
       return;
     }
     
-    // 已登入則導向訂票頁面
-    window.location.href = `/booking/${flightId}`;
+    // 使用 AJAX 處理訂票請求
+    handleBookingRequest(flightId);
   }
+
+  // AJAX 處理訂票請求
+  function handleBookingRequest(flightId) {
+    // 顯示載入動畫
+    showLoading("處理中", "正在處理您的訂票請求，請稍候...");
+    
+    // 使用 Fetch API 發送 POST 請求
+    // 創建一個簡單的表單數據
+    const formData = new FormData();
+    
+    fetch(`/booking/${flightId}`, {
+      method: 'POST',
+      headers: {
+        'X-Requested-With': 'XMLHttpRequest' // 標示這是 AJAX 請求
+      },
+      body: formData
+    })
+    .then(response => {
+      // 檢查回應狀態
+      if (response.ok) {
+        return response.text(); // 因為後端返回 HTML，所以使用 text()
+      } else if (response.status === 401) {
+        throw new Error('請先登入');
+      } else if (response.status === 404) {
+        throw new Error('航班不存在');
+      } else {
+        throw new Error('訂票請求失敗');
+      }
+    })
+    .then(htmlContent => {
+      // 關閉載入動畫
+      closeLoading();
+      
+      // 成功處理訂票請求，直接跳轉到訂票頁面
+      window.location.href = `/booking/${flightId}`;
+    })
+    .catch(error => {
+      // 關閉載入動畫
+      closeLoading();
+      
+      // 顯示錯誤訊息
+      console.error('訂票錯誤:', error);
+      showToast('訂票失敗', error.message || '無法處理訂票請求，請稍後再試', 'error');
+    });
+  }
+
+
 
   // 將 DOM 元素變數移至此處，讓所有函式都能共用
   let fromAirportInput, toAirportInput, unlimitedCheckbox, airlineCheckboxes,
@@ -235,7 +282,7 @@
                           data-flight-id="${flight.Flight_Id}"
                           data-flight-no="${flight.No}"
                           data-airline="${flight.Airline_Id}"
-                          onclick="handleBookingClick('${flight.Flight_Id}', '${flight.No}', '${flight.Airline_Id}')"
+                          onclick="handleBookingClick('${flight.Flight_Id}')"
                         ><i class="fa-solid fa-ticket"></i> 訂票</button>
                         ` : `
                         <button class="btn btn-secondary" style="width: 100px;" disabled>

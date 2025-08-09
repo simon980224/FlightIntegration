@@ -17,8 +17,8 @@
       <div class="card shadow-lg border-0">
         <div class="card-body p-4 p-md-5">
           <!-- 功能卡片區塊 -->
-          <div class="row g-4 mb-5">
-            <div class="col-md-4">
+          <div class="row g-4 mb-5 justify-content-center">
+            <div class="col-md-5">
               <div class="card h-100 shadow-sm border-0">
                 <div class="card-body text-center p-4">
                   <div class="mb-3">
@@ -33,28 +33,7 @@
               </div>
             </div>
             
-            <div class="col-md-4">
-              <div class="card h-100 shadow-sm border-0">
-                <div class="card-body text-center p-4">
-                  <div class="mb-3">
-                    <i class="fas fa-ticket-alt fa-3x text-success"></i>
-                  </div>
-                  <h5 class="card-title fw-bold">線上訂票</h5>
-                  <p class="card-text text-muted">便捷的線上訂票服務，輕鬆完成購票</p>
-                  {% if user_id %}
-                  <a href="/flight" class="btn btn-success">
-                    <i class="fas fa-ticket-alt me-2"></i>立即訂票
-                  </a>
-                  {% else %}
-                  <a href="#" class="btn btn-success" id="ticket-link-unauthenticated">
-                    <i class="fas fa-ticket-alt me-2"></i>立即訂票
-                  </a>
-                  {% endif %}
-                </div>
-              </div>
-            </div>
-            
-            <div class="col-md-4">
+            <div class="col-md-5">
               <div class="card h-100 shadow-sm border-0">
                 <div class="card-body text-center p-4">
                   <div class="mb-3">
@@ -178,11 +157,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const profileLink = document.getElementById('profile-link-unauthenticated');
     if (profileLink) {
         profileLink.addEventListener('click', showLoginModal);
-    }
-
-    const ticketLink = document.getElementById('ticket-link-unauthenticated');
-    if (ticketLink) {
-        ticketLink.addEventListener('click', showLoginModal);
     }
 });
 </script>
