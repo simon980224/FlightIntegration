@@ -45,9 +45,15 @@
             </a>
           </li>
           <li class="nav-item">
+            {% if user_id %}
             <a class="nav-link" href="/ticket">
               <i class="fas fa-ticket-alt me-1"></i>訂票
             </a>
+            {% else %}
+            <a class="nav-link" href="#" id="navbar-ticket-link-unauthenticated">
+              <i class="fas fa-ticket-alt me-1"></i>訂票
+            </a>
+            {% endif %}
           </li>
         </ul>
         <ul class="navbar-nav">
@@ -83,6 +89,7 @@
   </main>
 
   <script src="{{ url_for('static', filename='script.js') }}"></script>
+  {% block scripts %}{% endblock %}
 
   {% if open_modal %}
   <script>
@@ -94,5 +101,21 @@
     });
   </script>
   {% endif %}
+
+  <script>
+    function showLoginModal(event) {
+        event.preventDefault();
+        showToast('提示', '請先登入', 'info');
+        const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+        loginModal.show();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const navbarTicketLink = document.getElementById('navbar-ticket-link-unauthenticated');
+        if (navbarTicketLink) {
+            navbarTicketLink.addEventListener('click', showLoginModal);
+        }
+    });
+  </script>
 </body>
 </html>

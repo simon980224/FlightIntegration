@@ -41,9 +41,15 @@
                   </div>
                   <h5 class="card-title fw-bold">線上訂票</h5>
                   <p class="card-text text-muted">便捷的線上訂票服務，輕鬆完成購票</p>
+                  {% if user_id %}
                   <a href="/ticket" class="btn btn-success">
                     <i class="fas fa-ticket-alt me-2"></i>立即訂票
                   </a>
+                  {% else %}
+                  <a href="#" class="btn btn-success" id="ticket-link-unauthenticated">
+                    <i class="fas fa-ticket-alt me-2"></i>立即訂票
+                  </a>
+                  {% endif %}
                 </div>
               </div>
             </div>
@@ -56,9 +62,15 @@
                   </div>
                   <h5 class="card-title fw-bold">會員服務</h5>
                   <p class="card-text text-muted">查看個人資料、訂票記錄等會員專屬服務</p>
-                  <a href="/profile" class="btn btn-info text-white">
-                    <i class="fas fa-user-circle me-2"></i>會員中心
-                  </a>
+                  {% if user_id %}
+                    <a href="/profile" class="btn btn-info text-white">
+                      <i class="fas fa-user-circle me-2"></i>會員中心
+                    </a>
+                  {% else %}
+                    <a href="#" class="btn btn-info text-white" id="profile-link-unauthenticated">
+                      <i class="fas fa-user-circle me-2"></i>會員中心
+                    </a>
+                  {% endif %}
                 </div>
               </div>
             </div>
@@ -159,4 +171,19 @@
   </div>
 </div>
 
+{% endblock %}
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const profileLink = document.getElementById('profile-link-unauthenticated');
+    if (profileLink) {
+        profileLink.addEventListener('click', showLoginModal);
+    }
+
+    const ticketLink = document.getElementById('ticket-link-unauthenticated');
+    if (ticketLink) {
+        ticketLink.addEventListener('click', showLoginModal);
+    }
+});
+</script>
 {% endblock %}
