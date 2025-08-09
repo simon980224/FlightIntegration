@@ -1,10 +1,13 @@
+/* 基本背景樣式 */
 body {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
     background-attachment: fixed;
+    transition: all 0.3s ease;
 }
 
+/* 白天主題背景圖片 */
 body.bg-flight {
     background-image: url('https://c.pxhere.com/photos/6b/8b/above_aeroplane_aircraft_engine_airplane_clouds_flight_plane_sky-937305.jpg!d');
 }
@@ -21,10 +24,156 @@ body.bg-profile {
     background-image: url('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?q=80&w=2670&auto=format&fit=crop');
 }
 
-.card {
-    background-color: rgba(255, 255, 255, 0.9);
+/* 夜晚主題背景圖片 */
+[data-theme="dark"] body.bg-flight {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    background-image: url('https://images.unsplash.com/photo-1517976487492-5750f3195933?ixlib=rb-4.0.3&auto=format&fit=crop&w=2670&q=80');
 }
 
+[data-theme="dark"] body.bg-index {
+    background: linear-gradient(135deg, #2c1810 0%, #3d2817 50%, #5a3f2a 100%);
+    background-image: url('https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=2670&q=80');
+}
+
+[data-theme="dark"] body.bg-ticket {
+    background: linear-gradient(135deg, #0a1929 0%, #1e3a8a 50%, #1e40af 100%);
+    background-image: url('https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&auto=format&fit=crop&w=2670&q=80');
+}
+
+[data-theme="dark"] body.bg-profile {
+    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+    background-image: url('https://images.unsplash.com/photo-1507525428034-b723cf961d3e?ixlib=rb-4.0.3&auto=format&fit=crop&w=2670&q=80');
+}
+
+/* 主題切換過渡效果 */
+.card, .navbar, .dropdown-menu, .modal-content {
+    transition: all 0.3s ease;
+}
+
+/* 白天主題卡片 */
+.card {
+    background-color: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.125);
+}
+
+/* 夜晚主題卡片 */
+[data-theme="dark"] .card {
+    background-color: rgba(33, 37, 41, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.125);
+    color: #ffffff;
+}
+
+/* 夜晚主題導航欄 */
+[data-theme="dark"] .navbar {
+    background-color: rgba(33, 37, 41, 0.95) !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+[data-theme="dark"] .navbar-brand,
+[data-theme="dark"] .nav-link {
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .nav-link:hover {
+    color: #0dcaf0 !important;
+}
+
+/* 夜晚主題下拉選單 */
+[data-theme="dark"] .dropdown-menu {
+    background-color: rgba(33, 37, 41, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.125);
+}
+
+[data-theme="dark"] .dropdown-item {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .dropdown-item:hover,
+[data-theme="dark"] .dropdown-item:focus {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #0dcaf0;
+}
+
+[data-theme="dark"] .dropdown-divider {
+    border-color: rgba(255, 255, 255, 0.125);
+}
+
+/* 夜晚主題表單元素 */
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .form-select {
+    background-color: rgba(33, 37, 41, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .form-control:focus,
+[data-theme="dark"] .form-select:focus {
+    background-color: rgba(33, 37, 41, 0.9);
+    border-color: #0dcaf0;
+    box-shadow: 0 0 0 0.25rem rgba(13, 202, 240, 0.25);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .form-label {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .input-group-text {
+    background-color: rgba(33, 37, 41, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+
+/* 夜晚主題按鈕 */
+[data-theme="dark"] .btn-outline-secondary {
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.25);
+}
+
+[data-theme="dark"] .btn-outline-secondary:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: #ffffff;
+    color: #ffffff;
+}
+
+/* 夜晚主題徽章 */
+[data-theme="dark"] .badge {
+    color: #000000 !important;
+}
+
+/* 夜晚主題模態框 */
+[data-theme="dark"] .modal-content {
+    background-color: rgba(33, 37, 41, 0.95);
+    border: 1px solid rgba(255, 255, 255, 0.125);
+    color: #ffffff;
+}
+
+[data-theme="dark"] .modal-header {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.125);
+}
+
+[data-theme="dark"] .modal-footer {
+    border-top: 1px solid rgba(255, 255, 255, 0.125);
+}
+
+[data-theme="dark"] .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* 夜晚主題列表群組 */
+[data-theme="dark"] .list-group-item {
+    background-color: transparent;
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.125);
+}
+
+/* 夜晚主題複選框背景 */
+[data-theme="dark"] .bg-light {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* 標題和引導文字樣式 */
 .display-4,
 .lead {
     text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
@@ -43,4 +192,313 @@ body.bg-profile {
 .bg-profile .display-4, .bg-profile .lead {
     color: white !important;
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+}
+
+/* 夜晚主題標題樣式 */
+[data-theme="dark"] .bg-ticket .display-4,
+[data-theme="dark"] .bg-ticket .lead {
+    color: white !important;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+/* 主題切換按鈕樣式 */
+#themeToggle {
+    border: none;
+    background: none;
+    font-size: 1.1rem;
+    padding: 0.375rem 0.75rem;
+    transition: all 0.3s ease;
+}
+
+#themeToggle:hover {
+    color: #0dcaf0 !important;
+    transform: scale(1.1);
+}
+
+[data-theme="dark"] #themeToggle {
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] #themeToggle:hover {
+    color: #ffed4e !important;
+}
+
+/* 夜晚主題硬編碼文字顏色修正 */
+[data-theme="dark"] .text-dark {
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .text-muted {
+    color: #6c757d !important;
+}
+
+/* 夜晚主題背景透明度調整 */
+[data-theme="dark"] .bg-white.bg-opacity-25 {
+    background-color: rgba(33, 37, 41, 0.25) !important;
+}
+
+[data-theme="dark"] .bg-light {
+    background-color: rgba(108, 117, 125, 0.2) !important;
+}
+
+/* 夜晚主題進度條 */
+[data-theme="dark"] .progress {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* 夜晚主題邊框調整 */
+[data-theme="dark"] .border-bottom {
+    border-color: rgba(255, 255, 255, 0.125) !important;
+}
+
+[data-theme="dark"] .border-top {
+    border-color: rgba(255, 255, 255, 0.125) !important;
+}
+
+/* 夜晚主題特殊按鈕調整 */
+[data-theme="dark"] .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+/* 夜晚主題表格樣式 */
+[data-theme="dark"] .table {
+    color: #ffffff;
+}
+
+[data-theme="dark"] .table-striped > tbody > tr:nth-of-type(odd) {
+    background-color: rgba(255, 255, 255, 0.05);
+}
+
+/* 夜晚主題輸入群組樣式 */
+[data-theme="dark"] .input-group-text {
+    background-color: rgba(33, 37, 41, 0.8);
+    border-color: rgba(255, 255, 255, 0.25);
+    color: #ffffff;
+}
+
+/* 夜晚主題個人頁面樣式修正 */
+[data-theme="dark"] .form-control-plaintext {
+    color: #ffffff !important;
+}
+
+/* 夜晚主題日期選擇器樣式 */
+[data-theme="dark"] .datepicker {
+    background-color: rgba(33, 37, 41, 0.95) !important;
+    border: 1px solid rgba(255, 255, 255, 0.25) !important;
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .datepicker table tr td.day {
+    color: #ffffff !important;
+    background-color: transparent !important;
+}
+
+[data-theme="dark"] .datepicker table tr td.day:hover {
+    background-color: rgba(13, 202, 240, 0.5) !important;
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .datepicker table tr td.active,
+[data-theme="dark"] .datepicker table tr td.active:hover {
+    background-color: #0dcaf0 !important;
+    color: #000000 !important;
+}
+
+[data-theme="dark"] .datepicker table tr th {
+    color: #ffffff !important;
+    background-color: rgba(33, 37, 41, 0.8) !important;
+}
+
+[data-theme="dark"] .datepicker-switch {
+    color: #ffffff !important;
+    background-color: rgba(33, 37, 41, 0.8) !important;
+}
+
+[data-theme="dark"] .datepicker table tr td.old,
+[data-theme="dark"] .datepicker table tr td.new {
+    color: #6c757d !important;
+}
+
+[data-theme="dark"] .datepicker thead tr:first-child th,
+[data-theme="dark"] .datepicker tfoot tr th {
+    background-color: rgba(33, 37, 41, 0.9) !important;
+    border-color: rgba(255, 255, 255, 0.25) !important;
+}
+
+/* 夜晚主題訂票頁面樣式修正 */
+[data-theme="dark"] .bg-white {
+    background-color: rgba(33, 37, 41, 0.9) !important;
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .bg-white.rounded-3,
+[data-theme="dark"] .bg-white.rounded-pill {
+    background-color: rgba(33, 37, 41, 0.8) !important;
+    color: #ffffff !important;
+}
+
+/* 夜晚主題小標籤和徽章 */
+[data-theme="dark"] .badge.bg-secondary {
+    background-color: #495057 !important;
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .bg-light.rounded-pill {
+    background-color: rgba(108, 117, 125, 0.3) !important;
+    color: #ffffff !important;
+}
+
+/* 夜晚主題邊框顏色 */
+[data-theme="dark"] .border-3 {
+    border-color: rgba(255, 255, 255, 0.3) !important;
+}
+
+/* 夜晚主題無特定背景的文字 */
+[data-theme="dark"] span:not([class*="text-"]):not([class*="bg-"]) {
+    color: #ffffff;
+}
+
+/* 夜晚主題強制白色文字的元素 */
+[data-theme="dark"] .fw-bold:not([class*="text-"]) {
+    color: #ffffff !important;
+}
+
+/* 夜晚主題 h 標籤修正 */
+[data-theme="dark"] h3:not([class*="text-"]),
+[data-theme="dark"] h4:not([class*="text-"]),
+[data-theme="dark"] h5:not([class*="text-"]),
+[data-theme="dark"] h6:not([class*="text-"]) {
+    color: #ffffff !important;
+}
+
+/* 夜晚主題小標籤文字修正 */
+[data-theme="dark"] small:not([class*="text-"]) {
+    color: #ffffff !important;
+}
+
+/* 夜晚主題複寫覆蓋 muted 顏色 */
+[data-theme="dark"] .text-muted {
+    color: #adb5bd !important;
+}
+
+/* 夜晚主題側欄樣式 */
+[data-theme="dark"] .col-lg-2.bg-light,
+[data-theme="dark"] .col-md-3.bg-light {
+    background-color: rgba(33, 37, 41, 0.9) !important;
+    color: #ffffff;
+}
+
+[data-theme="dark"] .col-lg-2.bg-light h4,
+[data-theme="dark"] .col-md-3.bg-light h4 {
+    color: #ffffff !important;
+}
+
+/* 夜晚主題列表群組項目 */
+[data-theme="dark"] .list-group-item-action {
+    background-color: transparent;
+    color: #ffffff;
+    border-color: rgba(255, 255, 255, 0.125);
+}
+
+[data-theme="dark"] .list-group-item-action:hover,
+[data-theme="dark"] .list-group-item-action:focus {
+    background-color: rgba(255, 255, 255, 0.1);
+    color: #0dcaf0;
+}
+
+[data-theme="dark"] .list-group-item-action.active {
+    background-color: #0dcaf0;
+    border-color: #0dcaf0;
+    color: #000000;
+}
+
+/* 夜晚主題徽章顏色調整 */
+[data-theme="dark"] .badge.bg-warning {
+    background-color: #ffc107 !important;
+    color: #000000 !important;
+}
+
+[data-theme="dark"] .badge.bg-success {
+    background-color: #198754 !important;
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .badge.bg-secondary {
+    background-color: #6c757d !important;
+    color: #ffffff !important;
+}
+
+/* 夜晚主題按鈕群組 */
+[data-theme="dark"] .btn-group .btn-outline-primary {
+    color: #0dcaf0;
+    border-color: #0dcaf0;
+}
+
+[data-theme="dark"] .btn-group .btn-outline-primary:hover {
+    background-color: #0dcaf0;
+    color: #000000;
+}
+
+[data-theme="dark"] .btn-group .btn-outline-success {
+    color: #20c997;
+    border-color: #20c997;
+}
+
+[data-theme="dark"] .btn-group .btn-outline-success:hover {
+    background-color: #20c997;
+    color: #000000;
+}
+
+[data-theme="dark"] .btn-group .btn-outline-danger {
+    color: #dc3545;
+    border-color: #dc3545;
+}
+
+[data-theme="dark"] .btn-group .btn-outline-danger:hover {
+    background-color: #dc3545;
+    color: #ffffff;
+}
+
+/* 夜晚主題文字顏色強制修正 */
+[data-theme="dark"] .fw-bold {
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] .fs-5 {
+    color: #ffffff !important;
+}
+
+[data-theme="dark"] h5 {
+    color: #ffffff !important;
+}
+
+/* 夜晚主題邊框底部 */
+[data-theme="dark"] .border-bottom {
+    border-bottom-color: rgba(255, 255, 255, 0.125) !important;
+}
+
+/* 夜晚主題小字體 */
+[data-theme="dark"] .small {
+    color: #adb5bd !important;
+}
+
+/* 夜晚主題強色文字維持原色 */
+[data-theme="dark"] .text-primary {
+    color: #0dcaf0 !important;
+}
+
+[data-theme="dark"] .text-success {
+    color: #20c997 !important;
+}
+
+[data-theme="dark"] .text-danger {
+    color: #dc3545 !important;
+}
+
+[data-theme="dark"] .text-warning {
+    color: #ffc107 !important;
+}
+
+[data-theme="dark"] .text-info {
+    color: #0dcaf0 !important;
 }
