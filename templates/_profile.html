@@ -31,19 +31,29 @@
 
           <div class="mb-3">
             <label for="user_email" class="form-label">電子郵件</label>
-            <input type="text" class="form-control" id="user_email" value="{{ user.User_Email or '' }}" >
-            <small class="form-text text-muted">電子郵件作為帳號唯一識別，不提供變更</small>
+            <input type="email" class="form-control" id="user_email" name="user_email" value="{{ user.User_Email or '' }}" required>
           </div>
 
-          <div class="mb-3">
-            <label for="old_password" class="form-label">舊密碼</label>
-            <input type="password" class="form-control" id="old_password" name="old_password" placeholder="如需變更密碼請輸入舊密碼">
-            <small class="form-text text-muted">若不需變更密碼，此欄位請留空</small>
-          </div>
-
-          <div class="mb-3">
-            <label for="new_password" class="form-label">新密碼</label>
-            <input type="password" class="form-control" id="new_password" name="new_password" placeholder="輸入新密碼">
+          <a data-bs-toggle="collapse" href="#changePasswordFields" role="button" aria-expanded="false" aria-controls="changePasswordFields" class="text-decoration-none">
+            <p class="mb-2 text-primary" style="cursor: pointer;">
+              變更密碼 <i class="fas fa-chevron-down text-primary" id="passwordChevron"></i>
+            </p>
+          </a>
+          
+          <div class="collapse" id="changePasswordFields">
+            <div class="mb-3">
+              <label for="old_password" class="form-label">舊密碼
+                <span class="text-danger">*</span>
+              </label>
+              <input type="password" class="form-control" id="old_password" name="old_password" placeholder="請輸入舊密碼">
+            </div>
+  
+            <div class="mb-3">
+              <label for="new_password" class="form-label">新密碼
+                <span class="text-danger">*</span>
+              </label>
+              <input type="password" class="form-control" id="new_password" name="new_password" placeholder="輸入新密碼">
+            </div>
           </div>
         </div>
 
@@ -64,6 +74,30 @@ document.addEventListener('DOMContentLoaded', function () {
   const editProfileModalEl = document.getElementById('editProfileModal');
   const editProfileModal = bootstrap.Modal.getOrCreateInstance(editProfileModalEl);
   const originalImgSrc = modalProfilePhotoPreview.src;
+  const changePasswordFields = document.getElementById('changePasswordFields');
+  const oldPasswordInput = document.getElementById('old_password');
+  const newPasswordInput = document.getElementById('new_password');
+  const passwordChevron = document.getElementById('passwordChevron');
+
+  // 根據摺疊狀態動態設定密碼欄位是否必填
+  if(changePasswordFields) {
+    changePasswordFields.addEventListener('show.bs.collapse', function () {
+      oldPasswordInput.required = true;
+      newPasswordInput.required = true;
+      passwordChevron.classList.remove('fa-chevron-down');
+      passwordChevron.classList.add('fa-chevron-up');
+    });
+  
+    changePasswordFields.addEventListener('hide.bs.collapse', function () {
+      oldPasswordInput.required = false;
+      newPasswordInput.required = false;
+      // 收合時清除數值
+      oldPasswordInput.value = '';
+      newPasswordInput.value = '';
+      passwordChevron.classList.remove('fa-chevron-up');
+      passwordChevron.classList.add('fa-chevron-down');
+    });
+  }
 
   // 頭像預覽
   photoUpload.addEventListener('change', function (event) {
@@ -80,11 +114,17 @@ document.addEventListener('DOMContentLoaded', function () {
   // 表單提交
   editProfileForm.addEventListener('submit', function (event) {
     event.preventDefault();
-
+    
     const formData = new FormData(editProfileForm);
     const newPassword = formData.get('new_password');
     const oldPassword = formData.get('old_password');
-
+    for (const [key, value] of formData.entries()) {
+      if (value instanceof File) {
+        console.log(`${key}: File{name=${value.name}, type=${value.type}, size=${value.size} bytes}`);
+      } else {
+        console.log(`${key}:`, value);
+      }
+    }
     if (newPassword && !oldPassword) {
       alert('若要變更密碼，請提供您的舊密碼。');
       return;
@@ -131,6 +171,14 @@ document.addEventListener('DOMContentLoaded', function () {
   editProfileModalEl.addEventListener('hidden.bs.modal', function () {
     editProfileForm.reset();
     modalProfilePhotoPreview.src = originalImgSrc;
+
+    // 如果密碼區塊是開啟的，則將其收合
+    if (changePasswordFields.classList.contains('show')) {
+      const bsCollapse = new bootstrap.Collapse(changePasswordFields, {
+        toggle: false
+      });
+      bsCollapse.hide();
+    }
   });
 });
 </script>
