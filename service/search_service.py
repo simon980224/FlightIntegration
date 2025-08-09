@@ -67,21 +67,17 @@ SELECT
     FAP.Airport_Name_ZH AS From_Airport,
     TAP.Airport_Name_ZH AS To_Airport,
     F.D_Time,
-    F.A_Time
-FROM 
-    Flight F
-LEFT JOIN 
-    Airline AL 
-    ON F.Airline_Id = AL.Airline_Id
-LEFT JOIN 
-    Airport FAP 
-    ON F.D_Airport_Id = FAP.Airport_Id
-LEFT JOIN 
-    Airport TAP 
-    ON F.A_Airport_Id = TAP.Airport_Id
-WHERE 
-    1=1
-        """
+    F.A_Time,
+    CASE 
+        WHEN GETDATE() > F.D_Time THEN 0
+        ELSE 1
+    END AS ticket_status
+FROM Flight F
+LEFT JOIN Airline AL ON F.Airline_Id = AL.Airline_Id
+LEFT JOIN Airport FAP ON F.D_Airport_Id = FAP.Airport_Id
+LEFT JOIN Airport TAP ON F.A_Airport_Id = TAP.Airport_Id
+WHERE 1=1
+"""
         params = []
 
         if from_id:
@@ -98,7 +94,7 @@ WHERE
             params.append(dep_time + " 23:59:59")
 
         if airline_ids:
-            placeholders = ','.join(['%s'] * len(airline_ids))
+            placeholders = ",".join(["%s"] * len(airline_ids))
             query += f" AND F.Airline_Id IN ({placeholders})"
             params.extend(airline_ids)
 
@@ -109,9 +105,9 @@ WHERE
 
         # ✅ 加上時區 +08:00
         for row in results:
-            if isinstance(row["D_Time"], datetime):
+            if isinstance(row.get("D_Time"), datetime):
                 row["D_Time"] = row["D_Time"].replace(tzinfo=tz_offset).isoformat()
-            if isinstance(row["A_Time"], datetime):
+            if isinstance(row.get("A_Time"), datetime):
                 row["A_Time"] = row["A_Time"].replace(tzinfo=tz_offset).isoformat()
 
         return {"success": True, "data": results}
