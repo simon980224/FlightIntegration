@@ -7,6 +7,17 @@ import json
 import os
 from difflib import SequenceMatcher
 
+# 載入配置文件
+def load_config():
+    """載入配置文件"""
+    config_path = os.path.join('config', 'prodConfig.json')
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, UnicodeDecodeError) as e:
+        print(f"⚠️ 載入配置文件失敗: {e}")
+        return {}
+
 # 機場資料快取
 _airport_cache = None
 _airport_lookup = None  # HashMap 快速查找表
@@ -26,8 +37,9 @@ TAIWAN_AIRPORT_ALIASES = {
     '清泉崗': 'RMQ',  # 清泉崗 → 清泉崗機場
 }
 
-# 網頁連結常量
-WEBSITE_URL = "https://d6c8ff7b0ead.ngrok-free.app"
+# 網頁連結常量 - 從配置文件讀取
+config = load_config()
+WEBSITE_URL = config.get('website', {}).get('url', '請在 prodConfig.json 中設定 ngrok 網址')
 
 # 設定 API Log
 def setup_api_logger():
@@ -388,7 +400,9 @@ def search_flights_by_message(message):
                 response += "\n" + "─" * 16 + "\n"
 
         if len(flights) > 5:
-            response += f"\n... 還有 {len(flights) - 5} 筆航班\n\n💻 想查詢更多航班請至網頁版\n🔗 {WEBSITE_URL}"
+            response += f"\n... 還有 {len(flights) - 5} 筆航班\n\n💻 想查詢更多航班請至網頁版"
+            if WEBSITE_URL and not WEBSITE_URL.startswith('請在'):
+                response += f"\n🔗 {WEBSITE_URL}"
 
         return response
 
@@ -757,7 +771,9 @@ def generate_partial_search_response(destination):
         for _, name in country_airports:
             response += f"• 桃園到{name}\n"
         response += f"\n請輸入您想要的路線，例如：「桃園到{country_airports[0][1]}」\n"
-        response += f"或到網頁查詢更多{destination}城市！\n🔗 {WEBSITE_URL}"
+        response += f"或到網頁查詢更多{destination}城市！"
+        if WEBSITE_URL and not WEBSITE_URL.startswith('請在'):
+            response += f"\n🔗 {WEBSITE_URL}"
     else:
         # 如果是具體機場/城市，直接查詢所有台灣機場到該目的地的航班
         response = search_all_taiwan_to_destination(destination)
