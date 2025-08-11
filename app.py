@@ -15,9 +15,12 @@ config_path = os.path.join('config', 'prodConfig.json')
 with open(config_path, 'r', encoding='utf-8') as f:
     config = json.load(f)
 
-# 初始化 LINE Bot
-line_bot_api = LineBotApi(config['line_bot']['channel_access_token'])
-handler = WebhookHandler(config['line_bot']['channel_secret'])
+# 初始化 LINE Bot - 優先從環境變數讀取
+line_channel_access_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN') or config['line_bot']['channel_access_token']
+line_channel_secret = os.getenv('LINE_CHANNEL_SECRET') or config['line_bot']['channel_secret']
+
+line_bot_api = LineBotApi(line_channel_access_token)
+handler = WebhookHandler(line_channel_secret)
 
 app = Flask(__name__)
 app.secret_key = 'your-development-secret-key'
