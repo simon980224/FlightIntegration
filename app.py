@@ -8,7 +8,22 @@ import os
 # LINE Bot SDK 的相關匯入
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from linebot.models import (
+    MessageEvent,
+    TextMessage,
+    TextSendMessage,
+    PostbackEvent,
+    FlexSendMessage,
+    BubbleContainer,
+    CarouselContainer,
+    BoxComponent,
+    TextComponent,
+    ImageComponent,
+    SeparatorComponent,
+    ButtonComponent,
+    URIAction,
+)
+from urllib.parse import parse_qs
 
 # 載入設定檔
 config_path = os.path.join('config', 'prodConfig.json')
@@ -23,12 +38,137 @@ line_bot_api = LineBotApi(line_channel_access_token)
 handler = WebhookHandler(line_channel_secret)
 
 app = Flask(__name__)
-app.secret_key = 'your-development-secret-key'
+# 使用環境變數或 LINE channel secret 作為簽章金鑰（MVP）
+app.secret_key = os.getenv('APP_SECRET_KEY') or (config['line_bot']['channel_secret'] if 'line_bot' in config else 'dev-secret')
+
+# --- 簽名連結工具（不新增依賴） ---
+import base64, hmac, hashlib, time
+
+def _b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b'=').decode('ascii')
+
+def _b64url_decode(s: str) -> bytes:
+    padding = '=' * (-len(s) % 4)
+    return base64.urlsafe_b64decode(s + padding)
+
+def sign_line_link(user_id: str, ttl_seconds: int = 900) -> str:
+    """產生短效簽名 token，內含 LINE user_id 與到期時間。"""
+    payload = {
+        'uid': user_id,
+        'exp': int(time.time()) + ttl_seconds
+    }
+    payload_bytes = json.dumps(payload, separators=(',', ':')).encode('utf-8')
+    payload_b64 = _b64url(payload_bytes)
+    sig = hmac.new(app.secret_key.encode('utf-8'), payload_b64.encode('ascii'), hashlib.sha256).digest()
+    sig_b64 = _b64url(sig)
+    return f"{payload_b64}.{sig_b64}"
+
+# ---------- LINE 訂票 Flex 建構工具 ----------
+
+def _website_base_url():
+    base_url = (config.get('website', {}) or {}).get('url', '').rstrip('/')
+    return base_url
+
+
+def _airline_image_url(flight_no: str) -> str:
+    """依航班號推測航空公司，回傳對應靜態圖檔 URL（fallback favicon）。"""
+    try:
+        code = ''.join([c for c in (flight_no or '') if c.isalpha()])[:2].upper()
+        base_url = _website_base_url()
+        if code:
+            local_path = os.path.join('static', 'img', f'{code}.jpg')
+            if os.path.exists(local_path):
+                return f"{base_url}/static/img/{code}.jpg" if base_url else f"/static/img/{code}.jpg"
+        return f"{base_url}/static/img/favicon.ico" if base_url else "/static/img/favicon.ico"
+    except Exception:
+        base_url = _website_base_url()
+        return f"{base_url}/static/img/favicon.ico" if base_url else "/static/img/favicon.ico"
+
+
+def build_ticket_flex_for_line_uid(line_uid: str):
+    """為 LINE 使用者建立訂票 Flex 訊息；未綁定時提供安全連結作為後援。"""
+    base_url = _website_base_url()
+    ticket_url = f"{base_url}/ticket" if base_url else "/ticket"
+
+    try:
+        from service.line_binding_service import get_user_id_by_line
+        bound_user_id = get_user_id_by_line(line_uid)
+    except Exception:
+        bound_user_id = None
+
+    if not bound_user_id:
+        token = sign_line_link(line_uid, ttl_seconds=900)
+        safe_url = f"{base_url}/ticket/line?token={token}" if base_url else f"/ticket/line?token={token}"
+        return TextSendMessage(
+            text=f"🔒 尚未綁定網站帳號\n\n直接前往網頁查看：{ticket_url}\n或使用安全連結查看並綁定（10 分鐘內有效）：\n{safe_url}"
+        )
+
+    try:
+        from service.orders_service import get_tickets_by_user
+        bookings = get_tickets_by_user(bound_user_id)[:5]
+    except Exception:
+        bookings = []
+
+    if not bookings:
+        return TextSendMessage(text=f"目前沒有訂票記錄。\n可前往網頁查看：{ticket_url}")
+
+    bubbles = []
+    for b in bookings:
+        img_url = _airline_image_url(b.get('no'))
+        title = f"{b.get('no','')} - {b.get('from','')} → {b.get('to','')}"
+        body_contents = [
+            TextComponent(text=title, weight="bold", size="md", wrap=True),
+            BoxComponent(layout="baseline", contents=[
+                TextComponent(text="日期", size="sm", color="#888888", flex=2),
+                TextComponent(text=b.get('date',''), size="sm", flex=5),
+            ]),
+            BoxComponent(layout="baseline", contents=[
+                TextComponent(text="時間", size="sm", color="#888888", flex=2),
+                TextComponent(text=f"{b.get('dep','')} - {b.get('arr','')}", size="sm", flex=5),
+            ]),
+            BoxComponent(layout="baseline", contents=[
+                TextComponent(text="艙等", size="sm", color="#888888", flex=2),
+                TextComponent(text=b.get('cabin',''), size="sm", flex=5),
+            ]),
+            BoxComponent(layout="baseline", contents=[
+                TextComponent(text="價格", size="sm", color="#888888", flex=2),
+                TextComponent(text=f"NT$ {b.get('price','')}", size="sm", color="#1B6EC2", weight="bold", flex=5),
+            ]),
+        ]
+        bubble = BubbleContainer(
+            hero=ImageComponent(url=img_url, size="full", aspectMode="cover", aspectRatio="20:13"),
+            body=BoxComponent(layout="vertical", spacing="sm", contents=body_contents),
+            footer=BoxComponent(layout="vertical", spacing="sm", contents=[
+                ButtonComponent(style="link", height="sm", action=URIAction(label="到網頁查看 /ticket", uri=ticket_url))
+            ]),
+        )
+        bubbles.append(bubble)
+
+    contents = bubbles[0] if len(bubbles) == 1 else CarouselContainer(contents=bubbles)
+    return FlexSendMessage(alt_text="您的訂票摘要", contents=contents)
+
+def verify_line_link(token: str):
+    try:
+        payload_b64, sig_b64 = token.split('.')
+        expected = hmac.new(app.secret_key.encode('utf-8'), payload_b64.encode('ascii'), hashlib.sha256).digest()
+        if not hmac.compare_digest(_b64url(expected), sig_b64):
+            return None
+        payload = json.loads(_b64url_decode(payload_b64))
+        if int(payload.get('exp', 0)) < int(time.time()):
+            return None
+        return payload
+    except Exception:
+        return None
 
 # 將 user_id 注入到所有模板
 @app.context_processor
 def inject_user():
-    return dict(user_id=session.get('user_id'))
+    # 將常用工具注入 Jinja：使用者ID、航空公司圖片URL工具、網站基底URL
+    return dict(
+        user_id=session.get('user_id'),
+        airline_img_url=_airline_image_url,
+        website_base=_website_base_url()
+    )
 
 # 登入要求裝飾器
 def login_required(f):
@@ -67,8 +207,8 @@ def flight():
                          a_airport_data=a_airport_data,
                          airline_data=airline_data,
                          flight_data=flight_data)
-    
-@app.route('/flight/search', methods=['POST']) 
+
+@app.route('/flight/search', methods=['POST'])
 def flight_search():
     data = request.get_json()
 
@@ -100,11 +240,11 @@ def login():
     data = request.get_json()
 
     user_id = data.get("user_id", "").strip()
-    password = data.get("password", "").strip()    
+    password = data.get("password", "").strip()
 
     if not user_id or not password:
         return jsonify({'success': False, 'message': '請輸入使用者名稱和密碼'})
-    
+
     user_data = user_service.AuthenticateUser(user_id, password)
     print("🧪 AuthenticateUser 回傳：", user_data)
     if user_data["success"]:
@@ -112,8 +252,8 @@ def login():
         return jsonify({'success': True, 'message': '登入成功'})
     else:
         return jsonify({'success': False, 'message': '使用者名稱或密碼錯誤'})
-    
-# 註冊處理    
+
+# 註冊處理
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -174,12 +314,12 @@ def profile():
 @login_required
 def update_profile():
     user_id = session.get('user_id')
-    
+
     # 接收來自 form 表單的欄位資料（非 JSON）
     user_name = request.form.get("user_name")
     old_password = request.form.get("old_password")
     new_password = request.form.get("new_password")
-    
+
 
     # 接收圖片檔案（type="file"）
     user_img = request.files.get("user_img")
@@ -217,7 +357,7 @@ def profile_page():
         return render_template('_profile.html', user=user_data_result)
     else:
         return jsonify({'success': False, 'message': '無法獲取使用者資料'})
-    
+
 
 # LINE Bot 訊息處理
 @app.route("/lineApi", methods=['GET', 'POST'])
@@ -245,10 +385,36 @@ def handle_message(event):
         message = event.message.text.strip()
         user_id = event.source.user_id  # 取得用戶 ID
 
-        # 使用 linebot_service 處理訊息，傳入 user_id 用於 log 記錄
-        response_text = linebot_service.process_line_message(message, user_id)
+        # 先處理 Rich Menu 文字觸發的三個捷徑
+        if message in ("查詢航班", "航班查詢"):
+            from service import richmenu_flow
+            msg = richmenu_flow._ask_departure(user_id)
+            line_bot_api.reply_message(event.reply_token, msg)
+            return
 
-        # 回覆訊息
+        if message in ("查看訂票", "我的訂票"):
+            msg = build_ticket_flex_for_line_uid(user_id)
+            line_bot_api.reply_message(event.reply_token, msg)
+            return
+
+        if message in ("活動&小貼士", "活動與小貼士", "小貼士", "活動"):
+            from service import richmenu_flow
+            msg = richmenu_flow._tips_ask_destination(user_id)
+            line_bot_api.reply_message(event.reply_token, msg)
+            return
+
+        # 嘗試將自然語句改為 Flex 清單 + 分頁（與 A 流程一致）
+        try:
+            from service import richmenu_flow as _richmenu_flow
+            flex_msg = _richmenu_flow.flex_search_from_text(user_id, message)
+            if flex_msg:
+                line_bot_api.reply_message(event.reply_token, flex_msg)
+                return
+        except Exception:
+            pass
+
+        # 使用 linebot_service 原邏輯處理訊息（非航班查詢、幫助等）
+        response_text = linebot_service.process_line_message(message, user_id)
         line_bot_api.reply_message(
             event.reply_token,
             TextSendMessage(text=response_text)
@@ -263,12 +429,101 @@ def handle_message(event):
         )
         print(f"LINE Bot 錯誤: {str(e)}")
 
+
+# 供 LINE 圖文選單（C 區）使用的安全連結入口（不需登入）
+@app.route('/ticket/line', methods=['GET'])
+def ticket_line_from_line():
+    tok = request.args.get('token', '').strip()
+    payload = verify_line_link(tok) if tok else None
+    if not payload:
+        return render_template('ticket_line.html', error='連結無效或已過期')
+
+    line_uid = payload.get('uid')
+    # 先檢查是否已綁定
+    try:
+        from service.line_binding_service import get_user_id_by_line
+        bound_user_id = get_user_id_by_line(line_uid)
+    except Exception:
+        bound_user_id = None
+
+    if not bound_user_id:
+        # 尚未綁定：提供登入並綁定的入口（/line/bind 需登入）
+        return render_template('ticket_line.html', unbound=True, token=tok)
+
+    # 已綁定：查詢真實訂票清單（由 orders_service 提供）
+    try:
+        from service.orders_service import get_tickets_by_user
+        user_bookings = get_tickets_by_user(bound_user_id)
+    except Exception:
+        user_bookings = []
+    return render_template('ticket_line.html', bookings=user_bookings, user_id=bound_user_id, token=tok)
+
+
+# LINE 綁定入口（需登入）：驗證 token 取得 LINE user_id，將其與目前登入的網站帳號綁定
+@app.route('/line/bind', methods=['GET'])
+@login_required
+def line_bind():
+    tok = request.args.get('token', '').strip()
+    payload = verify_line_link(tok) if tok else None
+    if not payload:
+        flash('連結無效或已過期', 'error')
+        return redirect(url_for('ticket'))
+
+    line_uid = payload.get('uid')
+    current_user = session.get('user_id')
+    try:
+        from service.line_binding_service import bind_line_user
+        result = bind_line_user(current_user, line_uid)
+        if result.get('success'):
+            flash('已成功綁定 LINE 帳號', 'success')
+        else:
+            flash('綁定失敗：' + str(result.get('error')), 'error')
+    except Exception as e:
+        flash('綁定時發生錯誤：' + str(e), 'error')
+
+    # 綁定後導回 /ticket/line 讓使用者立即查看
+    return redirect(url_for('ticket_line_from_line', token=tok))
+
+
+# 解除綁定：僅允許登入後依 user_id 解除
+@app.route('/line/unbind', methods=['POST'])
+@login_required
+def line_unbind():
+    try:
+        from service.line_binding_service import unbind_by_user
+        result = unbind_by_user(session['user_id'])
+        if result.get('success'):
+            flash('已解除 LINE 綁定', 'success')
+        else:
+            flash('解除綁定失敗：' + str(result.get('error')), 'error')
+    except Exception as e:
+        flash('解除綁定時發生錯誤：' + str(e), 'error')
+    return redirect(url_for('ticket'))
+
+
+@handler.add(PostbackEvent)
+def handle_postback(event):
+    try:
+        # 先攔截 C 區塊：查看訂票（act=tickets）
+        data = getattr(event.postback, 'data', '') or ''
+        q = parse_qs(data)
+        act = (q.get('act', [''])[0] or '').lower()
+        if act == 'tickets':
+            msg = build_ticket_flex_for_line_uid(event.source.user_id)
+            line_bot_api.reply_message(event.reply_token, msg)
+            return
+
+        # 其餘交給 richmenu_flow
+        from service import richmenu_flow
+        messages = richmenu_flow.handle_postback(event)
+        line_bot_api.reply_message(event.reply_token, messages)
+    except Exception as e:
+        error_message = "❌ 處理互動時發生錯誤，請稍後再試。"
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text=error_message))
+        print(f"LINE Bot Postback 錯誤: {str(e)}")
+
 #########################進度條###########################
 # 我的訂票頁面
-@app.route('/ticket', methods=['GET'])
-@login_required
-def bookings():
-    return render_template('ticket.html')
 
 # 處理訂票
 @app.route('/booking/<flight_id>', methods=['POST','GET'])
@@ -293,68 +548,14 @@ def ticket():
         flash('請先登入', 'error')
         return redirect(url_for('login'))
 
-    # user_data_result = user_service.GetUserData(user_id)
-    user_data_result = {
-        "success": True,
-        "data": {
-            "username": "Admin",
-            "email": "12345@example.com",
-            "gender": "男性",
-            "birth_date": "1990-01-01",
-            "nationality": "中國",
-            "passport_number": "A123456789"
-        }
-    }
+    # 以真實資料渲染：讀取該用戶的 Ticket 清單
+    try:
+        from service.orders_service import get_tickets_by_user
+        bookings = get_tickets_by_user(user_id)
+    except Exception:
+        bookings = []
 
-    if user_data_result["success"]:
-        user = user_data_result["data"]
-    else:
-        flash('無法獲取使用者資料', 'error')
-        user = {} # or handle error appropriately
-    
-    time = (datetime.strptime('2025-07-13 10:00', '%Y-%m-%d %H:%M') -
-            datetime.strptime('2025-07-13 08:00', '%Y-%m-%d %H:%M')).total_seconds() / 3600
-
-    flight_data_result = {
-        "success": True,
-        "data": {
-            "flight_id": "EVA_20250713_B7502_TSA_PVG",
-            "flight_no": "B7502",
-            "airline_id": "BR",
-            "airline_name": "長榮航空",
-            "d_airport_id": "TSA",
-            "d_airport_name": "桃園國際機場",
-            "a_airport_id": "PVG",
-            "a_airport_name": "上海浦東國際機場",
-            "d_time": "2025-07-13 08:00",
-            "a_time": "2025-07-13 10:00",
-            "flight_time": f"{time:.1f}"
-        }
-    }
-
-    if flight_data_result["success"]:
-        flight = flight_data_result["data"]
-    else:
-        flash('無法獲取航班資料', 'error')
-        flight = {} # or handle error appropriately
-
-    ticket_data_result = {
-        "success": True,
-        "data": {
-            "ticket_id": "EVA_20250713_B7502_TSA_PVG",
-            "seat_id": "A1",
-            "price": "13500",
-        }
-    }
-
-    if ticket_data_result["success"]:
-        ticket = ticket_data_result["data"]
-    else:
-        flash('無法獲取票券資料', 'error')
-        ticket = {} # or handle error appropriately
-
-    return render_template('ticket.html', user=user, flight=flight, ticket=ticket)
-
+    return render_template('ticket.html', bookings=bookings)
 #########################快取管理###########################
 @app.route('/admin/cache/clear', methods=['POST'])
 def clear_cache():
