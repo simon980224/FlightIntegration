@@ -33,7 +33,7 @@ def get_booking_imf(flight_id):
         conn = pymssql.connect(**conn_args)
         cursor = conn.cursor(as_dict=True)
         flight_sql = """
-        SELECT 
+        SELECT
             F.Flight_Id,
             F.No,
             F.Airline_Id,
@@ -98,6 +98,9 @@ def get_booking_imf(flight_id):
             if cursor: cursor.close()
         finally:
             if conn: conn.close()
+
+
+
 
 if __name__ == "__main__":
     # 僅供本檔單獨執行測試時參考；實際在 Flask route 中呼叫即可

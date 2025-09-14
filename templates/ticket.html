@@ -17,6 +17,12 @@
                 <a href="{{ url_for('logout') }}" class="list-group-item list-group-item-action text-danger">
                     <i class="fas fa-sign-out-alt me-2"></i>登出
                 </a>
+                <form method="post" action="/line/unbind" class="mt-3">
+                    <button type="submit" class="btn btn-outline-danger w-100">
+                        <i class="fas fa-unlink me-2"></i>解除 LINE 綁定
+                    </button>
+                </form>
+
             </div>
         </div>
 
@@ -32,100 +38,47 @@
                     <h4 class="card-title mb-4 text-primary">
                         <i class="fas fa-list me-2"></i>訂票記錄
                     </h4>
-                    
-                    <!-- 範例訂票記錄 -->
-                    <div class="booking-item border-bottom pb-4 mb-4">
-                        <div class="row align-items-center">
-                            <div class="col-lg-8">
-                                <div class="d-flex align-items-center mb-3">
-                                    <h5 class="mb-0 fw-bold">BR123 - 台北 → 東京</h5>
-                                    <span class="badge bg-success ms-3 fs-6">已確認</span>
-                                </div>
-                                <div class="row text-muted small">
-                                    <div class="col-md-4 mb-2 mb-md-0">
-                                        <i class="fas fa-calendar me-2"></i>2024-03-20
-                                    </div>
-                                    <div class="col-md-4 mb-2 mb-md-0">
-                                        <i class="fas fa-clock me-2"></i>14:30 - 18:45
-                                    </div>
-                                    <div class="col-md-4">
-                                        <i class="fas fa-user me-2"></i>經濟艙
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
-                                <div class="mb-2">
-                                    <strong class="text-primary fs-5">NT$ 12,500</strong>
-                                </div>
-                                <div class="btn-group">
-                                    <button class="btn btn-outline-primary"><i class="fas fa-eye me-1"></i>詳情</button>
-                                    <button class="btn btn-outline-success"><i class="fas fa-download me-1"></i>下載</button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
 
-                    <div class="booking-item border-bottom pb-4 mb-4">
-                        <div class="row align-items-center">
-                            <div class="col-lg-8">
-                                <div class="d-flex align-items-center mb-3">
-                                    <h5 class="mb-0 fw-bold">CI567 - 台北 → 香港</h5>
-                                    <span class="badge bg-warning text-dark ms-3 fs-6">處理中</span>
-                                </div>
-                                <div class="row text-muted small">
-                                    <div class="col-md-4 mb-2 mb-md-0">
-                                        <i class="fas fa-calendar me-2"></i>2024-03-25
+                    {% if bookings and bookings|length > 0 %}
+                        {% for b in bookings %}
+                        <div class="booking-item border-bottom pb-4 mb-4">
+                            <div class="row align-items-center">
+                                <div class="col-lg-8">
+                                    <div class="d-flex align-items-center mb-3">
+                                        <h5 class="mb-0 fw-bold">{{ b.no }} - {{ b.from }} → {{ b.to }}</h5>
+                                        <span class="badge bg-success ms-3 fs-6">已確認</span>
                                     </div>
-                                    <div class="col-md-4 mb-2 mb-md-0">
-                                        <i class="fas fa-clock me-2"></i>09:15 - 11:30
-                                    </div>
-                                    <div class="col-md-4">
-                                        <i class="fas fa-user me-2"></i>商務艙
+                                    <div class="row text-muted small">
+                                        <div class="col-md-4 mb-2 mb-md-0">
+                                            <i class="fas fa-calendar me-2"></i>{{ b.date }}
+                                        </div>
+                                        <div class="col-md-4 mb-2 mb-md-0">
+                                            <i class="fas fa-clock me-2"></i>{{ b.dep }} - {{ b.arr }}
+                                        </div>
+                                        <div class="col-md-4">
+                                            <i class="fas fa-user me-2"></i>{{ b.cabin }}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                            <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
-                                <div class="mb-2">
-                                    <strong class="text-primary fs-5">NT$ 18,800</strong>
-                                </div>
-                                <div class="btn-group">
-                                    <button class="btn btn-outline-primary"><i class="fas fa-eye me-1"></i>詳情</button>
-                                    <button class="btn btn-outline-danger"><i class="fas fa-times me-1"></i>取消</button>
+                                <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
+                                    <div class="mb-2">
+                                        <strong class="text-primary fs-5">NT$ {{ b.price }}</strong>
+                                    </div>
+                                    <div class="btn-group">
+                                        <button class="btn btn-outline-primary"><i class="fas fa-eye me-1"></i>詳情</button>
+                                        <button class="btn btn-outline-success"><i class="fas fa-download me-1"></i>下載</button>
+                                    </div>
                                 </div>
                             </div>
                         </div>
-                    </div>
-
-                    <div class="booking-item">
-                        <div class="row align-items-center">
-                            <div class="col-lg-8">
-                                <div class="d-flex align-items-center mb-3">
-                                    <h5 class="mb-0 fw-bold">NH789 - 東京 → 台北</h5>
-                                    <span class="badge bg-secondary ms-3 fs-6">已完成</span>
-                                </div>
-                                <div class="row text-muted small">
-                                    <div class="col-md-4 mb-2 mb-md-0">
-                                        <i class="fas fa-calendar me-2"></i>2024-03-15
-                                    </div>
-                                    <div class="col-md-4 mb-2 mb-md-0">
-                                        <i class="fas fa-clock me-2"></i>16:20 - 19:35
-                                    </div>
-                                    <div class="col-md-4">
-                                        <i class="fas fa-user me-2"></i>經濟艙
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
-                                <div class="mb-2">
-                                    <strong class="text-primary fs-5">NT$ 11,200</strong>
-                                </div>
-                                <div class="btn-group">
-                                    <button class="btn btn-outline-primary"><i class="fas fa-eye me-1"></i>詳情</button>
-                                    <button class="btn btn-outline-success"><i class="fas fa-download me-1"></i>下載</button>
-                                </div>
-                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="text-center text-muted py-5">
+                            <i class="fas fa-ticket-alt fa-2x mb-3"></i>
+                            <p class="mb-1">目前沒有訂票記錄</p>
+                            <a href="/flight" class="btn btn-primary mt-2"><i class="fas fa-search me-2"></i>查詢新航班</a>
                         </div>
-                    </div>
+                    {% endif %}
                 </div>
             </div>
 
@@ -140,4 +93,4 @@
         </div>
     </div>
 </div>
-{% endblock %} 
+{% endblock %}
