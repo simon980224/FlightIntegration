@@ -7,8 +7,10 @@ __pycache__/
 env/
 venv/
 ENV/
+config/
 env.bak/
 venv.bak/
+.augment/
 *.egg-info/
 .installed.cfg
 *.egg
