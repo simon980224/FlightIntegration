@@ -3,4 +3,8 @@ requests
 beautifulsoup4
 pymssql
 line-bot-sdk
-WebhookHandler
+aiohttp
+scikit-learn
+pandas
+numpy
+joblib

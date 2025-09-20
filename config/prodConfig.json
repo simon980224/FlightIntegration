@@ -11,8 +11,8 @@
     "api_secret": "wHH3pXiyBtfGMF27",
     "enabled": true,
     "base_url": "https://test.api.amadeus.com",
-    "timeout": 30,
-    "cache_timeout": 300
+    "timeout": 45,
+  "max_offers": 10
   },
   "ml": {
     "enabled": true,
