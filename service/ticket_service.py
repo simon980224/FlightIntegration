@@ -32,9 +32,8 @@ def get_booking_imf(flight_id):
     try:
         conn = pymssql.connect(**conn_args)
         cursor = conn.cursor(as_dict=True)
-
         query = """
-        SELECT 
+        SELECT
             F.Flight_Id,
             F.No,
             F.Airline_Id,
@@ -93,6 +92,9 @@ def get_booking_imf(flight_id):
             conn.close()
         except:
             pass
+
+
+
 
 if __name__ == "__main__":
     test_flight_id = "EVA_20250809_BR016_TPE_LAX"

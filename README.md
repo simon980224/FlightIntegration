@@ -15,6 +15,10 @@ FlightIntegration 是一個全方位的航班服務平台，整合了航班查�
 - **LINE Bot SDK** - LINE 聊天機器人
 - **BeautifulSoup4** - 網頁爬蟲
 - **Requests** - HTTP 請求處理
+- **Amadeus API** - 國際航班資料
+- **aiohttp** - 異步 HTTP 請求
+- **scikit-learn** - 機器學習價格預測
+- **pandas/numpy** - 資料處理
 
 ### 前端技術
 - **HTML5/CSS3** - 網頁結構與樣式
@@ -114,6 +118,75 @@ FlightIntegration/
 - **航班查詢**：透過 LINE 快速查詢航班
 - **機場代碼轉換**：支援中文機場名稱查詢
 - **快取機制**：提升查詢效能
+
+### 5. ✈️ Amadeus API 整合
+- **國際航班資料**：即時獲取全球航班資訊
+- **價格查詢**：真實航班價格
+- **航線資訊**：完整的航班詳細資料
+- **資料補充**：與爬蟲資料互補
+
+### 6. 🤖 機器學習價格預測
+- **隨機森林模型**：預測航班價格趨勢
+- **歷史資料分析**：基於過往價格資料
+- **多因子預測**：考慮日期、航線、航空公司等因素
+
+## 🔧 安裝與配置
+
+### 1. 環境需求
+- Python 3.8+
+- Microsoft SQL Server
+- ngrok (用於 LINE Bot webhook)
+
+### 2. 安裝步驟
+
+```bash
+# 1. 克隆專案
+git clone https://github.com/your-repo/FlightIntegration.git
+cd FlightIntegration
+
+# 2. 安裝依賴套件
+pip install -r requirements.txt
+
+# 3. 設定配置檔案
+copy config\prodConfig.json.template config\prodConfig.json
+# 編輯 prodConfig.json，填入您的 API 金鑰
+
+# 4. 啟動應用程式
+python app.py
+```
+
+### 3. 配置說明
+
+**重要**：`config/prodConfig.json` 包含敏感資訊，已被 `.gitignore` 排除，不會同步到 Git。
+
+#### 必要設定
+```json
+{
+  "line_bot": {
+    "channel_access_token": "您的 LINE Bot Token",
+    "channel_secret": "您的 LINE Bot Secret"
+  },
+  "website": {
+    "url": "https://your-ngrok-url.ngrok.io"
+  },
+  "amadeus": {
+    "api_key": "您的 Amadeus API Key",
+    "api_secret": "您的 Amadeus API Secret"
+  }
+}
+```
+
+#### 功能開關
+```json
+{
+  "features": {
+    "use_amadeus": true,           // 啟用 Amadeus API
+    "use_crawler": true,           // 啟用爬蟲資料
+    "use_ml_prediction": true,     // 啟用機器學習預測
+    "show_airline_services": true  // 顯示航空公司服務資訊
+  }
+}
+```
 - **錯誤處理**：友善的錯誤訊息回覆
 
 ### 5. 📊 資料爬蟲系統

@@ -6,6 +6,7 @@ import time
 import json
 import os
 from difflib import SequenceMatcher
+from service import tips_service
 
 # 載入配置文件
 def load_config():
@@ -869,7 +870,7 @@ def process_line_message(message_text, user_id=None):
         # 快速回應處理
         quick_responses = {
             ('幫助', 'help', '說明', '指令'): (get_help_message(), "help"),
-            ('測試', '/測試'): ("Hello! 我是航班查詢助手，現在支援自然語言對話囉！\n\n試試看說：「我想從桃園飛東京」", "test")
+            ('測試', '/測試'): ("Hello! 我是航班查詢助手！\n\n試試看說：「我想從桃園飛東京」", "test")
         }
 
         for keywords, (resp, resp_type) in quick_responses.items():
@@ -914,6 +915,19 @@ def unified_message_processor(message):
     thanks = ['謝謝', '感謝', 'thank', 'thanks', '3q']
     if any(thank in message_lower for thank in thanks):
         return "不客氣！很高興能幫助您 😊\n\n如果還需要查詢其他航班，隨時告訴我！", "thanks"
+
+    # 活動/小貼士（D 區塊 MVP）
+    tips_keywords = ['小貼士', '活動', 'tips']
+    if any(k in message for k in tips_keywords):
+        # 嘗試解析月份與目的地
+        month = tips_service.parse_month_from_text(message)
+        locs = extract_locations_from_message(message_without_date)
+        destination = locs[0] if locs else ''
+        if not destination:
+            # 從訊息中抽取可能的地名（簡化處理）
+            destination = message_without_date.strip()
+        resp = tips_service.render_tips_message(destination, month)
+        return resp, "tips"
 
     # 航班查詢處理
     flight_keywords = [
