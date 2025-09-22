@@ -71,7 +71,7 @@
                         <!-- 右邊：大頭貼 -->
                         <div class="col-lg-4 d-flex justify-content-center align-items-start mb-3">
                             <div class="profile-photo-container position-relative">
-                                <img src="{{ url_for('static', filename='user_photos/' + (user.User_Img or 'default_user.png')) }}" alt="使用者照片" class="rounded-circle" style="width: 200px; height: 200px; object-fit: cover;" id="mainProfilePhoto">
+                                <img src="{{ url_for('static', filename='img/user_photos/' + (user.User_Img or 'default_user.png')) }}" alt="使用者照片" class="rounded-circle" style="width: 200px; height: 200px; object-fit: cover;" id="mainProfilePhoto">
                             </div>
                         </div>
                     </div>                      
@@ -80,7 +80,7 @@
 
             <!-- 操作按鈕 -->
             <div class="d-flex justify-content-center gap-3 mt-5">
-                <a href="{{ url_for('bookings') }}" class="btn btn-primary btn-lg px-5">
+                <a href="{{ url_for('ticket') }}" class="btn btn-primary btn-lg px-5">
                     <i class="fas fa-list me-2"></i>查看訂票記錄
                 </a>
                 <button class="btn btn-outline-secondary btn-lg px-4" onclick="history.back()">

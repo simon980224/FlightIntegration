@@ -14,7 +14,7 @@ conn_args = {
 }
 
 # 設定上傳資料夾路徑
-UPLOAD_FOLDER = os.path.join('static', 'user_photos')
+UPLOAD_FOLDER = os.path.join('static', 'img', 'user_photos')
 
 # 產生亂數檔名
 def generate_random_filename(extension):
