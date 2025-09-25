@@ -7,21 +7,21 @@ import logging
 
 today = date.today()
 
-def log_info(message):
-    log_dir = os.path.join("logs", "CronLog")
-    os.makedirs(log_dir, exist_ok=True)
-    log_filename = f"{today.strftime('%Y%m%d')}_starlux.log"
-    log_path = os.path.join(log_dir, log_filename)
+# def log_info(message):
+#     log_dir = os.path.join("logs", "CronLog")
+#     os.makedirs(log_dir, exist_ok=True)
+#     log_filename = f"{today.strftime('%Y%m%d')}_starlux.log"
+#     log_path = os.path.join(log_dir, log_filename)
     
-    logging.basicConfig(
-        filename=log_path,
-        filemode="a",
-        level=logging.INFO,
-        format="%(asctime)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        encoding="utf-8"
-    )
-    logging.info(message)
+#     logging.basicConfig(
+#         filename=log_path,
+#         filemode="a",
+#         level=logging.INFO,
+#         format="%(asctime)s - %(message)s",
+#         datefmt="%Y-%m-%d %H:%M:%S",
+#         encoding="utf-8"
+#     )
+#     logging.info(message)
 
 def connect_db():
     return pymssql.connect(
@@ -72,11 +72,11 @@ def insert_flight_data():
 
         conn.commit()
         print(f"🛬 寫入成功：{flight_id}")
-        log_info(f"插入：{flight_id}，{dep_airport} ➜ {arr_airport}，出發：{d_time}，抵達：{a_time_str}")
+        # log_info(f"插入：{flight_id}，{dep_airport} ➜ {arr_airport}，出發：{d_time}，抵達：{a_time_str}")
 
     except pymssql.IntegrityError:
-        log_info(f"略過（已存在）：{flight_id}，{dep_airport} ➜ {arr_airport}，出發：{d_time}，抵達：{a_time_str}")
-
+        # log_info(f"略過（已存在）：{flight_id}，{dep_airport} ➜ {arr_airport}，出發：{d_time}，抵達：{a_time_str}")
+        pass
     finally:
         cursor.close()
         conn.close()
