@@ -8,21 +8,21 @@ import logging
 today = datetime.date.today()
 d_airports = ["TPE", "KHH", "TSA"]  # 多個出發地
 
-def log_info(message):
-    log_dir = os.path.join("logs", "CronLog")
-    os.makedirs(log_dir, exist_ok=True)
-    log_filename = f"{today.strftime('%Y%m%d')}_tigerair.log"
-    log_path = os.path.join(log_dir, log_filename)
+# def log_info(message):
+#     log_dir = os.path.join("logs", "CronLog")
+#     os.makedirs(log_dir, exist_ok=True)
+#     log_filename = f"{today.strftime('%Y%m%d')}_tigerair.log"
+#     log_path = os.path.join(log_dir, log_filename)
     
-    logging.basicConfig(
-        filename=log_path,
-        filemode="a",
-        level=logging.INFO,
-        format="%(asctime)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-        encoding="utf-8"
-    )
-    logging.info(message)
+#     logging.basicConfig(
+#         filename=log_path,
+#         filemode="a",
+#         level=logging.INFO,
+#         format="%(asctime)s - %(message)s",
+#         datefmt="%Y-%m-%d %H:%M:%S",
+#         encoding="utf-8"
+#     )
+#     logging.info(message)
 
 def connect_db():
     return pymssql.connect(
@@ -63,17 +63,17 @@ def insert_flight_data(cursor, flight, origin):
         ))
 
         print(f"✅ 成功新增：{flight_id}")
-        log_message = (
-            f"插入：{flight_id}，{origin} ➜ {flight['destination']}，"
-            f"出發：{flight['D_Time'].strftime('%Y-%m-%d %H:%M')}，"
-            f"抵達：{flight['A_Time'].strftime('%Y-%m-%d %H:%M')}"
-        )
-        log_info(log_message)
+        # log_message = (
+        #     f"插入：{flight_id}，{origin} ➜ {flight['destination']}，"
+        #     f"出發：{flight['D_Time'].strftime('%Y-%m-%d %H:%M')}，"
+        #     f"抵達：{flight['A_Time'].strftime('%Y-%m-%d %H:%M')}"
+        # )
+        # log_info(log_message)
 
     except Exception as e:
         error_msg = f"❌ 插入失敗：{flight_id}，錯誤：{e}"
         print(error_msg)
-        log_info(error_msg)
+        # log_info(error_msg)
 
 
 def fetch_tigerair_flights(cursor, origin, a_airports):
