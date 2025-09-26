@@ -31,6 +31,17 @@
           </div>
         </form>
 
+        <!-- 忘記密碼連結 -->
+        <div class="text-end mt-3">
+          <a href="#" 
+            class="text-primary text-decoration-none small"
+            data-bs-dismiss="modal"
+            data-bs-toggle="modal"
+            data-bs-target="#forgotPasswordModal">
+            <i class="fas fa-key me-1"></i>忘記密碼？
+          </a>
+        </div>
+
         <hr class="my-4">
         
         <div class="text-center">
@@ -47,7 +58,60 @@
     </div>
   </div>
 </div>
+
+<!-- 忘記密碼模態框 -->
+<div class="modal fade" id="forgotPasswordModal" tabindex="-1" aria-labelledby="forgotPasswordModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-body p-4 p-md-5">
+        
+        <h4 class="card-title mb-4 text-primary text-center">
+          <i class="fas fa-key me-2"></i>忘記密碼
+        </h4>
+        
+        <p class="text-muted text-center mb-4">
+          請輸入您註冊時使用的電子郵件地址，我們將發送重設密碼的指示到您的信箱。
+        </p>
+
+        <!-- 忘記密碼表單 -->
+        <form id="forgotPasswordFormElement">
+          <div class="mb-4">
+            <label for="forgot_email" class="form-label">電子郵件</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="fas fa-envelope"></i></span>
+              <input type="email" class="form-control" id="forgot_email" name="email" placeholder="請輸入您的電子郵件" required>
+            </div>
+          </div>
+          
+          <div class="d-grid gap-2">
+            <button type="submit" class="btn btn-primary">
+              <i class="fas fa-paper-plane me-2"></i>發送重設指示
+            </button>
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+              <i class="fas fa-times me-2"></i>取消
+            </button>
+          </div>
+        </form>
+
+        <hr class="my-4">
+        
+        <div class="text-center">
+          <p class="text-muted mb-2">想起密碼了嗎？</p>
+          <a href="#"
+            class="btn btn-outline-primary btn-sm"
+            data-bs-dismiss="modal"
+            data-bs-toggle="modal"
+            data-bs-target="#loginModal">
+            <i class="fas fa-sign-in-alt me-2"></i>回到登入
+          </a>
+        </div>
+      </div>  
+    </div>
+  </div>
+</div>
+
 <script>
+  // 登入表單處理
   document.getElementById("loginFormElement").addEventListener("submit", function (event) {
     event.preventDefault(); // 阻止默認的表單提交行為
 
@@ -90,5 +154,44 @@
         console.error("登入過程中出錯:", error);
         showToast("發生錯誤", "請稍後再試", "error");
       });
+  });
+
+  // 忘記密碼表單處理
+  document.getElementById("forgotPasswordFormElement").addEventListener("submit", function (event) {
+    event.preventDefault();
+
+    const email = document.getElementById("forgot_email").value.trim();
+
+    if (!email) {
+      showToast("提示", "請輸入電子郵件地址", "warning");
+      return;
+    }
+
+    // 簡單的電子郵件格式驗證
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      showToast("提示", "請輸入有效的電子郵件格式", "warning");
+      return;
+    }
+
+    showLoading("處理中", "正在發送重設密碼指示，請稍候...");
+
+    // 模擬發送重設密碼請求
+    setTimeout(() => {
+      closeLoading();
+      
+      // 這裡是前端模擬，實際應該發送請求到後端
+      showToast("發送成功", 
+        "重設密碼的指示已發送至您註冊時的電子郵件，請檢查收件匣（包含垃圾郵件資料夾）。", 
+        "success");
+      
+      // 關閉模態框並重設表單
+      const modal = bootstrap.Modal.getInstance(document.getElementById('forgotPasswordModal'));
+      if (modal) {
+        modal.hide();
+      }
+      document.getElementById("forgotPasswordFormElement").reset();
+      
+    }, 2000); // 模擬網路延遲
   });
 </script> 
