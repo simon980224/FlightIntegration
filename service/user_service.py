@@ -74,7 +74,25 @@ VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
         """, (user_id, user_name, password_hash, user_email, None, '001' , now, now))
         conn.commit()
 
-        return {"success": True, "message": "註冊成功"}
+
+        # 註冊成功後，新增一筆驗證碼資料到 User_Verify_Log
+        verify_type = 'register'  # 可依需求調整
+        verify_number = str(uuid.uuid4())[:4]  # 產生驗證碼
+        verify_value = verify_number  # 這裡直接用驗證碼本身
+        status = 'active'
+        create_at = now
+        expired_time = now + datetime.timedelta(minutes=10)  # 驗證碼10分鐘有效
+
+        try:
+            cursor.execute("""
+INSERT INTO [User_Verify_Log] (User_Id, Verify_Type, Verify_Number, Verify_Value, Status, Create_At, Expired_Time)
+VALUES (%s, %s, %s, %s, %s, %s, %s)
+            """, (user_id, verify_type, verify_number, verify_value, status, create_at, expired_time))
+            conn.commit()
+        except Exception as e:
+            return {"success": True, "message": "註冊成功，但驗證碼寫入失敗：" + str(e)}
+
+        return {"success": True, "message": "註冊成功，驗證碼已產生", "verify_code": verify_number}
 
     except Exception as e:
         return {"success": False, "message": f"註冊失敗：{str(e)}"}
