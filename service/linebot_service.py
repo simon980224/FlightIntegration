@@ -6,7 +6,7 @@ import time
 import json
 import os
 from difflib import SequenceMatcher
-from service import tips_service
+# from service import tips_service
 
 # 載入配置文件
 def load_config():
@@ -917,17 +917,17 @@ def unified_message_processor(message):
         return "不客氣！很高興能幫助您 😊\n\n如果還需要查詢其他航班，隨時告訴我！", "thanks"
 
     # 活動/小貼士（D 區塊 MVP）
-    tips_keywords = ['小貼士', '活動', 'tips']
-    if any(k in message for k in tips_keywords):
-        # 嘗試解析月份與目的地
-        month = tips_service.parse_month_from_text(message)
-        locs = extract_locations_from_message(message_without_date)
-        destination = locs[0] if locs else ''
-        if not destination:
-            # 從訊息中抽取可能的地名（簡化處理）
-            destination = message_without_date.strip()
-        resp = tips_service.render_tips_message(destination, month)
-        return resp, "tips"
+    # tips_keywords = ['小貼士', '活動', 'tips']
+    # if any(k in message for k in tips_keywords):
+    #     # 嘗試解析月份與目的地
+    #     month = tips_service.parse_month_from_text(message)
+    #     locs = extract_locations_from_message(message_without_date)
+    #     destination = locs[0] if locs else ''
+    #     if not destination:
+    #         # 從訊息中抽取可能的地名（簡化處理）
+    #         destination = message_without_date.strip()
+    #     resp = tips_service.render_tips_message(destination, month)
+    #     return resp, "tips"
 
     # 航班查詢處理
     flight_keywords = [
