@@ -29,3 +29,7 @@ instance/
 # Windows
 Thumbs.db
 Desktop.ini
+
+
+# Project config
+config/private/
