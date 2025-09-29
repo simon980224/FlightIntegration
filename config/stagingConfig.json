@@ -1,0 +1,10 @@
+{
+  "env": "staging",
+  "database": {
+    "server": "140.131.114.241",
+    "user": "adminfid",
+    "password": "Flight_admin123@",
+    "database": "114-FlightIntegration_DB"
+  }
+}
+

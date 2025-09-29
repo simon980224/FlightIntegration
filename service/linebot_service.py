@@ -916,6 +916,12 @@ def unified_message_processor(message):
     if any(thank in message_lower for thank in thanks):
         return "不客氣！很高興能幫助您 😊\n\n如果還需要查詢其他航班，隨時告訴我！", "thanks"
 
+    # C：查看訂票（文字關鍵字直達列表頁，不需新增路由）
+    ticket_keywords = ['查看訂票', '我的訂票', '訂票', 'orders', 'order', 'ticket']
+    if any(k in message for k in ticket_keywords):
+        ticket_url = (WEBSITE_URL + '/ticket') if (WEBSITE_URL and not WEBSITE_URL.startswith('請在')) else '/ticket'
+        return f"🧾 我的訂票：{ticket_url}", 'orders'
+
     # 活動/小貼士（D 區塊 MVP）
     # tips_keywords = ['小貼士', '活動', 'tips']
     # if any(k in message for k in tips_keywords):

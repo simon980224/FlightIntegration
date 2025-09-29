@@ -5,8 +5,12 @@
     "channel_access_token": "EULrKL2QXy/RTean+mYzjiNJ1R12OfGfnK9jHFgG1LdiiIeLEx/BH4O/fSEDvIZKQ56bkqwMIHmBuNHeDiksc76TAKH3LgZ/ZkSUd7kZr4xwbdEkjwx2LPor9OQq4kK5xupDaTfWTHRRbEFu5eFvsgdB04t89/1O/w1cDnyilFU=",
     "channel_secret": "9d3c8813d3c37a90a25b8e93453faa0e"
   },
+  "line_login": {
+  "channel_id": "2008107355",
+  "channel_secret": "77f05aab5ebea119e903ef256d3cccd0"
+ },
   "website": {
-    "url": "https://762f0a8f9a9e.ngrok-free.app"
+    "url": "https://anachronously-subumbonal-madie.ngrok-free.dev"
   },
   "amadeus": {
     "api_key": "IwAslE0Nh2uYsBLkxNiRI1iHKxjnmVSA",
@@ -20,12 +24,6 @@
     "enabled": true,
     "model_path": "data/price_prediction_model.pkl",
     "retrain_interval_days": 7
-  },
-  "database": {
-    "server": "140.131.114.241",
-    "user": "adminfid",
-    "password": "Flight_admin123@",
-    "database": "114-FlightIntegration_DB"
   },
   "features": {
     "use_amadeus": true,
