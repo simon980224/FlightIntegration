@@ -133,7 +133,18 @@
       },
       body: JSON.stringify({ user_id, password }),
     })
-      .then((response) => response.json())
+      .then((response) => {
+        // 檢查回應狀態
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        // 檢查回應內容類型
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("回應不是 JSON 格式");
+        }
+        return response.json();
+      })
       .then((data) => {
         closeLoading();
         if (data.success) {
@@ -146,7 +157,58 @@
             }
           }, 500);
         } else {
-          showToast("登入失敗", data.message || "帳號或密碼錯誤", "error");
+          if (data.verification_required) {
+            // 帳號存在但未驗證，引導至驗證流程
+            showToast("帳號未驗證", "您的帳號已建立但尚未驗證，請輸入驗證碼完成驗證", "warning");
+            
+            // 儲存使用者ID用於驗證
+            window.pendingVerificationUserId = user_id;
+            
+            // 關閉登入模態框並開啟驗證模態框
+            const loginModal = bootstrap.Modal.getInstance(document.getElementById('loginModal'));
+            if (loginModal) {
+              loginModal.hide();
+            }
+            
+            // 如果存在驗證模態框就開啟
+            const verificationModal = document.getElementById('emailVerificationModal');
+            if (verificationModal) {
+              const modal = new bootstrap.Modal(verificationModal);
+              modal.show();
+              
+              // 更新驗證模態框的內容為登入驗證模式
+              const titleElement = verificationModal.querySelector('.card-title');
+              if (titleElement) {
+                titleElement.innerHTML = '<i class="fas fa-shield-alt me-2"></i>完成帳號驗證';
+              }
+              
+              // 更新說明文字
+              const descElement = verificationModal.querySelector('.text-muted.mb-2');
+              if (descElement) {
+                descElement.textContent = '您的帳號需要驗證才能登入：';
+              }
+              
+              const noteElement = verificationModal.querySelector('.text-muted.small');
+              if (noteElement) {
+                noteElement.innerHTML = '請輸入註冊時取得的驗證碼。<br><strong class="text-primary">完成驗證後即可正常登入。</strong>';
+              }
+              
+              // 設定使用者email顯示
+              const emailElement = document.getElementById("verificationUserEmail");
+              if (emailElement) {
+                emailElement.textContent = data.user_email || "您的信箱";
+              }
+            } else {
+              // 如果沒有驗證模態框，引導至註冊頁面完成驗證
+              showToast("請完成驗證", "請前往註冊頁面完成帳號驗證", "info");
+              setTimeout(() => {
+                const registerModal = new bootstrap.Modal(document.getElementById('registerModal'));
+                registerModal.show();
+              }, 1000);
+            }
+          } else {
+            showToast("登入失敗", data.message || "帳號或密碼錯誤", "error");
+          }
         }
       })
       .catch((error) => {
