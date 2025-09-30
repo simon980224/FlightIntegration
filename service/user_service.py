@@ -271,3 +271,25 @@ WHERE User_Id = %s
             cursor.close()
         if conn:
             conn.close()
+
+def GetUserInfo(user_id):
+    try:
+        conn = pymssql.connect(**conn_args)
+        cursor = conn.cursor(as_dict=True)
+
+        cursor.execute("SELECT * FROM [User] WHERE User_Id = %s", (user_id,))
+        user_info = cursor.fetchone()
+
+        if user_info:
+            return {"success": True, "data": user_info}
+        else:
+            return {"success": False, "message": "查無此使用者"}
+
+    except Exception as e:
+        return {"success": False, "message": f"查詢失敗：{str(e)}"}
+
+    finally:
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
