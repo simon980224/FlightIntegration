@@ -138,6 +138,15 @@ def register():
     result = user_service.RegisterUser(user_id, user_name, password, user_email)
     return jsonify(result)
 
+# 驗證碼處理
+@app.route('/verify_code', methods=['POST'])
+def verify_code():
+    data = request.get_json(force=True)  # 確保是 JSON
+    user_id = data.get("user_id", "").strip()
+    verification_code = data.get("verification_code", "").strip()  # 🔴 鍵名與前端一致
+
+    res = user_service.VerifyRegisterCode(user_id, verification_code)
+    return jsonify(res)
 
 
 # 登出

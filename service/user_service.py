@@ -52,105 +52,135 @@ WHERE User_Id = %s AND Password_Hash = %s
             conn.close()
     
 # 註冊用戶：寫入 User_Id、User_Name、密碼雜湊與建立時間
-def RegisterUser(user_id, user_name, password, user_email, input_code=None):
+
+def RegisterUser(user_id, user_name, password, user_email):
+    conn = cursor = None
     try:
+        # 基本檢查（最小必要）
+        if not user_id or not user_name or not password or not user_email:
+            return {"success": False, "message": "缺少必要欄位"}
+
+        # 雜湊密碼
+        password_hash = hashlib.sha256(password.encode("utf-8")).hexdigest()
+
         conn = pymssql.connect(**conn_args)
         cursor = conn.cursor()
 
-        # 產生密碼雜湊
-        password_hash = hashlib.sha256(password.encode('utf-8')).hexdigest()
-
-        # 檢查是否重複註冊
+        # 檢查是否重複註冊（User_Id）
         cursor.execute("SELECT COUNT(*) FROM [User] WHERE User_Id = %s", (user_id,))
         if cursor.fetchone()[0] > 0:
             return {"success": False, "message": "使用者已存在"}
 
+        # （可選）若要限制 Email 唯一，解除註解以下兩行
+        cursor.execute("SELECT COUNT(*) FROM [User] WHERE User_Email = %s", (user_email,))
+        if cursor.fetchone()[0] > 0: return {"success": False, "message": "Email 已被註冊"}
+
         now = datetime.datetime.now()
 
-        # 寫入新使用者
+        # 僅插入 User 相關欄位（Status/Verify 一律不碰）
         cursor.execute("""
-INSERT INTO [User] (User_Id, User_Name, Password_Hash, User_Email, User_Img, User_Grade, Create_At, Modify_At)
-VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """, (user_id, user_name, password_hash, user_email, None, '001' , now, now))
+INSERT INTO [User] (
+    User_Id, User_Name, Password_Hash, User_Email, User_Img, User_Grade, Status, Create_At, Modify_At
+) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (user_id, user_name, password_hash, user_email, None, '001', '0', now, now))
+
         conn.commit()
 
-        # 註冊成功後，新增驗證碼資料到 User_Verify_Log
-        verify_type = 'register'
-        verify_number = str(uuid.uuid4())[:4]  
-        verify_value = verify_number  
-        status = 0  # 預設 0 = 未驗證
+        # 註冊成功後，新增一筆驗證碼資料到 User_Verify_Log
+        verify_type = 'register'  # 可依需求調整
+        verify_number = str(uuid.uuid4())[:4]  # 產生驗證碼
+        verify_value = verify_number  # 這裡直接用驗證碼本身
+        status = '0'
         create_at = now
-        expired_time = now + datetime.timedelta(minutes=10)
+        expired_time = now + datetime.timedelta(minutes=10)  # 驗證碼10分鐘有效
 
-        cursor.execute("""
+        try:
+            cursor.execute("""
 INSERT INTO [User_Verify_Log] (User_Id, Verify_Type, Verify_Number, Verify_Value, Status, Create_At, Expired_Time)
 VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (user_id, verify_type, verify_number, verify_value, status, create_at, expired_time))
-        conn.commit()
-
-        # === 驗證碼輸入（若有傳入 input_code 就立即驗證）===
-        if input_code:
-            cursor.execute("""
-SELECT Verify_Value, Status, Expired_Time
-FROM [User_Verify_Log]
-WHERE User_Id = %s
-ORDER BY Create_At DESC
-            """, (user_id,))
-            row = cursor.fetchone()
-
-            if not row:
-                return {"success": False, "message": "找不到驗證碼紀錄"}
-
-            db_code, status, expired_time = row
-            if status == 1:
-                return {"success": False, "message": "已認證過"}
-            if now > expired_time:
-                return {"success": False, "message": "驗證碼已過期"}
-            if db_code != input_code:
-                return {"success": False, "message": "驗證碼錯誤"}
-
-            # 驗證成功 → 更新狀態為 1
-            cursor.execute("""
-UPDATE [User_Verify_Log]
-SET Status = 1
-WHERE User_Id = %s AND Verify_Value = %s
-            """, (user_id, input_code))
+            """, (user_id, verify_type, verify_number, verify_value, status, create_at, expired_time))
             conn.commit()
-            return {"success": True, "message": "註冊與驗證成功"}
+        except Exception as e:
+            return {"success": True, "message": "註冊成功，但驗證碼寫入失敗：" + str(e)}
 
         return {"success": True, "message": "註冊成功，驗證碼已產生", "verify_code": verify_number}
 
+
     except Exception as e:
-        return {"success": False, "message": f"註冊失敗：{str(e)}"}
+        return {"success": False, "message": f"註冊失敗：{e}"}
 
     finally:
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
+        try:
+            cursor and cursor.close()
+        finally:
+            conn and conn.close()
 
+def VerifyRegisterCode(user_id: str, verification_code: str):
 
-def GetUserInfo(user_id):
+    conn = cursor = None
     try:
+        # 基本參數檢查
+        if not user_id or not verification_code:
+            return {"success": False, "message": "缺少必要欄位"}
+
+        # 連線
         conn = pymssql.connect(**conn_args)
-        cursor = conn.cursor(as_dict=True)
+        cursor = conn.cursor()
 
-        cursor.execute("SELECT * FROM [User] WHERE User_Id = %s", (user_id,))
-        user_info = cursor.fetchone()
+        # 確認使用者是否存在
+        cursor.execute("SELECT COUNT(*) FROM [User] WHERE User_Id = %s", (user_id,))
+        if cursor.fetchone()[0] == 0:
+            return {"success": False, "message": "找不到使用者，請先註冊"}
 
-        if user_info:
-            return {"success": True, "data": user_info}
-        else:
-            return {"success": False, "message": "查無此使用者"}
+        # 取最新一筆尚未驗證的紀錄（Verify_Type='register' AND Status=0）
+        cursor.execute("""
+SELECT TOP 1 Verify_Value, Status, Expired_Time
+FROM [User_Verify_Log]
+WHERE User_Id = %s AND Verify_Type = 'register' AND Status = 0
+ORDER BY Create_At DESC
+        """, (user_id,))
+        row = cursor.fetchone()
+
+        if not row:
+            return {"success": False, "message": "找不到可用的驗證碼，或已驗證過"}
+
+        db_code, status, expired_time = row
+        now = datetime.datetime.now()
+
+        # 過期檢查
+        if now > expired_time:
+            return {"success": False, "message": "驗證碼已過期"}
+
+        # 大小寫敏感比對（不做 lower()/upper()）
+        # 僅移除前後空白以避免貼上時夾帶空白
+        if str(verification_code).strip() != str(db_code).strip():
+            return {"success": False, "message": "驗證碼錯誤（請注意大小寫）"}
+
+        # 驗證成功：更新驗證紀錄與使用者狀態
+        cursor.execute("""
+UPDATE [User_Verify_Log]
+SET Status = 1
+WHERE User_Id = %s AND Verify_Type = 'register' AND Status = 0 AND Verify_Value = %s
+        """, (user_id, db_code))
+
+        cursor.execute("""
+UPDATE [User]
+SET Status = '1', Modify_At = %s
+WHERE User_Id = %s
+        """, (now, user_id))
+
+        conn.commit()
+        return {"success": True, "message": "驗證成功"}
 
     except Exception as e:
-        return {"success": False, "message": f"查詢失敗：{str(e)}"}
+        return {"success": False, "message": f"驗證失敗：{e}"}
 
     finally:
-        if cursor:
-            cursor.close()
-        if conn:
-            conn.close()
+        try:
+            cursor and cursor.close()
+        finally:
+            conn and conn.close()
+
 
 
 
