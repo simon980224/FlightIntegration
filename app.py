@@ -9,7 +9,6 @@ import os
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage, PostbackEvent
-from api.linebot import richmenu_flow
 
 # 載入設定檔
 config_path = os.path.join('config', 'prodConfig.json')
@@ -247,28 +246,10 @@ def Api():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     try:
-        message = event.message.text.strip()
-        user_id = event.source.user_id  # 取得用戶 ID
-
-        # 若 OAM Rich Menu 僅能送「文字」，這裡攔截 C：查看訂票，直接回 Flex
-        ticket_keywords = ['查看訂票', '我的訂票', '訂票', 'orders', 'order', 'ticket']
-        if any(k in message for k in ticket_keywords):
-            flex_msg = richmenu_flow.orders_from_text(user_id)
-            if flex_msg:
-                line_bot_api.reply_message(event.reply_token, flex_msg)
-                return
-
-        # 其他情況交給文字處理器
-        response_text = linebot_service.process_line_message(message, user_id)
-
-        # 回覆訊息
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=response_text)
-        )
-
-
-
+        # 轉發給 service 層處理，取得回應物件
+        reply = linebot_service.handle_text_message(event)
+        if reply:
+            line_bot_api.reply_message(event.reply_token, reply)
     except Exception as e:
         # 錯誤處理
         error_message = "❌ 處理訊息時發生錯誤，請稍後再試。\n\n輸入「幫助」查看使用說明。"
@@ -280,11 +261,16 @@ def handle_message(event):
 @handler.add(PostbackEvent)
 def handle_postback(event):
     try:
-        msg = richmenu_flow.handle_postback(event)
-        if msg:
-            line_bot_api.reply_message(event.reply_token, msg)
-    except Exception:
-        line_bot_api.reply_message(event.reply_token, TextSendMessage(text="❌ 發生錯誤，請稍後再試"))
+        # 轉發給 service 層處理，取得回應物件
+        reply = linebot_service.handle_postback_event(event)
+        if reply:
+            line_bot_api.reply_message(event.reply_token, reply)
+    except Exception as e:
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text="❌ 發生錯誤，請稍後再試")
+        )
+        print(f"LINE Bot Postback 錯誤: {str(e)}")
 
 
 #########################進度條###########################

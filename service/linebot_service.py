@@ -997,3 +997,36 @@ def generate_smart_suggestion(message):
         suggestion += "輸入「幫助」查看更多範例"
 
     return suggestion
+
+# ========== app.py 轉發層介面 ==========
+
+def handle_text_message(event):
+    """統一處理 LINE TextMessage 事件（供 app.py 轉發）
+
+    回傳 LINE SDK 的 Message 物件（TextSendMessage 或 FlexSendMessage）
+    """
+    from linebot.models import TextSendMessage
+    from api.linebot import richmenu_flow
+
+    message = event.message.text.strip()
+    user_id = event.source.user_id
+
+    # 1. 攔截「查看訂票」關鍵字 → 回傳 Flex
+    ticket_keywords = ['查看訂票', '我的訂票', '訂票', 'orders', 'order', 'ticket']
+    if any(k in message for k in ticket_keywords):
+        flex_msg = richmenu_flow.orders_from_text(user_id)
+        if flex_msg:
+            return flex_msg
+
+    # 2. 其他文字訊息 → 使用既有處理器
+    response_text = process_line_message(message, user_id)
+    return TextSendMessage(text=response_text)
+
+
+def handle_postback_event(event):
+    """統一處理 LINE PostbackEvent 事件（供 app.py 轉發）
+
+    回傳 LINE SDK 的 Message 物件
+    """
+    from api.linebot import richmenu_flow
+    return richmenu_flow.handle_postback(event)
