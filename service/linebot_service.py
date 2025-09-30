@@ -6,6 +6,8 @@ import time
 import json
 import os
 from difflib import SequenceMatcher
+import pymssql
+
 # from service import tips_service
 
 # 載入配置文件
@@ -42,60 +44,71 @@ TAIWAN_AIRPORT_ALIASES = {
 config = load_config()
 WEBSITE_URL = config.get('website', {}).get('url', '請在 prodConfig.json 中設定 ngrok 網址')
 
-# 設定 API Log
-def setup_api_logger():
-    """設定 API 呼叫記錄器"""
-    # 確保 logs/LineBotApiLog 目錄存在
-    log_dir = 'logs/LineBotApiLog'
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+# 寫入 MSSQL dbo.API_Log
+# 連線參數（由使用者提供）
+conn_args = {
+    "server": "140.131.114.241",
+    "user": "adminfid",
+    "password": "Flight_admin123@",
+    "database": "114-FlightIntegration_DB"
+}
+_TABLE_API_LOG = "dbo.API_Log"
 
-    # 取得今天的日期作為檔案名稱
-    today = datetime.now().strftime('%Y%m%d')
-    log_filename = f'{log_dir}/{today}.log'
 
-    # 設定 logger
-    logger = logging.getLogger('linebot_api')
-    logger.setLevel(logging.INFO)
+def _safe_text(val, max_len):
+    if val is None:
+        return None
+    s = str(val)
+    return s[:max_len]
 
-    # 避免重複添加 handler
-    if not logger.handlers:
-        # 檔案 handler
-        file_handler = logging.FileHandler(log_filename, encoding='utf-8')
-        file_handler.setLevel(logging.INFO)
 
-        # 格式設定
-        formatter = logging.Formatter(
-            '%(asctime)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+def _insert_api_log_db(line_id: str, req: str, resp: str, err: str, status: str) -> None:
+    conn = None
+    cur = None
+    try:
+        conn = pymssql.connect(**conn_args)
+        cur = conn.cursor()
+        cur.execute(
+            f"INSERT INTO {_TABLE_API_LOG} (Line_Id, Requests_Message, Response_Message, Error_Message, Status, Create_At) "
+            f"VALUES (%s, %s, %s, %s, %s, GETDATE())",
+            (
+                _safe_text(line_id or "unknown", 50),
+                _safe_text(req, 1000),
+                _safe_text(resp, 1000),
+                _safe_text(err, 1000),
+                _safe_text(status or "success", 10),
+            ),
         )
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-
-    return logger
+        conn.commit()
+    except Exception as e:
+        # 寫入失敗不影響主流程；印出供除錯
+        print(f"[API_Log] DB insert failed: {e}")
+    finally:
+        try:
+            if cur:
+                cur.close()
+        finally:
+            if conn:
+                conn.close()
 
 def log_api_call(user_id, input_message, response_type, execution_time,
                  response_content=None, error=None):
-    """記錄 API 呼叫詳情"""
-    logger = setup_api_logger()
-
-    log_data = {
-        "user_id": user_id or "unknown",
-        "input_message": input_message,
-        "response_type": response_type,  # "success", "error", "help", "flight_search", "default"
-        "execution_time_seconds": round(execution_time, 3),
-        "response_length": len(response_content) if response_content else 0,
-        "error": error
-    }
-
-    # 記錄完整內容（可選）
-    if response_content and len(response_content) < 1000:  # 避免過長的回應
-        if len(response_content) > 200:
-            log_data["response_preview"] = response_content[:200] + "..."
-        else:
-            log_data["response_preview"] = response_content
-
-    logger.info(f"API_CALL: {json.dumps(log_data, ensure_ascii=False)}")
+    """記錄 API 呼叫詳情（寫入 dbo.API_Log）"""
+    try:
+        status = (response_type or "success")
+        # 若帶有錯誤，覆寫為 error
+        if error:
+            status = "error"
+        _insert_api_log_db(
+            line_id=user_id or "unknown",
+            req=input_message or "",
+            resp=(response_content or ""),
+            err=error,
+            status=status,
+        )
+    except Exception as e:
+        # 任何例外都不阻斷主流程
+        print(f"[API_Log] unexpected error: {e}")
 
 def get_cached_airports():
     """取得快取的機場資料，避免重複查詢資料庫"""
@@ -916,6 +929,12 @@ def unified_message_processor(message):
     if any(thank in message_lower for thank in thanks):
         return "不客氣！很高興能幫助您 😊\n\n如果還需要查詢其他航班，隨時告訴我！", "thanks"
 
+    # C：查看訂票（文字關鍵字直達列表頁，不需新增路由）
+    ticket_keywords = ['查看訂票', '我的訂票', '訂票', 'orders', 'order', 'ticket']
+    if any(k in message for k in ticket_keywords):
+        ticket_url = (WEBSITE_URL + '/ticket') if (WEBSITE_URL and not WEBSITE_URL.startswith('請在')) else '/ticket'
+        return f"🧾 我的訂票：{ticket_url}", 'orders'
+
     # 活動/小貼士（D 區塊 MVP）
     # tips_keywords = ['小貼士', '活動', 'tips']
     # if any(k in message for k in tips_keywords):
@@ -978,3 +997,36 @@ def generate_smart_suggestion(message):
         suggestion += "輸入「幫助」查看更多範例"
 
     return suggestion
+
+# ========== app.py 轉發層介面 ==========
+
+def handle_text_message(event):
+    """統一處理 LINE TextMessage 事件（供 app.py 轉發）
+
+    回傳 LINE SDK 的 Message 物件（TextSendMessage 或 FlexSendMessage）
+    """
+    from linebot.models import TextSendMessage
+    from api.linebot import richmenu_flow
+
+    message = event.message.text.strip()
+    user_id = event.source.user_id
+
+    # 1. 攔截「查看訂票」關鍵字 → 回傳 Flex
+    ticket_keywords = ['查看訂票', '我的訂票', '訂票', 'orders', 'order', 'ticket']
+    if any(k in message for k in ticket_keywords):
+        flex_msg = richmenu_flow.orders_from_text(user_id)
+        if flex_msg:
+            return flex_msg
+
+    # 2. 其他文字訊息 → 使用既有處理器
+    response_text = process_line_message(message, user_id)
+    return TextSendMessage(text=response_text)
+
+
+def handle_postback_event(event):
+    """統一處理 LINE PostbackEvent 事件（供 app.py 轉發）
+
+    回傳 LINE SDK 的 Message 物件
+    """
+    from api.linebot import richmenu_flow
+    return richmenu_flow.handle_postback(event)

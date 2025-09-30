@@ -8,7 +8,7 @@ import os
 # LINE Bot SDK 的相關匯入
 from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
-from linebot.models import MessageEvent, TextMessage, TextSendMessage
+from linebot.models import MessageEvent, TextMessage, TextSendMessage, PostbackEvent
 
 # 載入設定檔
 config_path = os.path.join('config', 'prodConfig.json')
@@ -18,6 +18,10 @@ with open(config_path, 'r', encoding='utf-8') as f:
 # 初始化 LINE Bot - 優先從環境變數讀取
 line_channel_access_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN') or config['line_bot']['channel_access_token']
 line_channel_secret = os.getenv('LINE_CHANNEL_SECRET') or config['line_bot']['channel_secret']
+
+# LINE Login (OAuth) 設定，優先讀環境變數，其次讀 prodConfig.json 的 line_login 區塊
+line_login_channel_id = os.getenv('LINE_LOGIN_CHANNEL_ID') or config.get('line_login', {}).get('channel_id')
+line_login_channel_secret = os.getenv('LINE_LOGIN_CHANNEL_SECRET') or config.get('line_login', {}).get('channel_secret')
 
 line_bot_api = LineBotApi(line_channel_access_token)
 handler = WebhookHandler(line_channel_secret)
@@ -67,8 +71,8 @@ def flight():
                          a_airport_data=a_airport_data,
                          airline_data=airline_data,
                          flight_data=flight_data)
-    
-@app.route('/flight/search', methods=['POST']) 
+
+@app.route('/flight/search', methods=['POST'])
 def flight_search():
     data = request.get_json()
 
@@ -100,11 +104,11 @@ def login():
     data = request.get_json()
 
     user_id = data.get("user_id", "").strip()
-    password = data.get("password", "").strip()    
+    password = data.get("password", "").strip()
 
     if not user_id or not password:
         return jsonify({'success': False, 'message': '請輸入使用者名稱和密碼'})
-    
+
     user_data = user_service.AuthenticateUser(user_id, password)
     print("🧪 AuthenticateUser 回傳：", user_data)
     if user_data["success"]:
@@ -112,8 +116,8 @@ def login():
         return jsonify({'success': True, 'message': '登入成功'})
     else:
         return jsonify({'success': False, 'message': '使用者名稱或密碼錯誤'})
-    
-# 註冊處理    
+
+# 註冊處理
 @app.route('/register', methods=['POST'])
 def register():
     data = request.get_json()
@@ -183,12 +187,12 @@ def profile():
 @login_required
 def update_profile():
     user_id = session.get('user_id')
-    
+
     # 接收來自 form 表單的欄位資料（非 JSON）
     user_name = request.form.get("user_name")
     old_password = request.form.get("old_password")
     new_password = request.form.get("new_password")
-    
+
 
     # 接收圖片檔案（type="file"）
     user_img = request.files.get("user_img")
@@ -226,7 +230,7 @@ def profile_page():
         return render_template('_profile.html', user=user_data_result)
     else:
         return jsonify({'success': False, 'message': '無法獲取使用者資料'})
-    
+
 
 # LINE Bot 訊息處理
 @app.route("/lineApi", methods=['GET', 'POST'])
@@ -251,18 +255,10 @@ def Api():
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     try:
-        message = event.message.text.strip()
-        user_id = event.source.user_id  # 取得用戶 ID
-
-        # 使用 linebot_service 處理訊息，傳入 user_id 用於 log 記錄
-        response_text = linebot_service.process_line_message(message, user_id)
-
-        # 回覆訊息
-        line_bot_api.reply_message(
-            event.reply_token,
-            TextSendMessage(text=response_text)
-        )
-
+        # 轉發給 service 層處理，取得回應物件
+        reply = linebot_service.handle_text_message(event)
+        if reply:
+            line_bot_api.reply_message(event.reply_token, reply)
     except Exception as e:
         # 錯誤處理
         error_message = "❌ 處理訊息時發生錯誤，請稍後再試。\n\n輸入「幫助」查看使用說明。"
@@ -271,6 +267,20 @@ def handle_message(event):
             TextSendMessage(text=error_message)
         )
         print(f"LINE Bot 錯誤: {str(e)}")
+@handler.add(PostbackEvent)
+def handle_postback(event):
+    try:
+        # 轉發給 service 層處理，取得回應物件
+        reply = linebot_service.handle_postback_event(event)
+        if reply:
+            line_bot_api.reply_message(event.reply_token, reply)
+    except Exception as e:
+        line_bot_api.reply_message(
+            event.reply_token,
+            TextSendMessage(text="❌ 發生錯誤，請稍後再試")
+        )
+        print(f"LINE Bot Postback 錯誤: {str(e)}")
+
 
 #########################進度條###########################
 # 我的訂票頁面
@@ -320,7 +330,7 @@ def ticket():
     else:
         flash('無法獲取使用者資料', 'error')
         user = {} # or handle error appropriately
-    
+
     time = (datetime.strptime('2025-07-13 10:00', '%Y-%m-%d %H:%M') -
             datetime.strptime('2025-07-13 08:00', '%Y-%m-%d %H:%M')).total_seconds() / 3600
 
@@ -348,6 +358,8 @@ def ticket():
         flight = {} # or handle error appropriately
 
     ticket_data_result = {
+
+
         "success": True,
         "data": {
             "ticket_id": "EVA_20250713_B7502_TSA_PVG",
@@ -384,6 +396,7 @@ def refresh_cache():
         return jsonify({"success": True, "message": "快取已刷新"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5001, debug=True)
