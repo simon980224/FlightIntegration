@@ -1,275 +1,392 @@
 {% extends 'base.html' %}
 {% block body_class %}bg-ticket{% endblock %}
-{% block title %}票券 - 航班查詢系統{% endblock %}
-{% block content %}
+{% block title %}訂票 - 航班查詢系統{% endblock %}
 
+{% block content %}
 <div class="container my-5">
   <!-- 頁首標題 -->
-  <div class="text-center mb-5">
-    <h1 class="display-4 fw-bold text-dark">票券資訊</h1>
-    <p class="lead text-dark">查看您的航班票券詳細資訊</p>
+  <div class="text-center mb-4">
+    <h1 class="display-5 fw-bold text-dark">訂購機票</h1>
+    <p class="lead text-dark">完成以下步驟即可輕鬆訂票</p>
   </div>
 
-  <div class="row justify-content-center">
+  <!-- 步驟指示器 -->
+  <div class="row justify-content-center mb-5">
     <div class="col-lg-10">
-
-      <!-- 票券卡片 -->
-      <div class="bg-white bg-opacity-25 rounded-3 shadow-lg p-4 mb-4">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-          <div class="d-flex align-items-center">
-            <div class="bg-primary rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;">
-              <i class="fas fa-plane text-white"></i>
-            </div>
-            <h4 class="fw-bold mb-0 text-dark">航班資訊</h4>
+      <div class="bg-white bg-opacity-25 rounded-3 shadow p-4">
+        <div class="step-indicator">
+          <div class="step active" data-step="1">
+            <div class="step-icon"><i class="fas fa-plane"></i></div>
+            <div class="step-label">航班資訊</div>
+          </div>
+          <div class="step-line"></div>
+          <div class="step" data-step="2">
+            <div class="step-icon"><i class="fas fa-couch"></i></div>
+            <div class="step-label">選擇艙等</div>
+          </div>
+          <div class="step-line"></div>
+          <div class="step" data-step="3">
+            <div class="step-icon"><i class="fas fa-chair"></i></div>
+            <div class="step-label">選擇座位</div>
+          </div>
+          <div class="step-line"></div>
+          <div class="step" data-step="4">
+            <div class="step-icon"><i class="fas fa-users"></i></div>
+            <div class="step-label">乘客資訊</div>
+          </div>
+          <div class="step-line"></div>
+          <div class="step" data-step="5">
+            <div class="step-icon"><i class="fas fa-credit-card"></i></div>
+            <div class="step-label">付款結帳</div>
           </div>
         </div>
-        <div class="bg-white rounded-3 p-4">
-          <!-- 航空公司資訊 -->
-          <div class="row mb-4">
-            <div class="col-md-6">
-              <div class="d-flex align-items-center">
-                <div class="me-3">
-                  <div class="bg-primary bg-gradient rounded-circle d-flex align-items-center justify-content-center" style="width: 60px; height: 60px;">
-                    <i class="fas fa-plane fa-lg text-white"></i>
-                  </div>
-                </div>
-                <div>
-                  <h5 class="mb-1 fw-bold text-primary">{{ flight.Airline_Name_ZH if flight }}</h5>
-                  <div class="d-flex align-items-center">
-                    <span class="badge bg-secondary me-2">{{ flight.No if flight }}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6 text-end">
-              <div class="bg-light rounded p-3">
-                <div class="text-muted mb-1">
-                  <i class="fas fa-calendar-check me-1"></i>
-                  <small>訂票日期：{{ flight.Booking_Date if flight }}</small>
-                </div>
-                <div class="text-muted">
-                  <i class="fas fa-ticket-alt me-1"></i>
-                  <small>票券編號：{{ flight.Flight_Id if flight }}</small>
-                </div>
-              </div>
-            </div>
-          </div>
+      </div>
+    </div>
+  </div>
 
-          <!-- 航班路線 -->
-          <div class="bg-gradient bg-light rounded-3 p-4 mb-4">
+  <!-- 主要內容區 -->
+  <div class="row justify-content-center">
+    <div class="col-lg-10">
+      
+      <!-- 步驟 1: 航班資訊 -->
+      <div id="step-1" class="booking-step active">
+        <div class="bg-white bg-opacity-25 rounded-3 shadow-lg p-4 mb-4">
+          <h4 class="fw-bold text-dark mb-4">
+            <i class="fas fa-plane me-2 text-primary"></i>航班資訊
+          </h4>
+          <div class="bg-white rounded-3 p-4">
+            <div class="row mb-4">
+              <div class="col-md-6">
+                <div class="d-flex align-items-center">
+                  <img src="/static/img/airline_icon/{{ flight.Airline_Id if flight else 'BR' }}.jpg" 
+                       alt="航空公司" class="me-3" style="width: 60px; height: 60px; border-radius: 10px;">
+                  <div>
+                    <h5 class="mb-1 fw-bold text-primary">{{ flight.Airline_Name_ZH if flight else '長榮航空' }}</h5>
+                    <span class="badge bg-secondary">{{ flight.No if flight else 'BR016' }}</span>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6 text-end">
+                <div class="text-muted">
+                  <i class="fas fa-calendar me-1"></i>
+                  {{ flight.D_Time.strftime('%Y-%m-%d') if flight and flight.D_Time else '2025-10-15' }}
+                </div>
+              </div>
+            </div>
+
             <div class="row align-items-center">
               <div class="col-md-5 text-center">
-                <div class="bg-white rounded-3 shadow-sm p-3 mb-2">
-                  <div class="text-primary fw-bold mb-1">
+                <div class="bg-light rounded-3 p-3">
+                  <div class="text-primary fw-bold mb-2">
                     <i class="fas fa-plane-departure me-2"></i>出發
                   </div>
-                  <h3 class="fw-bold mb-1 text-dark">{{ flight.D_Time.strftime('%H:%M') if flight and flight.D_Time else '' }}</h3>
-                  <h6 class="text-primary mb-1">{{ flight.D_Airport_Name_ZH if flight }}</h6>
-                  <small class="text-muted">{{ flight.D_Airport_Id if flight }} • {{ flight.D_Time.strftime('%Y-%m-%d') if flight and flight.D_Time else '' }}</small>
+                  <h3 class="fw-bold text-dark">
+                    {{ flight.D_Time.strftime('%H:%M') if flight and flight.D_Time else '08:30' }}
+                  </h3>
+                  <h6 class="text-primary">{{ flight.D_Airport_Name_ZH if flight else '桃園國際機場' }}</h6>
+                  <small class="text-muted">{{ flight.D_Airport_Id if flight else 'TPE' }}</small>
                 </div>
               </div>
               <div class="col-md-2 text-center">
-                <div class="position-relative my-3">
-                  <div class="border-top border-primary border-3 position-relative">
-                    <div class="bg-primary text-white rounded-circle d-flex align-items-center justify-content-center position-absolute top-50 start-50 translate-middle" style="width: 50px; height: 50px;">
-                      <i class="fa-solid fa-plane fa-bounce"></i>
-                    </div>
-                  </div>
-                </div>
-                <div class="bg-white rounded-pill px-3 py-1 shadow-sm d-inline-block mt-3">
-                  <small class="text-muted fw-bold">
-                    <i class="fas fa-clock me-1"></i>2小時15分
+                <i class="fas fa-plane text-primary fa-2x"></i>
+                <div class="mt-2">
+                  <small class="text-muted">
+                    <i class="fas fa-clock me-1"></i>
+                    {{ flight.Flight_Duration if flight else '2時30分' }}
                   </small>
                 </div>
               </div>
               <div class="col-md-5 text-center">
-                <div class="bg-white rounded-3 shadow-sm p-3 mb-2">
-                  <div class="text-success fw-bold mb-1">
+                <div class="bg-light rounded-3 p-3">
+                  <div class="text-success fw-bold mb-2">
                     <i class="fas fa-plane-arrival me-2"></i>抵達
                   </div>
-                  <h3 class="fw-bold mb-1 text-dark">{{ flight.A_Time.strftime('%H:%M') if flight and flight.A_Time else '' }}</h3>
-                  <h6 class="text-success mb-1">{{ flight.A_Airport_Name_ZH if flight }}</h6>
-                  <small class="text-muted">{{ flight.A_Airport_Id if flight }} • {{ flight.A_Time.strftime('%Y-%m-%d') if flight and flight.A_Time else '' }}</small>
+                  <h3 class="fw-bold text-dark">
+                    {{ flight.A_Time.strftime('%H:%M') if flight and flight.A_Time else '11:00' }}
+                  </h3>
+                  <h6 class="text-success">{{ flight.A_Airport_Name_ZH if flight else '東京成田機場' }}</h6>
+                  <small class="text-muted">{{ flight.A_Airport_Id if flight else 'NRT' }}</small>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="text-end mt-4">
+            <button class="btn btn-primary btn-lg px-5" onclick="nextStep(2)">
+              下一步：選擇艙等 <i class="fas fa-arrow-right ms-2"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 步驟 2: 選擇艙等 -->
+      <div id="step-2" class="booking-step">
+        <div class="bg-white bg-opacity-25 rounded-3 shadow-lg p-4 mb-4">
+          <h4 class="fw-bold text-dark mb-4">
+            <i class="fas fa-couch me-2 text-primary"></i>選擇艙等
+          </h4>
+          
+          <div class="row g-4">
+            <!-- 經濟艙 -->
+            <div class="col-md-4">
+              <div class="cabin-card" data-cabin="economy" data-price="10000">
+                <div class="cabin-header bg-info">
+                  <i class="fas fa-couch fa-2x mb-2"></i>
+                  <h5 class="fw-bold">經濟艙</h5>
+                  <p class="mb-0 small">Economy Class</p>
+                </div>
+                <div class="cabin-body">
+                  <div class="price-tag mb-3">
+                    <span class="h3 fw-bold text-primary">NT$ 10,000</span>
+                    <span class="text-muted d-block small">起</span>
+                  </div>
+                  <ul class="list-unstyled text-start">
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>標準座位</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>託運行李 20kg</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>機上餐點</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>娛樂系統</li>
+                  </ul>
+                  <div class="availability mt-3">
+                    <span class="badge bg-success" id="economy-available">剩餘 50 個座位</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 商務艙 -->
+            <div class="col-md-4">
+              <div class="cabin-card" data-cabin="business" data-price="35000">
+                <div class="cabin-header bg-warning">
+                  <i class="fas fa-briefcase fa-2x mb-2"></i>
+                  <h5 class="fw-bold">商務艙</h5>
+                  <p class="mb-0 small">Business Class</p>
+                </div>
+                <div class="cabin-body">
+                  <div class="price-tag mb-3">
+                    <span class="h3 fw-bold text-primary">NT$ 35,000</span>
+                    <span class="text-muted d-block small">起</span>
+                  </div>
+                  <ul class="list-unstyled text-start">
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>平躺式座位</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>託運行李 40kg</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>優質餐點</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>貴賓室使用</li>
+                  </ul>
+                  <div class="availability mt-3">
+                    <span class="badge bg-success" id="business-available">剩餘 12 個座位</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- 頭等艙 -->
+            <div class="col-md-4">
+              <div class="cabin-card" data-cabin="first" data-price="80000">
+                <div class="cabin-header bg-danger">
+                  <i class="fas fa-crown fa-2x mb-2"></i>
+                  <h5 class="fw-bold">頭等艙</h5>
+                  <p class="mb-0 small">First Class</p>
+                </div>
+                <div class="cabin-body">
+                  <div class="price-tag mb-3">
+                    <span class="h3 fw-bold text-primary">NT$ 80,000</span>
+                    <span class="text-muted d-block small">起</span>
+                  </div>
+                  <ul class="list-unstyled text-start">
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>豪華套房座位</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>託運行李 60kg</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>米其林餐點</li>
+                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>專屬禮賓服務</li>
+                  </ul>
+                  <div class="availability mt-3">
+                    <span class="badge bg-warning" id="first-available">剩餘 3 個座位</span>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- 乘客資訊 -->
-          <div class="row mb-4">
-            <div class="col-12">
-              <div class="d-flex align-items-center mb-3">
-                <div class="bg-info bg-gradient rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
-                  <i class="fas fa-user text-white"></i>
-                </div>
-                <h5 class="fw-bold mb-0 text-info">乘客資訊</h5>
-              </div>
-              <div class="bg-white rounded-3 shadow-sm border-0 overflow-hidden">
-                <div class="bg-info bg-gradient text-white p-3">
-                  <div class="row fw-bold">
-                    <div class="col-3">姓名</div>
-                    <div class="col-3">艙等</div>
-                    <div class="col-3">座位</div>
-                    <div class="col-3">票價</div>
-                  </div>
-                </div>
-                <div class="p-3">
-                  <div class="row align-items-center">
-                    <div class="col-3">
-                      <div class="d-flex align-items-center">
-                        <span class="fw-bold">{{ flight.User_Name if flight }}</span>
-                      </div>
-                    </div>
-                    <div class="col-3">
-                      <span class="badge bg-primary bg-gradient fs-6 px-3 py-2">
-                        <i class="fas fa-couch me-1"></i>{{ flight.Cabin_Class if flight }}
-                      </span>
-                    </div>
-                    <div class="col-3">
-                      <span class="bg-light rounded-pill px-3 py-2 fw-bold text-primary">
-                        <i class="fas fa-chair me-1"></i>{{ flight.Seat_No if flight }}
-                      </span>
-                    </div>
-                    <div class="col-3">
-                      <span class="h5 fw-bold text-success mb-0">
-                        <i class="fas fa-dollar-sign me-1"></i>NT$ {{ flight.Total_Price if flight }}
-                      </span>
-                    </div>
-                  </div>
+          <div class="d-flex justify-content-between mt-4">
+            <button class="btn btn-outline-secondary btn-lg px-4" onclick="prevStep(1)">
+              <i class="fas fa-arrow-left me-2"></i>上一步
+            </button>
+            <button class="btn btn-primary btn-lg px-5" onclick="nextStep(3)" id="cabin-next-btn" disabled>
+              下一步：選擇座位 <i class="fas fa-arrow-right ms-2"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 步驟 3: 選擇座位 -->
+      <div id="step-3" class="booking-step">
+        <div class="bg-white bg-opacity-25 rounded-3 shadow-lg p-4 mb-4">
+          <h4 class="fw-bold text-dark mb-4">
+            <i class="fas fa-chair me-2 text-primary"></i>選擇座位
+          </h4>
+
+          <div class="alert alert-info">
+            <i class="fas fa-info-circle me-2"></i>
+            已選擇 <strong id="selected-cabin-name">經濟艙</strong> | 
+            最多可選 <strong>10 個座位</strong> | 
+            目前已選 <strong id="selected-seat-count">0</strong> 個
+          </div>
+
+          <div class="bg-white rounded-3 p-4">
+            <!-- 座位圖例 -->
+            <div class="seat-legend mb-4">
+              <span class="me-3"><span class="seat-icon available"></span> 可選</span>
+              <span class="me-3"><span class="seat-icon selected"></span> 已選</span>
+              <span class="me-3"><span class="seat-icon occupied"></span> 已售</span>
+              <span><span class="seat-icon exit"></span> 逃生門</span>
+            </div>
+
+            <!-- 座位表 -->
+            <div class="seat-map-container">
+              <div class="text-center mb-3">
+                <div class="cockpit-indicator">
+                  <i class="fas fa-plane-up"></i> 機首
                 </div>
               </div>
+
+              <div id="seat-map" class="seat-map">
+                <!-- 座位會通過 JavaScript 動態生成 -->
+              </div>
+            </div>
+
+            <!-- 已選座位清單 -->
+            <div class="selected-seats-summary mt-4 p-3 bg-light rounded">
+              <h6 class="fw-bold">已選座位：</h6>
+              <div id="selected-seats-list" class="text-muted">尚未選擇座位</div>
             </div>
           </div>
 
-          <!-- 費用明細 -->
+          <div class="d-flex justify-content-between mt-4">
+            <button class="btn btn-outline-secondary btn-lg px-4" onclick="prevStep(2)">
+              <i class="fas fa-arrow-left me-2"></i>上一步
+            </button>
+            <button class="btn btn-primary btn-lg px-5" onclick="nextStep(4)" id="seat-next-btn" disabled>
+              下一步：乘客資訊 <i class="fas fa-arrow-right ms-2"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 步驟 4: 乘客資訊 -->
+      <div id="step-4" class="booking-step">
+        <div class="bg-white bg-opacity-25 rounded-3 shadow-lg p-4 mb-4">
+          <h4 class="fw-bold text-dark mb-4">
+            <i class="fas fa-users me-2 text-primary"></i>乘客資訊
+          </h4>
+
+          <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            請為每位乘客填寫正確的姓名和聯絡電話，資料將用於登機驗證
+          </div>
+
+          <div class="bg-white rounded-3 p-4">
+            <div id="passengers-form">
+              <!-- 乘客表單會通過 JavaScript 動態生成 -->
+            </div>
+          </div>
+
+          <div class="d-flex justify-content-between mt-4">
+            <button class="btn btn-outline-secondary btn-lg px-4" onclick="prevStep(3)">
+              <i class="fas fa-arrow-left me-2"></i>上一步
+            </button>
+            <button class="btn btn-primary btn-lg px-5" onclick="nextStep(5)" id="passenger-next-btn">
+              下一步：付款結帳 <i class="fas fa-arrow-right ms-2"></i>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 步驟 5: 付款結帳 -->
+      <div id="step-5" class="booking-step">
+        <div class="bg-white bg-opacity-25 rounded-3 shadow-lg p-4 mb-4">
+          <h4 class="fw-bold text-dark mb-4">
+            <i class="fas fa-credit-card me-2 text-primary"></i>付款結帳
+          </h4>
+
           <div class="row">
-            <div class="col-12">
-              <div class="d-flex align-items-center mb-3">
-                <div class="bg-success bg-gradient rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 40px; height: 40px;">
-                  <i class="fas fa-calculator text-white"></i>
+            <!-- 訂單摘要 -->
+            <div class="col-md-7">
+              <div class="bg-white rounded-3 p-4 mb-4">
+                <h5 class="fw-bold mb-3">訂單摘要</h5>
+                <div id="order-summary">
+                  <!-- 訂單摘要會通過 JavaScript 動態生成 -->
                 </div>
-                <h5 class="fw-bold mb-0 text-success">費用明細</h5>
               </div>
-              <div class="bg-white rounded-3 shadow-sm p-4">
-                <div class="row mb-3">
-                  <div class="col-6 d-flex align-items-center">
-                    <i class="fas fa-plane text-primary me-2"></i>
-                    <span>機票費用</span>
-                  </div>
-                  <div class="col-6 text-end fw-bold">NT$ {{ flight.Fare if flight }}</div>
+
+              <!-- 信用卡表單 -->
+              <div class="bg-white rounded-3 p-4">
+                <h5 class="fw-bold mb-3">
+                  <i class="fas fa-shield-alt me-2 text-success"></i>信用卡資訊
+                </h5>
+                
+                <div class="alert alert-info mb-4">
+                  <i class="fas fa-info-circle me-2"></i>
+                  點擊「確認付款並訂票」後將導向中國信託安全支付頁面
                 </div>
-                <div class="row mb-3">
-                  <div class="col-6 d-flex align-items-center">
-                    <i class="fas fa-building text-warning me-2"></i>
-                    <span>機場稅</span>
+
+                <form id="payment-form">
+                  <div class="mb-3">
+                    <label class="form-label">卡號 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-lg" 
+                           placeholder="1234 5678 9012 3456" 
+                           maxlength="19" id="card-number" required>
                   </div>
-                  <div class="col-6 text-end fw-bold">NT$ {{ flight.Airport_Tax if flight }}</div>
-                </div>
-                <div class="row mb-3">
-                  <div class="col-6 d-flex align-items-center">
-                    <i class="fas fa-gas-pump text-danger me-2"></i>
-                    <span>燃油附加費</span>
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <label class="form-label">有效期限 <span class="text-danger">*</span></label>
+                      <input type="text" class="form-control form-control-lg" 
+                             placeholder="MM/YY" maxlength="5" id="card-expiry" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label class="form-label">安全碼 (CVV) <span class="text-danger">*</span></label>
+                      <input type="text" class="form-control form-control-lg" 
+                             placeholder="123" maxlength="3" id="card-cvv" required>
+                    </div>
                   </div>
-                  <div class="col-6 text-end fw-bold">NT$ {{ flight.Fuel_Surcharge if flight }}</div>
-                </div>
-                <div class="row mb-3 pb-3 border-bottom">
-                  <div class="col-6 d-flex align-items-center">
-                    <i class="fas fa-concierge-bell text-info me-2"></i>
-                    <span>服務費</span>
+                  <div class="mb-3">
+                    <label class="form-label">持卡人姓名 <span class="text-danger">*</span></label>
+                    <input type="text" class="form-control form-control-lg" 
+                           placeholder="WANG XIAO MING" id="card-holder" required>
                   </div>
-                  <div class="col-6 text-end fw-bold">NT$ {{ flight.Service_Fee if flight }}</div>
-                </div>
-                <div class="row">
-                  <div class="col-6">
-                    <span class="h5 fw-bold text-dark">
-                      <i class="fas fa-receipt text-success me-2"></i>總計
-                    </span>
-                  </div>
-                  <div class="col-6 text-end">
-                    <span class="h4 fw-bold text-success">NT$ {{ flight.Total_Price if flight }}</span>
-                  </div>
-                </div>
+                </form>
+
+                <!-- 隱藏的表單，用於提交到中國信託 -->
+                <form id="ctbc-form" method="POST" action="https://testepos.ctbcbank.com/mauth/SSLAuthUI.jsp" target="_blank" style="display: none;">
+                  <input type="hidden" name="MerchantID" value="TEST_MERCHANT">
+                  <input type="hidden" name="OrderNo" id="ctbc-order-no">
+                  <input type="hidden" name="Amount" id="ctbc-amount">
+                  <input type="hidden" name="ProdDesc" value="航班訂票">
+                  <input type="hidden" name="ReturnURL" value="">
+                </form>
               </div>
             </div>
 
-          </div>
-        </div>
-      </div>
-
-      <!-- 重要提醒 -->
-      <div class="bg-white bg-opacity-25 rounded-3 shadow-lg p-4 mb-4">
-        <div class="d-flex align-items-center mb-3">
-          <div class="bg-warning rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 45px; height: 45px;">
-            <i class="fas fa-exclamation-triangle text-white fa-lg"></i>
-          </div>
-          <h5 class="fw-bold mb-0 text-dark">重要出行提醒</h5>
-        </div>
-        <div class="bg-white rounded-3 p-3">
-          <div class="row g-3">
-            <div class="col-md-6">
-              <div class="bg-white rounded-3 p-3 h-100">
-                <div class="d-flex align-items-start">
-                  <div class="bg-info bg-gradient rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 35px; height: 35px;">
-                    <i class="fas fa-clock text-white fa-sm"></i>
-                  </div>
-                  <div>
-                    <h6 class="fw-bold text-info mb-1">登機時間</h6>
-                    <small class="text-muted">請於起飛前 2 小時抵達機場辦理登機手續</small>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="bg-white rounded-3 p-3 h-100">
-                <div class="d-flex align-items-start">
-                  <div class="bg-success bg-gradient rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 35px; height: 35px;">
-                    <i class="fas fa-id-card text-white fa-sm"></i>
-                  </div>
-                  <div>
-                    <h6 class="fw-bold text-success mb-1">證件檢查</h6>
-                    <small class="text-muted">請攜帶有效身分證件（護照或身分證）</small>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="bg-white rounded-3 p-3 h-100">
-                <div class="d-flex align-items-start">
-                  <div class="bg-primary bg-gradient rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 35px; height: 35px;">
-                    <i class="fas fa-suitcase text-white fa-sm"></i>
-                  </div>
-                  <div>
-                    <h6 class="fw-bold text-primary mb-1">行李限制</h6>
-                    <small class="text-muted">托運：20公斤 / 手提：7公斤</small>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div class="col-md-6">
-              <div class="bg-white rounded-3 p-3 h-100">
-                <div class="d-flex align-items-start">
-                  <div class="bg-danger bg-gradient rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 35px; height: 35px;">
-                    <i class="fas fa-phone text-white fa-sm"></i>
-                  </div>
-                  <div>
-                    <h6 class="fw-bold text-danger mb-1">客服專線</h6>
-                    <small class="text-muted">0800-123-456</small>
-                  </div>
+            <!-- 費用明細 -->
+            <div class="col-md-5">
+              <div class="bg-white rounded-3 p-4 sticky-top" style="top: 20px;">
+                <h5 class="fw-bold mb-3">費用明細</h5>
+                <div id="price-breakdown">
+                  <!-- 費用明細會通過 JavaScript 動態生成 -->
                 </div>
               </div>
             </div>
           </div>
+
+          <div class="d-flex justify-content-between mt-4">
+            <button class="btn btn-outline-secondary btn-lg px-4" onclick="prevStep(4)">
+              <i class="fas fa-arrow-left me-2"></i>上一步
+            </button>
+            <button class="btn btn-success btn-lg px-5" onclick="confirmBooking()">
+              <i class="fas fa-check-circle me-2"></i>確認付款並訂票
+            </button>
+          </div>
         </div>
       </div>
 
-      <!-- 操作按鈕 -->
-      <div class="bg-white bg-opacity-25 rounded-3 p-4">
-        <div class="d-flex justify-content-center">
-          <button class="btn btn-success btn-lg px-5 shadow-lg" onclick="confirmBooking()">
-            <i class="fas fa-check-circle me-2"></i>確認訂票
-          </button>
-        </div>
-      </div>
     </div>
   </div>
 </div>
@@ -277,17 +394,774 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-function confirmBooking() {
-  // 顯示載入中
-  showLoading('處理中', '正在確認您的訂票...');
-  
-  // 模擬訂票處理時間
-  setTimeout(function() {
-    closeLoading();
-    // 顯示成功 toast
-    showToast('訂購成功！', '您的航班票券已成功訂購', 'success');
-  }, 1000);
+<style>
+/* 步驟指示器樣式 */
+.step-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
+
+.step {
+  text-align: center;
+  flex: 0 0 auto;
+}
+
+.step-icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #e9ecef;
+  color: #6c757d;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 8px;
+  font-size: 1.2rem;
+  transition: all 0.3s;
+}
+
+.step.active .step-icon {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  transform: scale(1.1);
+}
+
+.step.completed .step-icon {
+  background: #28a745;
+  color: white;
+}
+
+.step-label {
+  font-size: 0.85rem;
+  color: #6c757d;
+  font-weight: 500;
+}
+
+.step.active .step-label {
+  color: #667eea;
+  font-weight: 700;
+}
+
+.step-line {
+  flex: 1;
+  height: 2px;
+  background: #e9ecef;
+  margin: 0 10px;
+  align-self: flex-start;
+  margin-top: 25px;
+}
+
+/* 艙等卡片樣式 */
+.cabin-card {
+  border: 3px solid transparent;
+  border-radius: 15px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: all 0.3s;
+  background: white;
+  height: 100%;
+}
+
+.cabin-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+}
+
+.cabin-card.selected {
+  border-color: #667eea;
+  box-shadow: 0 0 20px rgba(102, 126, 234, 0.4);
+}
+
+.cabin-header {
+  padding: 2rem;
+  color: white;
+  text-align: center;
+}
+
+.cabin-body {
+  padding: 2rem;
+  text-align: center;
+}
+
+/* 座位圖樣式 */
+.seat-map {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.seat-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 5px;
+}
+
+.row-label {
+  width: 30px;
+  text-align: center;
+  font-weight: bold;
+  color: #6c757d;
+}
+
+.seat {
+  width: 40px;
+  height: 40px;
+  border: 2px solid #dee2e6;
+  border-radius: 8px 8px 12px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 0.75rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  background: white;
+}
+
+.seat.available:hover {
+  background: #e7f3ff;
+  border-color: #667eea;
+  transform: scale(1.1);
+}
+
+.seat.selected {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.seat.occupied {
+  background: #e9ecef;
+  color: #adb5bd;
+  cursor: not-allowed;
+}
+
+.seat.exit {
+  background: #fff3cd;
+  border-color: #ffc107;
+}
+
+.aisle {
+  width: 30px;
+}
+
+.seat-legend {
+  display: flex;
+  align-items: center;
+  padding: 10px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.seat-icon {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border-radius: 4px;
+  border: 2px solid #dee2e6;
+  margin-right: 5px;
+}
+
+.seat-icon.available {
+  background: white;
+}
+
+.seat-icon.selected {
+  background: #667eea;
+  border-color: #667eea;
+}
+
+.seat-icon.occupied {
+  background: #e9ecef;
+}
+
+.seat-icon.exit {
+  background: #fff3cd;
+  border-color: #ffc107;
+}
+
+.cockpit-indicator {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 10px 30px;
+  border-radius: 50px;
+  display: inline-block;
+  font-weight: bold;
+}
+
+/* 乘客表單樣式 */
+.passenger-card {
+  border: 2px solid #e9ecef;
+  border-radius: 10px;
+  padding: 1.5rem;
+  margin-bottom: 1rem;
+  background: #f8f9fa;
+}
+
+.passenger-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 2px solid #dee2e6;
+}
+
+/* 步驟顯示控制 */
+.booking-step {
+  display: none;
+}
+
+.booking-step.active {
+  display: block;
+  animation: fadeIn 0.4s;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+</style>
+
+<script>
+// ===== 全域變數 =====
+let currentStep = 1;
+let selectedCabin = null;
+let selectedCabinPrice = 0;
+let selectedSeats = [];
+let maxSeats = 10;
+
+// 假資料
+const flightData = {
+  flightId: '{{ flight.Flight_Id if flight else "BR016_TPE_NRT" }}',
+  airline: '{{ flight.Airline_Name_ZH if flight else "長榮航空" }}',
+  flightNo: '{{ flight.No if flight else "BR016" }}',
+  from: '{{ flight.D_Airport_Name_ZH if flight else "桃園國際機場" }}',
+  to: '{{ flight.A_Airport_Name_ZH if flight else "東京成田機場" }}',
+  date: '{{ flight.D_Time.strftime("%Y-%m-%d") if flight and flight.D_Time else "2025-10-15" }}',
+  depTime: '{{ flight.D_Time.strftime("%H:%M") if flight and flight.D_Time else "08:30" }}',
+  arrTime: '{{ flight.A_Time.strftime("%H:%M") if flight and flight.A_Time else "11:00" }}'
+};
+
+const cabinData = {
+  economy: { name: '經濟艙', price: 10000, available: 50, rows: 20, config: ['A', 'B', 'C', '', 'D', 'E', 'F', '', 'G', 'H', 'J'] },
+  business: { name: '商務艙', price: 35000, available: 12, rows: 8, config: ['A', 'B', '', 'D', 'E', '', 'G', 'H'] },
+  first: { name: '頭等艙', price: 80000, available: 3, rows: 4, config: ['A', '', 'D', 'E', '', 'K'] }
+};
+
+const fees = {
+  airportTax: 500,
+  fuelSurcharge: 1000,
+  serviceFee: 87
+};
+
+// ===== 步驟控制 =====
+function nextStep(step) {
+  if (validateCurrentStep()) {
+    currentStep = step;
+    showStep(step);
+  }
+}
+
+function prevStep(step) {
+  currentStep = step;
+  showStep(step);
+}
+
+function showStep(step) {
+  // 隱藏所有步驟
+  document.querySelectorAll('.booking-step').forEach(el => {
+    el.classList.remove('active');
+  });
+  
+  // 顯示當前步驟
+  document.getElementById(`step-${step}`).classList.add('active');
+  
+  // 更新步驟指示器
+  document.querySelectorAll('.step').forEach((el, index) => {
+    const stepNum = index * 2 + 1; // 因為有 step-line
+    if (stepNum < step * 2) {
+      el.classList.add('completed');
+      el.classList.remove('active');
+    } else if (stepNum === step * 2 - 1) {
+      el.classList.add('active');
+      el.classList.remove('completed');
+    } else {
+      el.classList.remove('active', 'completed');
+    }
+  });
+  
+  // 滾動到頂部
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+  
+  // 特殊步驟處理
+  if (step === 3) {
+    generateSeatMap();
+  } else if (step === 4) {
+    generatePassengerForms();
+  } else if (step === 5) {
+    generateOrderSummary();
+    generatePriceBreakdown();
+  }
+}
+
+function validateCurrentStep() {
+  if (currentStep === 2 && !selectedCabin) {
+    alert('請選擇艙等');
+    return false;
+  }
+  if (currentStep === 3 && selectedSeats.length === 0) {
+    alert('請至少選擇一個座位');
+    return false;
+  }
+  return true;
+}
+
+// ===== 艙等選擇 =====
+document.addEventListener('DOMContentLoaded', function() {
+  // 艙等卡片點擊
+  document.querySelectorAll('.cabin-card').forEach(card => {
+    card.addEventListener('click', function() {
+      // 移除其他選中狀態
+      document.querySelectorAll('.cabin-card').forEach(c => c.classList.remove('selected'));
+      
+      // 設置當前選中
+      this.classList.add('selected');
+      selectedCabin = this.dataset.cabin;
+      selectedCabinPrice = parseInt(this.dataset.price);
+      
+      // 啟用下一步按鈕
+      document.getElementById('cabin-next-btn').disabled = false;
+      
+      // 更新顯示
+      document.getElementById('selected-cabin-name').textContent = cabinData[selectedCabin].name;
+    });
+  });
+});
+
+// ===== 座位圖生成 =====
+function generateSeatMap() {
+  const seatMap = document.getElementById('seat-map');
+  seatMap.innerHTML = '';
+  
+  // 從 cabinData 取得配置
+  const cabinInfo = cabinData[selectedCabin];
+  const rows = cabinInfo.rows;
+  const columns = cabinInfo.config;
+  const availableSeats = cabinInfo.available;
+  
+  // 計算總座位數（不含走道）
+  const totalSeatsPerRow = columns.filter(c => c !== '').length;
+  const totalSeats = rows * totalSeatsPerRow;
+  
+  // 計算已售出的座位數
+  const occupiedCount = totalSeats - availableSeats;
+  
+  // 生成隨機已售出座位的索引
+  const occupiedIndices = new Set();
+  while (occupiedIndices.size < occupiedCount) {
+    occupiedIndices.add(Math.floor(Math.random() * totalSeats));
+  }
+  
+  let seatIndex = 0;
+  
+  for (let row = 1; row <= rows; row++) {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'seat-row';
+    
+    // 行號
+    const label = document.createElement('div');
+    label.className = 'row-label';
+    label.textContent = row;
+    rowDiv.appendChild(label);
+    
+    // 座位
+    columns.forEach((col, index) => {
+      if (col === '') {
+        // 走道
+        const aisle = document.createElement('div');
+        aisle.className = 'aisle';
+        rowDiv.appendChild(aisle);
+      } else {
+        const seat = document.createElement('div');
+        const seatId = `${row}${col}`;
+        seat.className = 'seat';
+        seat.textContent = col;
+        seat.dataset.seatId = seatId;
+        
+        // 檢查是否為已售出座位
+        const isOccupied = occupiedIndices.has(seatIndex);
+        seatIndex++;
+        
+        // 逃生門座位
+        if (row === 12 || row === 13) {
+          seat.classList.add('exit');
+          seat.title = `${seatId} - 逃生門座位`;
+          
+          // 逃生門座位也可能已售出
+          if (isOccupied) {
+            seat.classList.add('occupied');
+            seat.title = `${seatId} - 已售出`;
+          } else {
+            seat.addEventListener('click', function() {
+              toggleSeat(this, seatId);
+            });
+          }
+        } else if (isOccupied) {
+          seat.classList.add('occupied');
+          seat.title = `${seatId} - 已售出`;
+        } else {
+          seat.classList.add('available');
+          seat.title = `${seatId} - 可選`;
+          
+          // 點擊事件
+          seat.addEventListener('click', function() {
+            toggleSeat(this, seatId);
+          });
+        }
+        
+        rowDiv.appendChild(seat);
+      }
+    });
+    
+    seatMap.appendChild(rowDiv);
+  }
+}
+
+function toggleSeat(seatElement, seatId) {
+  if (seatElement.classList.contains('selected')) {
+    // 取消選擇
+    seatElement.classList.remove('selected');
+    seatElement.classList.add('available');
+    selectedSeats = selectedSeats.filter(s => s !== seatId);
+  } else {
+    // 檢查是否超過限制
+    if (selectedSeats.length >= maxSeats) {
+      alert(`最多只能選擇 ${maxSeats} 個座位`);
+      return;
+    }
+    
+    // 選擇座位
+    seatElement.classList.remove('available');
+    seatElement.classList.add('selected');
+    selectedSeats.push(seatId);
+  }
+  
+  updateSelectedSeatsDisplay();
+}
+
+function updateSelectedSeatsDisplay() {
+  const count = selectedSeats.length;
+  document.getElementById('selected-seat-count').textContent = count;
+  
+  const listDiv = document.getElementById('selected-seats-list');
+  if (count === 0) {
+    listDiv.innerHTML = '<span class="text-muted">尚未選擇座位</span>';
+    document.getElementById('seat-next-btn').disabled = true;
+  } else {
+    listDiv.innerHTML = selectedSeats.map(seat => 
+      `<span class="badge bg-primary me-2 mb-2">${seat}</span>`
+    ).join('');
+    document.getElementById('seat-next-btn').disabled = false;
+  }
+}
+
+// ===== 乘客表單生成 =====
+function generatePassengerForms() {
+  const container = document.getElementById('passengers-form');
+  container.innerHTML = '';
+  
+  selectedSeats.forEach((seat, index) => {
+    const passengerCard = document.createElement('div');
+    passengerCard.className = 'passenger-card';
+    passengerCard.innerHTML = `
+      <div class="passenger-card-header">
+        <h6 class="fw-bold mb-0">
+          <i class="fas fa-user-circle me-2 text-primary"></i>
+          乘客 ${index + 1} - 座位 ${seat}
+        </h6>
+      </div>
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">持票人姓名 <span class="text-danger">*</span></label>
+          <input type="text" class="form-control" 
+                 placeholder="請輸入中文或英文姓名" 
+                 id="passenger-name-${index}" required>
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">聯絡電話 <span class="text-danger">*</span></label>
+          <input type="tel" class="form-control" 
+                 placeholder="例：0912-345-678" 
+                 id="passenger-phone-${index}" required>
+        </div>
+      </div>
+    `;
+    container.appendChild(passengerCard);
+  });
+}
+
+// ===== 訂單摘要生成 =====
+function generateOrderSummary() {
+  const container = document.getElementById('order-summary');
+  const passengers = [];
+  
+  selectedSeats.forEach((seat, index) => {
+    const name = document.getElementById(`passenger-name-${index}`)?.value || `乘客 ${index + 1}`;
+    const phone = document.getElementById(`passenger-phone-${index}`)?.value || '未填寫';
+    passengers.push({ seat, name, phone });
+  });
+  
+  container.innerHTML = `
+    <div class="mb-3 pb-3 border-bottom">
+      <h6 class="text-muted mb-2">航班資訊</h6>
+      <div><strong>${flightData.airline} ${flightData.flightNo}</strong></div>
+      <div class="text-muted small">
+        ${flightData.from} (${flightData.depTime}) → ${flightData.to} (${flightData.arrTime})
+      </div>
+      <div class="text-muted small">${flightData.date}</div>
+    </div>
+    
+    <div class="mb-3 pb-3 border-bottom">
+      <h6 class="text-muted mb-2">艙等</h6>
+      <div><strong>${cabinData[selectedCabin].name}</strong></div>
+    </div>
+    
+    <div class="mb-3">
+      <h6 class="text-muted mb-2">乘客名單 (${passengers.length} 位)</h6>
+      ${passengers.map(p => `
+        <div class="mb-2 p-2 bg-light rounded">
+          <div class="d-flex justify-content-between">
+            <span><strong>${p.name}</strong></span>
+            <span class="badge bg-primary">${p.seat}</span>
+          </div>
+          <div class="text-muted small">
+            <i class="fas fa-phone me-1"></i>${p.phone}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+// ===== 費用明細生成 =====
+function generatePriceBreakdown() {
+  const container = document.getElementById('price-breakdown');
+  const ticketCount = selectedSeats.length;
+  const baseFare = selectedCabinPrice * ticketCount;
+  const airportTax = fees.airportTax * ticketCount;
+  const fuelSurcharge = fees.fuelSurcharge * ticketCount;
+  const serviceFee = fees.serviceFee * ticketCount;
+  const total = baseFare + airportTax + fuelSurcharge + serviceFee;
+  
+  container.innerHTML = `
+    <div class="mb-3 pb-3 border-bottom">
+      <div class="d-flex justify-content-between mb-2">
+        <span>機票費用 × ${ticketCount}</span>
+        <span>NT$ ${baseFare.toLocaleString()}</span>
+      </div>
+      <div class="d-flex justify-content-between mb-2">
+        <span>機場稅</span>
+        <span>NT$ ${airportTax.toLocaleString()}</span>
+      </div>
+      <div class="d-flex justify-content-between mb-2">
+        <span>燃油附加費</span>
+        <span>NT$ ${fuelSurcharge.toLocaleString()}</span>
+      </div>
+      <div class="d-flex justify-content-between">
+        <span>服務費</span>
+        <span>NT$ ${serviceFee.toLocaleString()}</span>
+      </div>
+    </div>
+    
+    <div class="d-flex justify-content-between align-items-center">
+      <h5 class="fw-bold mb-0">總計</h5>
+      <h4 class="fw-bold text-primary mb-0">NT$ ${total.toLocaleString()}</h4>
+    </div>
+    
+    <div class="alert alert-success mt-3 mb-0">
+      <small><i class="fas fa-check-circle me-1"></i>已包含所有稅金及費用</small>
+    </div>
+  `;
+}
+
+// ===== 確認訂票 =====
+function confirmBooking() {
+  // 驗證信用卡資訊
+  const cardNumber = document.getElementById('card-number').value;
+  const cardExpiry = document.getElementById('card-expiry').value;
+  const cardCvv = document.getElementById('card-cvv').value;
+  const cardHolder = document.getElementById('card-holder').value;
+  
+  if (!cardNumber || !cardExpiry || !cardCvv || !cardHolder) {
+    alert('請填寫完整的信用卡資訊');
+    return;
+  }
+  
+  // 收集乘客資料
+  const passengers = selectedSeats.map((seat, i) => ({
+    name: document.getElementById(`passenger-name-${i}`)?.value || '',
+    phone: document.getElementById(`passenger-phone-${i}`)?.value || '',
+    seat: seat
+  }));
+  
+  // 驗證乘客資料
+  for (let i = 0; i < passengers.length; i++) {
+    if (!passengers[i].name || !passengers[i].phone) {
+      alert(`請填寫完整的乘客 ${i + 1} 資訊`);
+      return;
+    }
+  }
+  
+  // 直接使用中國信託支付
+  processCTBCPayment(passengers, {
+    cardNumber: cardNumber,
+    cardExpiry: cardExpiry,
+    cardCvv: cardCvv,
+    cardHolder: cardHolder
+  });
+}
+
+// ===== 中國信託支付處理 =====
+function processCTBCPayment(passengers, cardInfo) {
+  // 計算總金額
+  const ticketCount = selectedSeats.length;
+  const baseFare = selectedCabinPrice * ticketCount;
+  const airportTax = fees.airportTax * ticketCount;
+  const fuelSurcharge = fees.fuelSurcharge * ticketCount;
+  const serviceFee = fees.serviceFee * ticketCount;
+  const totalAmount = baseFare + airportTax + fuelSurcharge + serviceFee;
+  
+  // 生成訂單編號
+  const orderNo = 'ORDER_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9).toUpperCase();
+  
+  // 儲存訂單資料到 localStorage（模擬後端儲存）
+  const bookingData = {
+    orderNo: orderNo,
+    flight: flightData,
+    cabin: selectedCabin,
+    seats: selectedSeats,
+    passengers: passengers,
+    totalAmount: totalAmount,
+    cardInfo: {
+      cardNumber: cardInfo.cardNumber.replace(/\s/g, '').substr(-4), // 只儲存後4碼
+      cardHolder: cardInfo.cardHolder
+    },
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  };
+  
+  localStorage.setItem('pending_booking', JSON.stringify(bookingData));
+  
+  console.log('準備提交到中國信託：', bookingData);
+  
+  // 填入表單資料
+  document.getElementById('ctbc-order-no').value = orderNo;
+  document.getElementById('ctbc-amount').value = totalAmount;
+  
+  // 顯示載入中
+  if (typeof showLoading === 'function') {
+    showLoading('處理中', '正在導向中國信託支付頁面...');
+  }
+  
+  // 延遲0.5秒後開啟支付視窗，讓用戶看到載入訊息
+  setTimeout(function() {
+    if (typeof closeLoading === 'function') {
+      closeLoading();
+    }
+    
+    // 開啟支付視窗（新視窗）
+    const paymentWindow = window.open('', 'ctbc_payment', 'width=800,height=600,scrollbars=yes,location=yes');
+    
+    // 提交表單到新視窗
+    const form = document.getElementById('ctbc-form');
+    form.target = 'ctbc_payment';
+    form.submit();
+    
+    // 顯示等待訊息
+    if (typeof showLoading === 'function') {
+      showLoading('等待支付', '請在新視窗完成支付...');
+    }
+    
+    // 設置定時器檢查視窗是否關閉
+    const checkInterval = setInterval(function() {
+      if (paymentWindow.closed) {
+        clearInterval(checkInterval);
+        
+        // 視窗關閉後，等待3秒自動視為支付成功
+        if (typeof showLoading === 'function') {
+          showLoading('處理中', '正在確認支付結果...');
+        }
+        
+        setTimeout(function() {
+          completeCTBCPayment(orderNo, bookingData);
+        }, 3000);
+      }
+    }, 500);
+  }, 500);
+}
+
+// ===== 完成中國信託支付 =====
+function completeCTBCPayment(orderNo, bookingData) {
+  // 更新訂單狀態
+  bookingData.status = 'paid';
+  bookingData.paidAt = new Date().toISOString();
+  bookingData.paymentMethod = 'CTBC Bank Test';
+  
+  // 儲存到 localStorage（實際應該發送到後端）
+  localStorage.setItem('booking_' + orderNo, JSON.stringify(bookingData));
+  localStorage.removeItem('pending_booking');
+  
+  console.log('支付成功，訂單資料：', bookingData);
+  
+  if (typeof showLoading === 'function') {
+    showLoading('處理中', '正在確認您的訂票...');
+  }
+  
+  setTimeout(function() {
+    if (typeof closeLoading === 'function') {
+      closeLoading();
+    }
+    
+    if (typeof showToast === 'function') {
+      showToast('支付成功！', `訂單編號：${orderNo}\n您的航班票券已成功訂購`, 'success');
+    } else {
+      alert(`支付成功！\n訂單編號：${orderNo}\n您的航班票券已成功訂購`);
+    }
+    
+    // 這裡之後應該發送到後端 API
+    // fetch('/api/booking/confirm', { ... })
+    
+    setTimeout(() => {
+      window.location.href = '/ticket';
+    }, 2000);
+  }, 1500);
+}
+
+
+// 信用卡號格式化
+document.addEventListener('DOMContentLoaded', function() {
+  const cardNumberInput = document.getElementById('card-number');
+  if (cardNumberInput) {
+    cardNumberInput.addEventListener('input', function(e) {
+      let value = e.target.value.replace(/\s/g, '');
+      let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
+      e.target.value = formattedValue;
+    });
+  }
+  
+  const cardExpiryInput = document.getElementById('card-expiry');
+  if (cardExpiryInput) {
+    cardExpiryInput.addEventListener('input', function(e) {
+      let value = e.target.value.replace(/\D/g, '');
+      if (value.length >= 2) {
+        value = value.slice(0, 2) + '/' + value.slice(2, 4);
+      }
+      e.target.value = value;
+    });
+  }
+});
 </script>
 {% endblock %} 
