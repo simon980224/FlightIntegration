@@ -4,6 +4,10 @@ import datetime
 import os
 import uuid
 from werkzeug.utils import secure_filename
+import random
+import string
+import base64
+from captcha.image import ImageCaptcha
 
 # 連接字串配置
 conn_args = {
@@ -293,3 +297,47 @@ def GetUserInfo(user_id):
             cursor.close()
         if conn:
             conn.close()
+
+# 生成圖片驗證碼
+def GenerateCaptchaImage():
+    """
+    生成帶有干擾線的圖片驗證碼
+    返回驗證碼文字和圖片的 base64 編碼
+    """
+    try:
+        # 生成 4 位數字驗證碼
+        captcha_text = ''.join(random.choices(string.digits, k=4))
+        
+        # 創建圖片驗證碼生成器
+        image = ImageCaptcha(width=160, height=60, fonts=None, font_sizes=(42, 50, 56))
+        
+        # 生成驗證碼圖片並轉換為 base64
+        image_data = image.generate(captcha_text)
+        img_base64 = base64.b64encode(image_data.getvalue()).decode('utf-8')
+        
+        return {
+            "success": True,
+            "captcha_text": captcha_text,
+            "image_base64": f'data:image/png;base64,{img_base64}'
+        }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"驗證碼生成失敗：{str(e)}"
+        }
+
+# 驗證 captcha
+def VerifyCaptcha(user_input, correct_answer):
+    """
+    驗證使用者輸入的驗證碼是否正確
+    """
+    if not user_input:
+        return {"success": False, "message": "請輸入驗證碼"}
+    
+    if not correct_answer:
+        return {"success": False, "message": "驗證碼已過期，請重新整理"}
+    
+    if user_input.strip() != correct_answer:
+        return {"success": False, "message": "驗證碼錯誤，請重新輸入"}
+    
+    return {"success": True}

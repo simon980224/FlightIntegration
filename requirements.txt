@@ -4,3 +4,11 @@ beautifulsoup4
 pymssql
 line-bot-sdk
 WebhookHandler
+selenium
+webdriver-manager
+pandas
+numpy
+chromedriver
+datetime
+Pillow
+captcha

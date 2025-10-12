@@ -88,6 +88,22 @@ def flight_search():
     )
     return jsonify(flights_data)
 
+# 生成驗證碼
+@app.route('/generate_captcha', methods=['GET'])
+def generate_captcha():
+    """生成帶有干擾線的圖片驗證碼 API"""
+    result = user_service.GenerateCaptchaImage()
+    
+    if result["success"]:
+        # 將答案存儲在 session 中
+        session['captcha_answer'] = result["captcha_text"]
+        return jsonify({
+            'success': True,
+            'image': result["image_base64"]
+        })
+    else:
+        return jsonify(result)
+
 # 登入頁面
 @app.route('/login', methods=['GET'])
 def login_page():
@@ -105,13 +121,36 @@ def login():
 
     user_id = data.get("user_id", "").strip()
     password = data.get("password", "").strip()
+    captcha_answer = data.get("captcha_answer", "").strip()
 
     if not user_id or not password:
         return jsonify({'success': False, 'message': '請輸入使用者名稱和密碼'})
+    
+    # 驗證 captcha
+    correct_answer = session.get('captcha_answer')
+    captcha_result = user_service.VerifyCaptcha(captcha_answer, correct_answer)
+    
+    if not captcha_result["success"]:
+        # 驗證失敗後清除舊的驗證碼
+        session.pop('captcha_answer', None)
+        return jsonify(captcha_result)
+    
+    # 驗證成功後清除驗證碼
+    session.pop('captcha_answer', None)
 
     user_data = user_service.AuthenticateUser(user_id, password)
     print("🧪 AuthenticateUser 回傳：", user_data)
     if user_data["success"]:
+        user_info = user_data["data"][0]
+        
+        # 檢查帳號驗證狀態
+        if user_info.get("Status") == '0':
+            return jsonify({
+                'success': False,
+                'verification_required': True,
+                'user_email': user_info.get("User_Email", "")
+            })
+        
         session['user_id'] = user_id
         return jsonify({'success': True, 'message': '登入成功'})
     else:
@@ -150,6 +189,9 @@ def verify_code():
     verification_code = data.get("verification_code", "").strip()  # 🔴 鍵名與前端一致
 
     res = user_service.VerifyRegisterCode(user_id, verification_code)
+    if res.get("success"):
+        session['user_id'] = user_id  # 驗證成功自動登入
+    
     return jsonify(res)
 
 
