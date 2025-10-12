@@ -100,37 +100,42 @@ def connect_db():
 def load_amadeus_config() -> Dict[str, str]:
     """
     讀取 config/prodConfig.json 的 amadeus 區塊，取得必要金鑰（api_key/api_secret）
-    與可選覆寫參數（base_url/timeout/max_offers）。若缺少必要欄位則拋出 KeyError。
+    與可選覆寫參數（base_url/timeout/max_offers）。若缺少必要欄位則使用寫死的預設值。
     """
+
+    # 寫死的預設配置
+    default_config = {
+        "api_key": "IwAslE0Nh2uYsBLkxNiRI1iHKxjnmVSA",
+        "api_secret": "wHH3pXiyBtfGMF27",
+        "base_url": "https://test.api.amadeus.com",
+        "timeout": 45,
+        "max_offers": 10
+    }
 
     cfg_path = os.path.join("config", "prodConfig.json")
     if not os.path.isfile(cfg_path):
-        raise FileNotFoundError(f"Missing config file: {cfg_path}")
-    with open(cfg_path, "r", encoding="utf-8") as f:
-        cfg = json.load(f)
+        # 配置文件不存在，使用寫死的預設值
+        return default_config
+
     try:
+        with open(cfg_path, "r", encoding="utf-8") as f:
+            cfg = json.load(f)
+
         a = cfg.get("amadeus") or {}
-        api_key = (a.get("api_key") or "").strip()
-        api_secret = (a.get("api_secret") or "").strip()
-        if not api_key or not api_secret:
-            raise KeyError
-        out = {"api_key": api_key, "api_secret": api_secret}
-        # optional overrides
-        if a.get("base_url"):
-            out["base_url"] = a["base_url"].strip()
-        if a.get("timeout"):
-            try:
-                out["timeout"] = int(a["timeout"])
-            except Exception:
-                pass
-        if a.get("max_offers"):
-            try:
-                out["max_offers"] = int(a["max_offers"])
-            except Exception:
-                pass
+
+        # 使用配置文件的值，如果沒有則使用寫死的預設值
+        out = {
+            "api_key": (a.get("api_key") or default_config["api_key"]).strip(),
+            "api_secret": (a.get("api_secret") or default_config["api_secret"]).strip(),
+            "base_url": (a.get("base_url") or default_config["base_url"]).strip(),
+            "timeout": int(a.get("timeout", default_config["timeout"])),
+            "max_offers": int(a.get("max_offers", default_config["max_offers"]))
+        }
+
         return out
     except Exception:
-        raise KeyError("amadeus.api_key / amadeus.api_secret not found in config/prodConfig.json")
+        # 解析失敗，使用寫死的預設值
+        return default_config
 
 
 def get_access_token(api_key: str, api_secret: str) -> str:
