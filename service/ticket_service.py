@@ -99,8 +99,48 @@ def get_booking_imf(flight_id):
         finally:
             if conn: conn.close()
 
+def InsertTicket(flight_id, cabin, price):
+    """
+    新增一筆票券資料到 Ticket 資料表
+    """
+    try:
+        conn = conn_args()
+        cursor = conn.cursor()
 
+        # 行李重量規則
+        baggage_rules = {
+            "economy": {"Checked_Baggage": 20, "Cabin_Baggage": 7},
+            "business": {"Checked_Baggage": 40, "Cabin_Baggage": 7},
+            "first": {"Checked_Baggage": 60, "Cabin_Baggage": 10}
+        }
+        rule = baggage_rules.get(cabin, {"Checked_Baggage": None, "Cabin_Baggage": None})
 
+        # 產生訂單編號（Ticket_Id）
+        ticket_id = f"ORDER_{int(datetime.now().timestamp())}"
+
+        # 寫入 Ticket
+        cursor.execute("""
+            INSERT INTO Ticket (Ticket_Id, Flight_Id, Price, Cabin, Checked_Baggage, Cabin_Baggage)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (
+            ticket_id,
+            flight_id,
+            price,
+            cabin,
+            rule["Checked_Baggage"],
+            rule["Cabin_Baggage"]
+        ))
+
+        conn.commit()
+        return {"success": True, "Ticket_Id": ticket_id}
+
+    except Exception as e:
+        print("❌ InsertTicket Error:", e)
+        return {"success": False, "message": str(e)}
+
+    finally:
+        if conn:
+            conn.close()
 
 if __name__ == "__main__":
     # 僅供本檔單獨執行測試時參考；實際在 Flask route 中呼叫即可

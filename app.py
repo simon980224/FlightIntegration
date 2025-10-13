@@ -222,8 +222,6 @@ def profile():
     return render_template('profile.html', user=user)
 
 
-
-
 # 修改個人資料（需要舊密碼才能修改密碼）
 @app.route('/update_profile', methods=['POST'])
 @login_required
@@ -257,8 +255,6 @@ def update_profile():
 
     return jsonify(result)
 
-
-
 @app.route('/update_profile', methods=['GET'])
 @login_required
 def profile_page():
@@ -291,7 +287,6 @@ def Api():
         pass
 
     return 'OK'
-
 
 
 @handler.add(MessageEvent, message=TextMessage)
@@ -417,6 +412,16 @@ def ticket():
         ticket = {} # or handle error appropriately
 
     return render_template('ticket.html', user=user, flight=flight, ticket=ticket)
+
+@app.route("/api/ticket/insert", methods=["POST"])
+def insert_ticket_api():
+    data = request.get_json()
+    flight_id = data.get("Flight_Id")
+    cabin = data.get("Cabin")
+    price = data.get("Price")
+
+    result = ticket_service.InsertTicket(flight_id, cabin, price)
+    return jsonify(result)
 
 #########################快取管理###########################
 @app.route('/admin/cache/clear', methods=['POST'])
