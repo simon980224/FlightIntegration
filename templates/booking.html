@@ -142,7 +142,7 @@
                   </div>
                   <ul class="list-unstyled text-start">
                     <li class="mb-2"><i class="fas fa-check text-success me-2"></i>標準座位</li>
-                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>託運行李 20kg</li>
+                    <li class="mb-2" id="economy-baggage"><i class="fas fa-check text-success me-2"></i>託運行李 20kg</li>
                     <li class="mb-2"><i class="fas fa-check text-success me-2"></i>機上餐點</li>
                     <li class="mb-2"><i class="fas fa-check text-success me-2"></i>娛樂系統</li>
                   </ul>
@@ -168,7 +168,7 @@
                   </div>
                   <ul class="list-unstyled text-start">
                     <li class="mb-2"><i class="fas fa-check text-success me-2"></i>平躺式座位</li>
-                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>託運行李 40kg</li>
+                    <li class="mb-2" id="business-baggage"><i class="fas fa-check text-success me-2"></i>託運行李 40kg</li>
                     <li class="mb-2"><i class="fas fa-check text-success me-2"></i>優質餐點</li>
                     <li class="mb-2"><i class="fas fa-check text-success me-2"></i>貴賓室使用</li>
                   </ul>
@@ -194,7 +194,7 @@
                   </div>
                   <ul class="list-unstyled text-start">
                     <li class="mb-2"><i class="fas fa-check text-success me-2"></i>豪華套房座位</li>
-                    <li class="mb-2"><i class="fas fa-check text-success me-2"></i>託運行李 60kg</li>
+                    <li class="mb-2" id="first-baggage"><i class="fas fa-check text-success me-2"></i>託運行李 60kg</li>
                     <li class="mb-2"><i class="fas fa-check text-success me-2"></i>米其林餐點</li>
                     <li class="mb-2"><i class="fas fa-check text-success me-2"></i>專屬禮賓服務</li>
                   </ul>
@@ -394,6 +394,14 @@
 {% endblock %}
 
 {% block scripts %}
+<!-- 後端數據注入（使用 data 屬性避免 linter 錯誤）-->
+<div id="backend-data" style="display:none;" 
+     data-base-fare="{% if flight and flight.Fare %}{{ flight.Fare }}{% else %}10000{% endif %}"
+     data-airport-tax="{% if flight and flight.Airport_Tax %}{{ flight.Airport_Tax }}{% else %}500{% endif %}"
+     data-fuel-surcharge="{% if flight and flight.Fuel_Surcharge %}{{ flight.Fuel_Surcharge }}{% else %}1000{% endif %}"
+     data-service-fee="{% if flight and flight.Service_Fee %}{{ flight.Service_Fee }}{% else %}87{% endif %}">
+</div>
+
 <style>
 /* 步驟指示器樣式 */
 .step-indicator {
@@ -634,7 +642,7 @@ let selectedCabinPrice = 0;
 let selectedSeats = [];
 let maxSeats = 10;
 
-// 假資料
+// 從後端獲取的航班資料
 const flightData = {
   flightId: '{{ flight.Flight_Id if flight else "BR016_TPE_NRT" }}',
   airline: '{{ flight.Airline_Name_ZH if flight else "長榮航空" }}',
@@ -646,16 +654,67 @@ const flightData = {
   arrTime: '{{ flight.A_Time.strftime("%H:%M") if flight and flight.A_Time else "11:00" }}'
 };
 
+// 從後端獲取的基礎票價（經濟艙價格）
+const backendDataElement = document.getElementById('backend-data');
+const baseFareFromBackend = parseInt(backendDataElement.dataset.baseFare);
+
+// 艙等資料（價格基於後端的基礎票價）
 const cabinData = {
-  economy: { name: '經濟艙', price: 10000, available: 50, rows: 20, config: ['A', 'B', 'C', '', 'D', 'E', 'F', '', 'G', 'H', 'J'] },
-  business: { name: '商務艙', price: 35000, available: 12, rows: 8, config: ['A', 'B', '', 'D', 'E', '', 'G', 'H'] },
-  first: { name: '頭等艙', price: 80000, available: 3, rows: 4, config: ['A', '', 'D', 'E', '', 'K'] }
+  economy: { 
+    name: '經濟艙', 
+    price: baseFareFromBackend, // 使用後端提供的基礎票價
+    available: 50, 
+    rows: 20, 
+    config: ['A', 'B', 'C', '', 'D', 'E', 'F', '', 'G', 'H', 'J'],
+    checked_baggage: 20,
+    cabin_baggage: 7
+  },
+  business: { 
+    name: '商務艙', 
+    price: baseFareFromBackend * 3.5, // 商務艙為基礎票價的3.5倍
+    available: 12, 
+    rows: 8, 
+    config: ['A', 'B', '', 'D', 'E', '', 'G', 'H'],
+    checked_baggage: 40,
+    cabin_baggage: 7
+  },
+  first: { 
+    name: '頭等艙', 
+    price: baseFareFromBackend * 8, // 頭等艙為基礎票價的8倍
+    available: 3, 
+    rows: 4, 
+    config: ['A', '', 'D', 'E', '', 'K'],
+    checked_baggage: 60,
+    cabin_baggage: 10
+  }
 };
 
+// 初始化時更新艙等價格顯示
+function initializeCabinPrices() {
+  document.querySelectorAll('.cabin-card').forEach(card => {
+    const cabin = card.dataset.cabin;
+    if (cabinData[cabin]) {
+      // 更新價格
+      const priceElement = card.querySelector('.h3.fw-bold');
+      if (priceElement) {
+        priceElement.textContent = `NT$ ${cabinData[cabin].price.toLocaleString()}`;
+      }
+      card.dataset.price = cabinData[cabin].price;
+      
+      // 更新行李規則顯示
+      const baggageElement = document.getElementById(`${cabin}-baggage`);
+      if (baggageElement) {
+        baggageElement.innerHTML = `<i class="fas fa-check text-success me-2"></i>託運行李 ${cabinData[cabin].checked_baggage}kg`;
+      }
+    }
+  });
+}
+
+// 從後端獲取的費用資料
 const fees = {
-  airportTax: 500,
-  fuelSurcharge: 1000,
-  serviceFee: 87
+  airportTax: parseInt(backendDataElement.dataset.airportTax),
+  fuelSurcharge: parseInt(backendDataElement.dataset.fuelSurcharge),
+  serviceFee: parseInt(backendDataElement.dataset.serviceFee)
 };
 
 // ===== 步驟控制 =====
@@ -722,6 +781,9 @@ function validateCurrentStep() {
 
 // ===== 艙等選擇 =====
 document.addEventListener('DOMContentLoaded', function() {
+  // 初始化艙等價格顯示
+  initializeCabinPrices();
+  
   // 艙等卡片點擊
   document.querySelectorAll('.cabin-card').forEach(card => {
     card.addEventListener('click', function() {
@@ -988,7 +1050,7 @@ function generatePriceBreakdown() {
 }
 
 // ===== 確認訂票 =====
-function confirmBooking() {
+async function confirmBooking() {
   // 驗證信用卡資訊
   const cardNumber = document.getElementById('card-number').value;
   const cardExpiry = document.getElementById('card-expiry').value;
@@ -1015,129 +1077,227 @@ function confirmBooking() {
     }
   }
   
-  // 直接使用中國信託支付
-  processCTBCPayment(passengers, {
-    cardNumber: cardNumber,
-    cardExpiry: cardExpiry,
-    cardCvv: cardCvv,
-    cardHolder: cardHolder
-  });
-}
-
-// ===== 中國信託支付處理 =====
-function processCTBCPayment(passengers, cardInfo) {
   // 計算總金額
   const ticketCount = selectedSeats.length;
   const baseFare = selectedCabinPrice * ticketCount;
-  const airportTax = fees.airportTax * ticketCount;
-  const fuelSurcharge = fees.fuelSurcharge * ticketCount;
-  const serviceFee = fees.serviceFee * ticketCount;
-  const totalAmount = baseFare + airportTax + fuelSurcharge + serviceFee;
+  const totalAmount = baseFare + (fees.airportTax * ticketCount) + 
+                      (fees.fuelSurcharge * ticketCount) + (fees.serviceFee * ticketCount);
   
   // 生成訂單編號
-  const orderNo = 'ORDER_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9).toUpperCase();
+  const orderNo = 'ORD' + Date.now();
   
-  // 儲存訂單資料到 localStorage（模擬後端儲存）
-  const bookingData = {
-    orderNo: orderNo,
-    flight: flightData,
-    cabin: selectedCabin,
-    seats: selectedSeats,
-    passengers: passengers,
-    totalAmount: totalAmount,
-    cardInfo: {
-      cardNumber: cardInfo.cardNumber.replace(/\s/g, '').substr(-4), // 只儲存後4碼
-      cardHolder: cardInfo.cardHolder
-    },
-    status: 'pending',
-    createdAt: new Date().toISOString()
-  };
+  // 步驟 1: 開啟中國信託付款視窗（模擬刷卡）
+  const paymentResult = await openCTBCPaymentWindow(orderNo, totalAmount);
   
-  localStorage.setItem('pending_booking', JSON.stringify(bookingData));
-  
-  console.log('準備提交到中國信託：', bookingData);
-  
-  // 填入表單資料
-  document.getElementById('ctbc-order-no').value = orderNo;
-  document.getElementById('ctbc-amount').value = totalAmount;
-  
-  // 顯示載入中
-  if (typeof showLoading === 'function') {
-    showLoading('處理中', '正在導向中國信託支付頁面...');
+  // 如果用戶取消付款，則停止流程
+  if (!paymentResult) {
+    return;
   }
   
-  // 延遲0.5秒後開啟支付視窗，讓用戶看到載入訊息
-  setTimeout(function() {
+  // 步驟 2: 付款視窗關閉後，顯示載入中
+  if (typeof showLoading === 'function') {
+    showLoading('處理中', '正在處理您的訂票...');
+  }
+  
+  try {
+    // 步驟 3: 呼叫後端 API 建立訂票
+    const response = await fetch('/api/ticket/insert', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        Flight_Id: flightData.flightId,
+        Cabin: selectedCabin,
+        Price: totalAmount
+      })
+    });
+    
+    // 檢查回應狀態
+    if (!response.ok) {
+      if (typeof closeLoading === 'function') {
+        closeLoading();
+      }
+      
+      // 檢查是否為未登入（被重定向到登入頁）
+      if (response.status === 401 || response.redirected) {
+        if (typeof showToast === 'function') {
+          showToast('請先登入', '您需要登入才能訂票', 'warning');
+        } else {
+          alert('⚠️ 請先登入才能訂票');
+        }
+        setTimeout(() => {
+          window.location.href = '/';
+        }, 1500);
+        return;
+      }
+      
+      // 其他 HTTP 錯誤
+      let errorMessage = '系統錯誤，請稍後再試';
+      try {
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json();
+          errorMessage = errorData.message || errorMessage;
+        }
+      } catch (e) {
+        console.error('解析錯誤訊息失敗:', e);
+      }
+      
+      if (typeof showToast === 'function') {
+        showToast('訂票失敗', errorMessage, 'error');
+      } else {
+        alert('❌ 訂票失敗：' + errorMessage);
+      }
+      return;
+    }
+    
+    // 解析 JSON 回應
+    let result;
+    try {
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('伺服器回應格式錯誤');
+      }
+      result = await response.json();
+    } catch (parseError) {
+      if (typeof closeLoading === 'function') {
+        closeLoading();
+      }
+      console.error('JSON 解析錯誤:', parseError);
+      if (typeof showToast === 'function') {
+        showToast('訂票失敗', '系統回應格式錯誤，請稍後再試', 'error');
+      } else {
+        alert('❌ 訂票失敗：系統回應格式錯誤');
+      }
+      return;
+    }
+    
+    if (result.success) {
+      // 訂票成功
+      if (typeof closeLoading === 'function') {
+        closeLoading();
+      }
+      
+      // 獲取行李額度資訊
+      const cabinInfo = cabinData[selectedCabin];
+      
+      // 顯示成功訊息
+      const message = `訂單編號：${result.Ticket_Id}\n` +
+                     `總金額：NT$ ${totalAmount.toLocaleString()}\n` +
+                     `艙等：${cabinInfo.name}\n` +
+                     `座位數量：${selectedSeats.length} 個座位\n` +
+                     `座位：${selectedSeats.join(', ')}\n` +
+                     `託運行李：${cabinInfo.checked_baggage}kg | 手提行李：${cabinInfo.cabin_baggage}kg`;
+      
+      if (typeof showToast === 'function') {
+        showToast('訂票成功！', message, 'success');
+      } else {
+        alert('✅ 訂票成功！\n\n' + message);
+      }
+      
+      // 2 秒後導向我的訂票頁面
+      setTimeout(() => {
+        window.location.href = '/ticket';
+      }, 2000);
+      
+    } else {
+      // 訂票失敗
+      if (typeof closeLoading === 'function') {
+        closeLoading();
+      }
+      
+      if (typeof showToast === 'function') {
+        showToast('訂票失敗', result.message || '系統錯誤', 'error');
+      } else {
+        alert('❌ 訂票失敗：' + (result.message || '系統錯誤'));
+      }
+    }
+    
+  } catch (error) {
     if (typeof closeLoading === 'function') {
       closeLoading();
     }
     
-    // 開啟支付視窗（新視窗）
-    const paymentWindow = window.open('', 'ctbc_payment', 'width=800,height=600,scrollbars=yes,location=yes');
+    console.error('訂票錯誤:', error);
+    
+    if (typeof showToast === 'function') {
+      showToast('訂票失敗', '網路錯誤，請稍後再試', 'error');
+    } else {
+      alert('❌ 訂票失敗：網路錯誤，請稍後再試');
+    }
+  }
+}
+
+// ===== 開啟中國信託付款視窗 =====
+async function openCTBCPaymentWindow(orderNo, totalAmount) {
+  return new Promise((resolve) => {
+    // 填入表單資料
+    document.getElementById('ctbc-order-no').value = orderNo;
+    document.getElementById('ctbc-amount').value = totalAmount;
+    
+    // 開啟支付視窗
+    const paymentWindow = window.open(
+      '', 
+      'ctbc_payment', 
+      'width=800,height=600,scrollbars=yes,location=yes,resizable=yes'
+    );
+    
+    if (!paymentWindow) {
+      alert('⚠️ 請允許彈出視窗以完成付款');
+      resolve(false);
+      return;
+    }
     
     // 提交表單到新視窗
     const form = document.getElementById('ctbc-form');
     form.target = 'ctbc_payment';
     form.submit();
     
-    // 顯示等待訊息
-    if (typeof showLoading === 'function') {
-      showLoading('等待支付', '請在新視窗完成支付...');
+    // 顯示提示訊息
+    if (typeof showToast === 'function') {
+      showToast('請完成付款', '請在彈出的視窗中完成信用卡付款，完成後請關閉該視窗', 'info');
+    } else {
+      alert('ℹ️ 請在彈出的視窗中完成信用卡付款\n完成後請關閉該視窗繼續訂票流程');
     }
     
-    // 設置定時器檢查視窗是否關閉
-    const checkInterval = setInterval(function() {
+    // 監聽視窗關閉事件
+    const checkWindowClosed = setInterval(() => {
       if (paymentWindow.closed) {
-        clearInterval(checkInterval);
+        clearInterval(checkWindowClosed);
         
-        // 視窗關閉後，等待3秒自動視為支付成功
-        if (typeof showLoading === 'function') {
-          showLoading('處理中', '正在確認支付結果...');
-        }
-        
-        setTimeout(function() {
-          completeCTBCPayment(orderNo, bookingData);
-        }, 3000);
+        // 視窗關閉後，假設付款成功，繼續訂票流程
+        console.log('付款視窗已關閉，繼續訂票流程');
+        resolve(true);
       }
     }, 500);
-  }, 500);
+    
+    // 設置超時（5分鐘）
+    setTimeout(() => {
+      if (!paymentWindow.closed) {
+        clearInterval(checkWindowClosed);
+        paymentWindow.close();
+        alert('⏱️ 付款逾時，請重新訂票');
+        resolve(false);
+      }
+    }, 300000); // 5分鐘
+  });
 }
 
-// ===== 完成中國信託支付 =====
-function completeCTBCPayment(orderNo, bookingData) {
-  // 更新訂單狀態
-  bookingData.status = 'paid';
-  bookingData.paidAt = new Date().toISOString();
-  bookingData.paymentMethod = 'CTBC Bank Test';
+// ===== 中國信託支付處理（保留供日後整合）=====
+// 如果需要整合第三方支付，可以在訂票成功後調用此函數
+function processCTBCPayment(orderNo, totalAmount) {
+  // 填入表單資料
+  document.getElementById('ctbc-order-no').value = orderNo;
+  document.getElementById('ctbc-amount').value = totalAmount;
   
-  // 儲存到 localStorage（實際應該發送到後端）
-  localStorage.setItem('booking_' + orderNo, JSON.stringify(bookingData));
-  localStorage.removeItem('pending_booking');
+  // 開啟支付視窗
+  const paymentWindow = window.open('', 'ctbc_payment', 'width=800,height=600,scrollbars=yes,location=yes');
   
-  console.log('支付成功，訂單資料：', bookingData);
-  
-  if (typeof showLoading === 'function') {
-    showLoading('處理中', '正在確認您的訂票...');
-  }
-  
-  setTimeout(function() {
-    if (typeof closeLoading === 'function') {
-      closeLoading();
-    }
-    
-    if (typeof showToast === 'function') {
-      showToast('支付成功！', `訂單編號：${orderNo}\n您的航班票券已成功訂購`, 'success');
-    } else {
-      alert(`支付成功！\n訂單編號：${orderNo}\n您的航班票券已成功訂購`);
-    }
-    
-    // 這裡之後應該發送到後端 API
-    // fetch('/api/booking/confirm', { ... })
-    
-    setTimeout(() => {
-      window.location.href = '/ticket';
-    }, 2000);
-  }, 1500);
+  // 提交表單到新視窗
+  const form = document.getElementById('ctbc-form');
+  form.target = 'ctbc_payment';
+  form.submit();
 }
 
 
