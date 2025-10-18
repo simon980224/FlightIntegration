@@ -19,9 +19,9 @@ with open(config_path, 'r', encoding='utf-8') as f:
 line_channel_access_token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN') or config['line_bot']['channel_access_token']
 line_channel_secret = os.getenv('LINE_CHANNEL_SECRET') or config['line_bot']['channel_secret']
 
-# LINE Login (OAuth) 設定 - 寫死配置
-line_login_channel_id = os.getenv('LINE_LOGIN_CHANNEL_ID') or "2008107355"
-line_login_channel_secret = os.getenv('LINE_LOGIN_CHANNEL_SECRET') or "77f05aab5ebea119e903ef256d3cccd0"
+# LINE Login (OAuth) 設定，優先讀環境變數，其次讀 prodConfig.json 的 line_login 區塊
+line_login_channel_id = os.getenv('LINE_LOGIN_CHANNEL_ID') or config.get('line_login', {}).get('channel_id')
+line_login_channel_secret = os.getenv('LINE_LOGIN_CHANNEL_SECRET') or config.get('line_login', {}).get('channel_secret')
 
 line_bot_api = LineBotApi(line_channel_access_token)
 handler = WebhookHandler(line_channel_secret)
