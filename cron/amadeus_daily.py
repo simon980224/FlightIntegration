@@ -32,6 +32,10 @@ AIRLINE_PREFIX = {
     "SL": "THAI_LION",
 }
 
+# 僅保留這四家航空公司的資料（CI=華航, BR=長榮, JX=星宇, IT=虎航）
+ALLOWED_CARRIERS = {"CI", "BR", "JX", "IT"}
+
+
 # =============================
 # 紀錄與日誌
 # =============================
@@ -281,6 +285,89 @@ def insert_flight(cursor, conn, flight_id: str, airline_id: str, d_airport: str,
     except Exception as e:
         log_info(f"❌ 寫入失敗 {flight_id}：{e}")
 
+
+# 票價與艙等寫入 Ticket 的輔助函式
+
+def parse_price_int(offer: Dict) -> int:
+    """
+    從 offer.price 取金額（優先 grandTotal），轉為 int（TWD）。
+    取得失敗時回傳 0。
+    """
+    try:
+        p = offer.get("price") or {}
+        gt = p.get("grandTotal") or p.get("total") or "0"
+        return int(round(float(gt)))
+    except Exception:
+        return 0
+
+
+def extract_cabin_and_bags(offer: Dict, segment: Dict):
+    """
+    從 travelerPricings.fareDetailsBySegment 比對 segmentId，取回：
+    - cabin（字串，如 ECONOMY）
+    - checked_bags（件數，如 quantity；若僅有重量，粗略視為 1 件）
+    - cabin_bags（手提件數，若有）
+    若找不到則回傳 ("ECONOMY", None, None)。
+    """
+    seg_id = segment.get("id")
+    cabin = None
+    checked = None
+    cabin_bag = None
+    try:
+        for tp in (offer.get("travelerPricings") or []):
+            for fd in (tp.get("fareDetailsBySegment") or []):
+                if seg_id and str(fd.get("segmentId")) != str(seg_id):
+                    continue
+                cabin = fd.get("cabin") or cabin
+                inc = fd.get("includedCheckedBags") or {}
+                if isinstance(inc, dict):
+                    if "quantity" in inc:
+                        checked = inc.get("quantity")
+                    elif "weight" in inc:
+                        checked = 1  # 僅有重量資訊時粗略視為 1 件
+                hand = fd.get("handBaggage") or fd.get("cabinBaggage")
+                if isinstance(hand, dict):
+                    cabin_bag = hand.get("quantity") or cabin_bag
+                if seg_id:
+                    break
+            if seg_id:
+                break
+    except Exception:
+        pass
+    if not cabin:
+        cabin = "ECONOMY"
+    return cabin[:10], checked, cabin_bag
+
+
+def make_ticket_id(offer_id: str, segment_id: str, flight_id: str, cabin: str) -> str:
+    """
+    統一 Ticket_Id 規則：TKT_{Flight_Id}{Cabin}{YYYYMMDD}
+    - 不再依賴 offer/segment 的臨時索引，避免出現 TKT_4_12 等格式
+    - 保留歷史：每天排程（YYYYMMDD）不同即產生不同 Ticket_Id
+    - 長度截斷至 50 以符合目前欄位限制
+    """
+    date_str = date.today().strftime("%Y%m%d")
+    cab = (cabin or "").upper()[:10]
+    base = f"TKT_{flight_id}{cab}{date_str}"
+    return base[:50]
+
+
+def insert_ticket(cursor, conn, ticket_id: str, flight_id: str, price: int, cabin: str, checked_bags, cabin_bags):
+    try:
+        cursor.execute(
+            """
+            INSERT INTO Ticket (Ticket_Id, Flight_Id, Price, Cabin, Checked_Baggage, Cabin_Baggage)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            """,
+            (ticket_id, flight_id, price, cabin, checked_bags, cabin_bags)
+        )
+        conn.commit()
+        log_info(f"插入Ticket：{ticket_id}（{flight_id}，{cabin}，{price}）")
+    except pymssql.IntegrityError:
+        log_info(f"略過（Ticket 已存在）：{ticket_id}")
+    except Exception as e:
+        log_info(f"❌ 寫入 Ticket 失敗 {ticket_id}：{e}")
+
 # =============================
 # 主流程
 # =============================
@@ -396,6 +483,9 @@ def main():
                         number = seg.get("number")
                         if not (op_carrier and number):
                             continue
+                        # 僅保留指定航空公司
+                        if op_carrier not in ALLOWED_CARRIERS:
+                            continue
 
                         # 本次排程執行內去重用的鍵（避免重複寫入）
                         seg_key = f"{op_carrier}{number}|{dep_at_iso}|{dep_code}|{arr_code}"
@@ -411,6 +501,14 @@ def main():
                         a_time = to_datetime_min(arr_at_iso)
 
                         insert_flight(cursor, conn, flight_id, op_carrier, dep_code, arr_code, d_time, a_time, no)
+                        # 票價與艙等寫入 Ticket（同一 offer 之對應 segment）
+                        try:
+                            price_int = parse_price_int(offer)
+                            cabin, checked_bags, cabin_bags = extract_cabin_and_bags(offer, seg)
+                            ticket_id = make_ticket_id(offer.get("id"), seg.get("id"), flight_id, cabin)
+                            insert_ticket(cursor, conn, ticket_id, flight_id, price_int, cabin, checked_bags, cabin_bags)
+                        except Exception as e:
+                            log_info(f"⚠️ Ticket 寫入略過（{flight_id}）：{e}")
 
             # 兩次呼叫之間稍作等待，避免過度頻繁請求
             time.sleep(0.2)
