@@ -40,9 +40,9 @@ TAIWAN_AIRPORT_ALIASES = {
     '清泉崗': 'RMQ',  # 清泉崗 → 清泉崗機場
 }
 
-# 網頁連結常量 - 從配置文件讀取
+# 網頁連結常量 - 寫死配置
 config = load_config()
-WEBSITE_URL = config.get('website', {}).get('url', '請在 prodConfig.json 中設定 ngrok 網址')
+WEBSITE_URL = config.get('website', {}).get('url', 'https://anachronously-subumbonal-madie.ngrok-free.dev')
 
 # 寫入 MSSQL dbo.API_Log
 # 連線參數（由使用者提供）
