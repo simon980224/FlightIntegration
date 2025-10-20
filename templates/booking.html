@@ -1056,62 +1056,61 @@ async function confirmBooking() {
   const cardExpiry = document.getElementById('card-expiry').value;
   const cardCvv = document.getElementById('card-cvv').value;
   const cardHolder = document.getElementById('card-holder').value;
-  
+
   if (!cardNumber || !cardExpiry || !cardCvv || !cardHolder) {
     alert('請填寫完整的信用卡資訊');
     return;
   }
-  
-  // 收集乘客資料
+
+  // 收集乘客資料（這段保留）
   const passengers = selectedSeats.map((seat, i) => ({
     name: document.getElementById(`passenger-name-${i}`)?.value || '',
     phone: document.getElementById(`passenger-phone-${i}`)?.value || '',
-    seat: seat
+    seat
   }));
-  
-  // 驗證乘客資料
+
+  // ✅ 驗證乘客資料（這段放在這裡沒錯）
   for (let i = 0; i < passengers.length; i++) {
     if (!passengers[i].name || !passengers[i].phone) {
       alert(`請填寫完整的乘客 ${i + 1} 資訊`);
       return;
     }
   }
-  
-  // 計算總金額
+
+  // ✅ 從乘客陣列裡取第一位當持票人（這是我們剛加的修正）
+  const holderName = passengers.length > 0 ? passengers[0].name : '';
+  const holderMobile = passengers.length > 0 ? passengers[0].phone : '';
+
+  // === 下面照你原本的流程 ===
   const ticketCount = selectedSeats.length;
   const baseFare = selectedCabinPrice * ticketCount;
-  const totalAmount = baseFare + (fees.airportTax * ticketCount) + 
+  const totalAmount = baseFare + (fees.airportTax * ticketCount) +
                       (fees.fuelSurcharge * ticketCount) + (fees.serviceFee * ticketCount);
-  
-  // 生成訂單編號
+
   const orderNo = 'ORD' + Date.now();
-  
-  // 步驟 1: 開啟中國信託付款視窗（模擬刷卡）
+
   const paymentResult = await openCTBCPaymentWindow(orderNo, totalAmount);
-  
-  // 如果用戶取消付款，則停止流程
-  if (!paymentResult) {
-    return;
-  }
-  
-  // 步驟 2: 付款視窗關閉後，顯示載入中
+  if (!paymentResult) return;
+
   if (typeof showLoading === 'function') {
     showLoading('處理中', '正在處理您的訂票...');
   }
-  
+
   try {
-    // 步驟 3: 呼叫後端 API 建立訂票
     const response = await fetch('/api/ticket/insert', {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         Flight_Id: flightData.flightId,
         Cabin: selectedCabin,
-        Price: totalAmount
+        Price: totalAmount,
+        Holder_Name: holderName,
+        Holder_Mobile: holderMobile
       })
     });
+
+    // ... 後面的判斷照舊
+
     
     // 檢查回應狀態
     if (!response.ok) {

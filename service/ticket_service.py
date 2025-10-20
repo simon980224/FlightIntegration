@@ -2,6 +2,7 @@
 import pymssql
 from datetime import datetime, timedelta
 from flask import session
+import time
 
 # ===== 價格設定（可之後改成從 DB 或設定檔讀）=====
 FARE = 10000
@@ -99,48 +100,80 @@ def get_booking_imf(flight_id):
         finally:
             if conn: conn.close()
 
-def InsertTicket(flight_id, cabin, price):
-    """
-    新增一筆票券資料到 Ticket 資料表
-    """
+def InsertWallet(flight_id, cabin, price, holder_name, holder_mobile, user_id):
+    conn = None
     try:
-        conn = conn_args()
+        # 與你其他函式一致：用參數 dict 建連線
+        conn = pymssql.connect(**conn_args)
         cursor = conn.cursor()
 
-        # 行李重量規則
-        baggage_rules = {
-            "economy": {"Checked_Baggage": 20, "Cabin_Baggage": 7},
-            "business": {"Checked_Baggage": 40, "Cabin_Baggage": 7},
-            "first": {"Checked_Baggage": 60, "Cabin_Baggage": 10}
-        }
-        rule = baggage_rules.get(cabin, {"Checked_Baggage": None, "Cabin_Baggage": None})
+        # （除錯用）確認目前 DB
+        cursor.execute("SELECT DB_NAME()")
+        print("👉 DB =", cursor.fetchone()[0])
 
-        # 產生訂單編號（Ticket_Id）
-        ticket_id = f"ORDER_{int(datetime.now().timestamp())}"
+        ticket_id = f"ORDER_{int(time.time()*1000)}"
+        now = datetime.now()
+        status = '1'  # 依你定義，可改 'PAID'
 
-        # 寫入 Ticket
+        # 關鍵：不要再寫資料庫名，直接用 dbo.Wallet（因為連線已指定 database）
         cursor.execute("""
-            INSERT INTO Ticket (Ticket_Id, Flight_Id, Price, Cabin, Checked_Baggage, Cabin_Baggage)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (
-            ticket_id,
-            flight_id,
-            price,
-            cabin,
-            rule["Checked_Baggage"],
-            rule["Cabin_Baggage"]
-        ))
+            INSERT INTO [dbo].[Wallet]
+                (Ticket_Id, User_Id, Holder_Name, Holder_Mobile, Status, Create_At, Modify_At)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (ticket_id, user_id, holder_name, holder_mobile, status, now, now))
 
         conn.commit()
         return {"success": True, "Ticket_Id": ticket_id}
 
     except Exception as e:
-        print("❌ InsertTicket Error:", e)
+        if conn: conn.rollback()
+        print("❌ InsertWallet Error:", e)
         return {"success": False, "message": str(e)}
-
     finally:
-        if conn:
-            conn.close()
+        if conn: conn.close()
+
+# def InsertTicket(flight_id, cabin, price):
+#     """
+#     新增一筆票券資料到 Ticket 資料表
+#     """
+#     try:
+#         conn = conn_args()
+#         cursor = conn.cursor()
+
+#         # 行李重量規則
+#         baggage_rules = {
+#             "economy": {"Checked_Baggage": 20, "Cabin_Baggage": 7},
+#             "business": {"Checked_Baggage": 40, "Cabin_Baggage": 7},
+#             "first": {"Checked_Baggage": 60, "Cabin_Baggage": 10}
+#         }
+#         rule = baggage_rules.get(cabin, {"Checked_Baggage": None, "Cabin_Baggage": None})
+
+#         # 產生訂單編號（Ticket_Id）
+#         ticket_id = f"ORDER_{int(datetime.now().timestamp())}"
+
+#         # 寫入 Ticket
+#         cursor.execute("""
+#             INSERT INTO Ticket (Ticket_Id, Flight_Id, Price, Cabin, Checked_Baggage, Cabin_Baggage)
+#             VALUES (%s, %s, %s, %s, %s, %s)
+#         """, (
+#             ticket_id,
+#             flight_id,
+#             price,
+#             cabin,
+#             rule["Checked_Baggage"],
+#             rule["Cabin_Baggage"]
+#         ))
+
+#         conn.commit()
+#         return {"success": True, "Ticket_Id": ticket_id}
+
+#     except Exception as e:
+#         print("❌ InsertTicket Error:", e)
+#         return {"success": False, "message": str(e)}
+
+#     finally:
+#         if conn:
+#             conn.close()
 
 if __name__ == "__main__":
     # 僅供本檔單獨執行測試時參考；實際在 Flask route 中呼叫即可

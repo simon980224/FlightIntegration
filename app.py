@@ -415,13 +415,36 @@ def ticket():
 
 @app.route("/api/ticket/insert", methods=["POST"])
 def insert_ticket_api():
-    data = request.get_json()
+    # 登入檢查（假設 session 裡有 user_id）
+    user_id = session.get("user_id")
+    if not user_id:
+        return jsonify({"success": False, "message": "未登入"}), 401
+
+    data = request.get_json() or {}
+
+    # 仍接收原本前端帶來的欄位（流程需要），但插 Wallet 只會用到 Holder_* 與 user_id
     flight_id = data.get("Flight_Id")
     cabin = data.get("Cabin")
     price = data.get("Price")
 
-    result = ticket_service.InsertTicket(flight_id, cabin, price)
+    # 新增：持票人姓名 / 電話（從前端帶）
+    holder_name = data.get("Holder_Name", "").strip()
+    holder_mobile = data.get("Holder_Mobile", "").strip()
+
+    if not holder_name or not holder_mobile:
+        return jsonify({"success": False, "message": "持票人姓名與電話為必填"}), 400
+
+    # 改成插 Wallet
+    result = ticket_service.InsertWallet(
+        flight_id=flight_id,
+        cabin=cabin,
+        price=price,
+        holder_name=holder_name,
+        holder_mobile=holder_mobile,
+        user_id=user_id
+    )
     return jsonify(result)
+
 
 #########################快取管理###########################
 @app.route('/admin/cache/clear', methods=['POST'])
