@@ -39,34 +39,44 @@
                         <i class="fas fa-list me-2"></i>訂票記錄
                     </h4>
 
-                    {% if bookings and bookings|length > 0 %}
-                        {% for b in bookings %}
+                    {% if tickets and tickets|length > 0 %}
+                        {% for ticket in tickets %}
                         <div class="booking-item border-bottom pb-4 mb-4">
                             <div class="row align-items-center">
                                 <div class="col-lg-8">
                                     <div class="d-flex align-items-center mb-3">
-                                        <h5 class="mb-0 fw-bold">{{ b.no }} - {{ b.from }} → {{ b.to }}</h5>
+                                        <h5 class="mb-0 fw-bold">訂單 {{ ticket.Ticket_Id }}</h5>
+                                        {% if ticket.Status == '1' %}
                                         <span class="badge bg-success ms-3 fs-6">已確認</span>
+                                        {% elif ticket.Status == '0' %}
+                                        <span class="badge bg-warning ms-3 fs-6">待付款</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary ms-3 fs-6">狀態：{{ ticket.Status }}</span>
+                                        {% endif %}
                                     </div>
                                     <div class="row text-muted small">
-                                        <div class="col-md-4 mb-2 mb-md-0">
-                                            <i class="fas fa-calendar me-2"></i>{{ b.date }}
+                                        <div class="col-md-6 mb-2">
+                                            <i class="fas fa-calendar me-2"></i>訂購日期：{{ ticket.Create_At.strftime('%Y-%m-%d %H:%M') if ticket.Create_At else 'N/A' }}
                                         </div>
-                                        <div class="col-md-4 mb-2 mb-md-0">
-                                            <i class="fas fa-clock me-2"></i>{{ b.dep }} - {{ b.arr }}
+                                        <div class="col-md-6 mb-2">
+                                            <i class="fas fa-user me-2"></i>持票人：{{ ticket.Holder_Name }}
                                         </div>
-                                        <div class="col-md-4">
-                                            <i class="fas fa-user me-2"></i>{{ b.cabin }}
+                                        <div class="col-md-6 mb-2">
+                                            <i class="fas fa-phone me-2"></i>聯絡電話：{{ ticket.Holder_Mobile }}
+                                        </div>
+                                        <div class="col-md-6 mb-2">
+                                            <i class="fas fa-edit me-2"></i>最後更新：{{ ticket.Modify_At.strftime('%Y-%m-%d %H:%M') if ticket.Modify_At else 'N/A' }}
                                         </div>
                                     </div>
                                 </div>
                                 <div class="col-lg-4 text-lg-end mt-3 mt-lg-0">
-                                    <div class="mb-2">
-                                        <strong class="text-primary fs-5">NT$ {{ b.price }}</strong>
-                                    </div>
                                     <div class="btn-group">
-                                        <button class="btn btn-outline-primary"><i class="fas fa-eye me-1"></i>詳情</button>
-                                        <button class="btn btn-outline-success"><i class="fas fa-download me-1"></i>下載</button>
+                                        <button class="btn btn-outline-primary" onclick="viewTicketDetail('{{ ticket.Ticket_Id }}')">
+                                            <i class="fas fa-eye me-1"></i>詳情
+                                        </button>
+                                        <button class="btn btn-outline-success" onclick="downloadTicket('{{ ticket.Ticket_Id }}')">
+                                            <i class="fas fa-download me-1"></i>下載
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -93,4 +103,22 @@
         </div>
     </div>
 </div>
+
+<script>
+// 查看票券詳情
+function viewTicketDetail(ticketId) {
+    // TODO: 實作查看票券詳情的功能
+    alert('查看票券詳情：' + ticketId);
+    // 可以導向到票券詳情頁面或開啟 modal
+    // window.location.href = '/ticket/detail/' + ticketId;
+}
+
+// 下載票券
+function downloadTicket(ticketId) {
+    // TODO: 實作下載票券的功能
+    alert('下載票券：' + ticketId);
+    // 可以產生 PDF 或其他格式的票券
+    // window.location.href = '/ticket/download/' + ticketId;
+}
+</script>
 {% endblock %}
