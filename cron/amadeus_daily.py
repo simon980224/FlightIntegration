@@ -44,19 +44,16 @@ def _throttle():
         pass
 
 
-# Brand prefix mapping for Flight_Id
+# 僅保留這四家航空公司的資料（CI=華航, BR=長榮, JX=星宇, IT=虎航）
+ALLOWED_CARRIERS = {"CI", "BR", "JX", "IT"}
+
+# Brand prefix mapping for Flight_Id（僅保留需要的四家）
 AIRLINE_PREFIX = {
     "BR": "EVA",
     "CI": "CHINA_AIR",
     "JX": "STARLUX",
     "IT": "TIGERAIR",
-    "GK": "JETSTAR",
-    "TW": "TWAY",
-    "SL": "THAI_LION",
 }
-
-# 僅保留這四家航空公司的資料（CI=華航, BR=長榮, JX=星宇, IT=虎航）
-ALLOWED_CARRIERS = {"CI", "BR", "JX", "IT"}
 
 
 # =============================
