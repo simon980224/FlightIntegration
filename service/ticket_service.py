@@ -103,19 +103,25 @@ def get_booking_imf(flight_id):
 def InsertWallet(flight_id, cabin, price, holder_name, holder_mobile, user_id):
     conn = None
     try:
-        # 與你其他函式一致：用參數 dict 建連線
         conn = pymssql.connect(**conn_args)
         cursor = conn.cursor()
 
-        # （除錯用）確認目前 DB
+        # 除錯用：確認 DB
         cursor.execute("SELECT DB_NAME()")
         print("👉 DB =", cursor.fetchone()[0])
 
         ticket_id = f"ORDER_{int(time.time()*1000)}"
         now = datetime.now()
-        status = '1'  # 依你定義，可改 'PAID'
+        status = '1'  # 狀態: 1 = 已付款 (依你需求)
 
-        # 關鍵：不要再寫資料庫名，直接用 dbo.Wallet（因為連線已指定 database）
+        # ✅ 1️⃣ 先插入 Ticket 資料
+        cursor.execute("""
+            INSERT INTO [dbo].[Ticket]
+                (Ticket_Id, Flight_Id, Price, Cabin, Checked_Baggage, Cabin_Baggage)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (ticket_id, flight_id, price, cabin, 20, 7))  # 可改固定托運/手提行李值
+
+        # ✅ 2️⃣ 再插入 Wallet 資料
         cursor.execute("""
             INSERT INTO [dbo].[Wallet]
                 (Ticket_Id, User_Id, Holder_Name, Holder_Mobile, Status, Create_At, Modify_At)
@@ -123,14 +129,57 @@ def InsertWallet(flight_id, cabin, price, holder_name, holder_mobile, user_id):
         """, (ticket_id, user_id, holder_name, holder_mobile, status, now, now))
 
         conn.commit()
+        print(f"✅ 新增訂票成功：{ticket_id}")
         return {"success": True, "Ticket_Id": ticket_id}
 
     except Exception as e:
-        if conn: conn.rollback()
+        if conn:
+            conn.rollback()
         print("❌ InsertWallet Error:", e)
         return {"success": False, "message": str(e)}
+
     finally:
-        if conn: conn.close()
+        if conn:
+            conn.close()
+
+
+def getWallet(user_id):
+    conn = None
+    try:
+        conn = pymssql.connect(**conn_args)
+        cursor = conn.cursor(as_dict=True)
+
+        cursor.execute("""
+            SELECT
+                W.Ticket_Id,
+                W.User_Id,
+                W.Holder_Name,
+                W.Holder_Mobile,
+                W.Status,
+                W.Create_At,
+                W.Modify_At,
+                T.Flight_Id,
+                T.Price,
+                T.Cabin,
+                T.Checked_Baggage,
+                T.Cabin_Baggage
+            FROM Wallet AS W
+            JOIN Ticket AS T ON W.Ticket_Id = T.Ticket_Id
+            WHERE W.User_Id = %s
+            ORDER BY W.Create_At DESC
+        """, (user_id,))
+
+        data = cursor.fetchall()
+        return {"success": True, "data": data}
+
+    except Exception as e:
+        print("❌ getWallet Error:", e)
+        return {"success": False, "message": str(e)}
+
+    finally:
+        if conn:
+            conn.close()
+
 
 # def InsertTicket(flight_id, cabin, price):
 #     """

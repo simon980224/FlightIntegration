@@ -433,11 +433,6 @@ def handle_postback(event):
 
 
 #########################進度條###########################
-# 我的訂票頁面
-@app.route('/ticket', methods=['GET'])
-@login_required
-def bookings():
-    return render_template('ticket.html')
 
 # 處理訂票
 @app.route('/booking/<flight_id>', methods=['POST','GET'])
@@ -453,101 +448,120 @@ def process_booking(flight_id):
     # 將航班資訊傳到 booking.html
     return render_template('booking.html', flight=result["data"])
 
-
 @app.route('/ticket')
 @login_required
 def ticket():
     user_id = session.get('user_id')
+
     if not user_id:
         flash('請先登入', 'error')
         return redirect(url_for('login'))
 
-    # user_data_result = user_service.GetUserData(user_id)
-    user_data_result = {
-        "success": True,
-        "data": {
-            "username": "Admin",
-            "email": "12345@example.com",
-            "gender": "男性",
-            "birth_date": "1990-01-01",
-            "nationality": "中國",
-            "passport_number": "A123456789"
-        }
-    }
+    # 🔹 從 ticket_service 撈真實訂票紀錄
+    result = ticket_service.getWallet(user_id)
 
-    if user_data_result["success"]:
-        user = user_data_result["data"]
+    if not result.get("success"):
+        flash('無法獲取訂票資料', 'error')
+        tickets = []
     else:
-        flash('無法獲取使用者資料', 'error')
-        user = {} # or handle error appropriately
+        tickets = result["data"]
 
-    time = (datetime.strptime('2025-07-13 10:00', '%Y-%m-%d %H:%M') -
-            datetime.strptime('2025-07-13 08:00', '%Y-%m-%d %H:%M')).total_seconds() / 3600
-
-    flight_data_result = {
-        "success": True,
-        "data": {
-            "flight_id": "EVA_20250713_B7502_TSA_PVG",
-            "flight_no": "B7502",
-            "airline_id": "BR",
-            "airline_name": "長榮航空",
-            "d_airport_id": "TSA",
-            "d_airport_name": "桃園國際機場",
-            "a_airport_id": "PVG",
-            "a_airport_name": "上海浦東國際機場",
-            "d_time": "2025-07-13 08:00",
-            "a_time": "2025-07-13 10:00",
-            "flight_time": f"{time:.1f}"
-        }
-    }
-
-    if flight_data_result["success"]:
-        flight = flight_data_result["data"]
-    else:
-        flash('無法獲取航班資料', 'error')
-        flight = {} # or handle error appropriately
-
-    ticket_data_result = {
+    # ✅ 傳進模板：不再需要 user / flight / ticket 假資料
+    return render_template('ticket.html', tickets=tickets)
 
 
-        "success": True,
-        "data": {
-            "ticket_id": "EVA_20250713_B7502_TSA_PVG",
-            "seat_id": "A1",
-            "price": "13500",
-        }
-    }
+# @app.route('/ticket')
+# @login_required
+# def ticket():
+#     user_id = session.get('user_id')
+#     if not user_id:
+#         flash('請先登入', 'error')
+#         return redirect(url_for('login'))
 
-    if ticket_data_result["success"]:
-        ticket = ticket_data_result["data"]
-    else:
-        flash('無法獲取票券資料', 'error')
-        ticket = {} # or handle error appropriately
+#     # user_data_result = user_service.GetUserData(user_id)
+#     user_data_result = {
+#         "success": True,
+#         "data": {
+#             "username": "Admin",
+#             "email": "12345@example.com",
+#             "gender": "男性",
+#             "birth_date": "1990-01-01",
+#             "nationality": "中國",
+#             "passport_number": "A123456789"
+#         }
+#     }
 
-    return render_template('ticket.html', user=user, flight=flight, ticket=ticket)
+#     if user_data_result["success"]:
+#         user = user_data_result["data"]
+#     else:
+#         flash('無法獲取使用者資料', 'error')
+#         user = {} # or handle error appropriately
+
+#     time = (datetime.strptime('2025-07-13 10:00', '%Y-%m-%d %H:%M') -
+#             datetime.strptime('2025-07-13 08:00', '%Y-%m-%d %H:%M')).total_seconds() / 3600
+
+#     flight_data_result = {
+#         "success": True,
+#         "data": {
+#             "flight_id": "EVA_20250713_B7502_TSA_PVG",
+#             "flight_no": "B7502",
+#             "airline_id": "BR",
+#             "airline_name": "長榮航空",
+#             "d_airport_id": "TSA",
+#             "d_airport_name": "桃園國際機場",
+#             "a_airport_id": "PVG",
+#             "a_airport_name": "上海浦東國際機場",
+#             "d_time": "2025-07-13 08:00",
+#             "a_time": "2025-07-13 10:00",
+#             "flight_time": f"{time:.1f}"
+#         }
+#     }
+
+#     if flight_data_result["success"]:
+#         flight = flight_data_result["data"]
+#     else:
+#         flash('無法獲取航班資料', 'error')
+#         flight = {} # or handle error appropriately
+
+#     ticket_data_result = {
+
+
+#         "success": True,
+#         "data": {
+#             "ticket_id": "EVA_20250713_B7502_TSA_PVG",
+#             "seat_id": "A1",
+#             "price": "13500",
+#         }
+#     }
+
+#     if ticket_data_result["success"]:
+#         ticket = ticket_data_result["data"]
+#     else:
+#         flash('無法獲取票券資料', 'error')
+#         ticket = {} # or handle error appropriately
+
+#     return render_template('ticket.html', user=user, flight=flight, ticket=ticket)
 
 @app.route("/api/ticket/insert", methods=["POST"])
 def insert_ticket_api():
-    # 登入檢查（假設 session 裡有 user_id）
+    # 登入檢查
     user_id = session.get("user_id")
     if not user_id:
         return jsonify({"success": False, "message": "未登入"}), 401
 
+    # 接收前端 JSON
     data = request.get_json() or {}
-
-    # 仍接收原本前端帶來的欄位（流程需要），但插 Wallet 只會用到 Holder_* 與 user_id
     flight_id = data.get("Flight_Id")
     cabin = data.get("Cabin")
     price = data.get("Price")
-
-    # 新增：持票人姓名 / 電話（從前端帶）
     holder_name = data.get("Holder_Name", "").strip()
     holder_mobile = data.get("Holder_Mobile", "").strip()
 
+    # 必填檢查
     if not holder_name or not holder_mobile:
         return jsonify({"success": False, "message": "持票人姓名與電話為必填"}), 400
 
-    # 改成插 Wallet
+    # ✅ 呼叫 ticket_service 寫入 Ticket + Wallet 並撈航班資料
     result = ticket_service.InsertWallet(
         flight_id=flight_id,
         cabin=cabin,
@@ -556,6 +570,8 @@ def insert_ticket_api():
         holder_mobile=holder_mobile,
         user_id=user_id
     )
+
+    # 回傳結果
     return jsonify(result)
 
 
