@@ -1,7 +1,11 @@
 {
     "env": "prod",
     "line_bot": {
-        "channel_access_token": "EULrKL2QXy/RTean+mYzjiNJ1R12OfGfnK9jHFgG1LdiiIeLEx/BH4O/fSEDvIZKQ56bkqwMIHmBuNHeDiksc76TAKH3LgZ/ZkSUd7kZr4xwbdEkjwx2LPor9OQq4kK5xupDaTfWTHRRbEFu5eFvsgdB04t89/1O/w1cDnyilFU=",
-        "channel_secret": "9d3c8813d3c37a90a25b8e93453faa0e"
+        "channel_access_token": "Bd/pBoWfDzkFOVbfdql1YLRWKN0xJVCsRo/kG2SOVFRn6nDb/y2ul6LBnjSOAIWIZgc/PruzHmrOs76CSjoXQ00kICL85rRZJierMThBzSLyZVog8IfCKIdpjAUds7aRWEu/ZAjbG81Ouejpp1dKAQdB04t89/1O/w1cDnyilFU=",
+        "channel_secret": "f03b0bd56ec63b71bc6656fe45169968"
+    },
+    "line_login": {
+      "channel_id": "2008192764",
+      "channel_secret": "267971300bd6f16ced22cb0ce913dab6"
     }
 }
