@@ -2,18 +2,32 @@
 Amadeus API 補票價共用模組
 供四個航空爬蟲呼叫，針對單一航班補充票價到 Ticket 表
 """
-import os
-import json
 import time
 import requests
 from datetime import datetime
-from typing import Optional, Dict, List
+from typing import Optional
 import pymssql
 
 # =============================
 # 設定
 # =============================
-BASE_URL = "https://api.amadeus.com"
+# Amadeus API 金鑰配置
+# Test 環境（優先使用，有免費配額）
+TEST_API_KEY = "IwAslE0Nh2uYsBLkxNiRI1iHKxjnmVSA"
+TEST_API_SECRET = "wHH3pXiyBtfGMF27"
+TEST_BASE_URL = "https://test.api.amadeus.com"
+
+# Production 環境（Test 配額用完時自動切換）
+PROD_API_KEY = "60jRPEzjfzgAr9YlNFTE4FwANJjaqYnp"
+PROD_API_SECRET = "c1zwv9rgcbQlihGa"
+PROD_BASE_URL = "https://api.amadeus.com"
+
+# 當前使用的環境（初始為 Test）
+CURRENT_ENV = "TEST"  # "TEST" or "PROD"
+CURRENT_API_KEY = TEST_API_KEY
+CURRENT_API_SECRET = TEST_API_SECRET
+BASE_URL = TEST_BASE_URL
+
 TIMEOUT = 30
 API_MIN_INTERVAL = 0.1  # 100ms 節流
 _LAST_CALL_TS = 0.0
@@ -34,26 +48,53 @@ def _throttle():
         pass
 
 
+def switch_to_production():
+    """切換到 Production 環境（當 Test 配額用完時）"""
+    global CURRENT_ENV, CURRENT_API_KEY, CURRENT_API_SECRET, BASE_URL
+    if CURRENT_ENV == "TEST":
+        CURRENT_ENV = "PROD"
+        CURRENT_API_KEY = PROD_API_KEY
+        CURRENT_API_SECRET = PROD_API_SECRET
+        BASE_URL = PROD_BASE_URL
+        print(f"⚠️ Test 環境配額已用完，自動切換到 Production 環境")
+        return True
+    return False
+
+
+def is_quota_exceeded_429(response) -> bool:
+    """判斷是否為配額超限的 429 錯誤（code 38195）"""
+    try:
+        if response.status_code == 429:
+            data = response.json()
+            errors = data.get("errors", [])
+            for err in errors:
+                # Code 38195 = Quota limit exceeded
+                if err.get("code") == 38195:
+                    return True
+    except Exception:
+        pass
+    return False
+
+
 # =============================
 # Amadeus API 函數
 # =============================
-def load_amadeus_config() -> dict:
-    """載入 Amadeus API 設定"""
-    config_path = os.path.join(os.path.dirname(__file__), "..", "config", "prodConfig.json")
-    with open(config_path, "r", encoding="utf-8") as f:
-        cfg = json.load(f)
-    return cfg.get("amadeus", {})
 
 
-def get_access_token(api_key: str, api_secret: str) -> str:
-    """取得 Amadeus access token"""
+def get_access_token() -> str:
+    """
+    取得 Amadeus access token
+    使用當前環境的 API 金鑰（CURRENT_API_KEY, CURRENT_API_SECRET）
+    """
+    global CURRENT_API_KEY, CURRENT_API_SECRET, BASE_URL
+
     _throttle()
     url = f"{BASE_URL}/v1/security/oauth2/token"
     headers = {"Content-Type": "application/x-www-form-urlencoded"}
     data = {
         "grant_type": "client_credentials",
-        "client_id": api_key,
-        "client_secret": api_secret,
+        "client_id": CURRENT_API_KEY,
+        "client_secret": CURRENT_API_SECRET,
     }
     resp = requests.post(url, headers=headers, data=data, timeout=TIMEOUT)
     resp.raise_for_status()
@@ -68,7 +109,7 @@ def get_flight_offers(
     travel_class: str = "ECONOMY",
     max_offers: int = 5
 ) -> dict:
-    """查詢航班 offers"""
+    """查詢航班 offers，支援自動環境切換"""
     _throttle()
     url = f"{BASE_URL}/v2/shopping/flight-offers"
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -81,9 +122,32 @@ def get_flight_offers(
         "max": max_offers,
         "currencyCode": "TWD",
     }
-    resp = requests.get(url, headers=headers, params=params, timeout=TIMEOUT)
-    resp.raise_for_status()
-    return resp.json()
+
+    attempt = 0
+    while True:
+        resp = requests.get(url, headers=headers, params=params, timeout=TIMEOUT)
+
+        if resp.status_code == 429:
+            # 檢查是否為配額超限（code 38195）
+            if is_quota_exceeded_429(resp):
+                if switch_to_production():
+                    # 切換到 Production 後需要重新取得 token
+                    raise PermissionError("Switched to Production, need new token")
+            # 一般的 rate limit 429，重試
+            if attempt < 3:
+                retry_after = resp.headers.get("Retry-After")
+                try:
+                    ra = float(retry_after) if retry_after is not None else 0.0
+                except Exception:
+                    ra = 0.0
+                delay = max(ra, min(2 ** attempt, 8))
+                print(f"⏳ 429 on {origin}->{destination}, sleep {delay}s then retry ({attempt+1}/3)")
+                time.sleep(delay)
+                attempt += 1
+                continue
+
+        resp.raise_for_status()
+        return resp.json()
 
 
 # =============================
@@ -187,8 +251,7 @@ def supplement_price_for_flight(
         
         # 取得 access token
         if not access_token:
-            cfg = load_amadeus_config()
-            access_token = get_access_token(cfg["api_key"], cfg["api_secret"])
+            access_token = get_access_token()
         
         # 連線資料庫
         conn = connect_db()
@@ -207,6 +270,24 @@ def supplement_price_for_flight(
                     travel_class=travel_class,
                     max_offers=5
                 )
+            except PermissionError:
+                # 環境切換，重新取得 token 並重試
+                try:
+                    access_token = get_access_token()
+                    offers = get_flight_offers(
+                        access_token,
+                        dep_airport,
+                        arr_airport,
+                        dep_date,
+                        travel_class=travel_class,
+                        max_offers=5
+                    )
+                except Exception:
+                    continue
+            except Exception:
+                continue
+
+            try:
                 
                 data = offers.get("data", [])
                 
