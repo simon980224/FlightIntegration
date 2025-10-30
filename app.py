@@ -10,6 +10,10 @@ from linebot import LineBotApi, WebhookHandler
 from linebot.exceptions import InvalidSignatureError
 from linebot.models import MessageEvent, TextMessage, TextSendMessage, PostbackEvent
 
+from urllib.parse import urlencode
+import urllib.request
+import secrets
+
 # 載入設定檔
 config_path = os.path.join('config', 'prodConfig.json')
 with open(config_path, 'r', encoding='utf-8') as f:
@@ -47,7 +51,10 @@ def login_required(f):
 # 首頁
 @app.route('/')
 def index():
-    return render_template('index.html', title='首頁')
+    # 檢查是否需要自動彈出登入 Modal（從 LINE Login 流程過來）
+    show_login_modal = session.pop('show_login_modal', False)
+    open_modal = 'login' if show_login_modal else None
+    return render_template('index.html', title='首頁', open_modal=open_modal)
 
 
 
@@ -93,7 +100,7 @@ def flight_search():
 def generate_captcha():
     """生成帶有干擾線的圖片驗證碼 API"""
     result = user_service.GenerateCaptchaImage()
-    
+
     if result["success"]:
         # 將答案存儲在 session 中
         session['captcha_answer'] = result["captcha_text"]
@@ -125,16 +132,16 @@ def login():
 
     if not user_id or not password:
         return jsonify({'success': False, 'message': '請輸入使用者名稱和密碼'})
-    
+
     # 驗證 captcha
     correct_answer = session.get('captcha_answer')
     captcha_result = user_service.VerifyCaptcha(captcha_answer, correct_answer)
-    
+
     if not captcha_result["success"]:
         # 驗證失敗後清除舊的驗證碼
         session.pop('captcha_answer', None)
         return jsonify(captcha_result)
-    
+
     # 驗證成功後清除驗證碼
     session.pop('captcha_answer', None)
 
@@ -142,7 +149,7 @@ def login():
     print("🧪 AuthenticateUser 回傳：", user_data)
     if user_data["success"]:
         user_info = user_data["data"][0]
-        
+
         # 檢查帳號驗證狀態
         if user_info.get("Status") == '0':
             return jsonify({
@@ -150,9 +157,13 @@ def login():
                 'verification_required': True,
                 'user_email': user_info.get("User_Email", "")
             })
-        
+
         session['user_id'] = user_id
-        return jsonify({'success': True, 'message': '登入成功'})
+
+        # 轉發給 service 層處理登入後的 LINE 綁定
+        bind_result = linebot_service.handle_login_line_binding(user_id, session)
+
+        return jsonify({'success': True, 'message': bind_result.get('message', '登入成功')})
     else:
         return jsonify({'success': False, 'message': '使用者名稱或密碼錯誤'})
 
@@ -191,7 +202,7 @@ def verify_code():
     res = user_service.VerifyRegisterCode(user_id, verification_code)
     if res.get("success"):
         session['user_id'] = user_id  # 驗證成功自動登入
-    
+
     return jsonify(res)
 
 
@@ -281,21 +292,119 @@ def Api():
     # 取得 LINE 發送的 X-Line-Signature 標頭
     signature = request.headers.get('X-Line-Signature')
 
+    body = request.get_data(as_text=True) or ''
+    print(f"[LINE] /lineApi POST host={request.host} proto={request.headers.get('X-Forwarded-Proto')} sig={'Y' if signature else 'N'} len={len(body)} ua={request.headers.get('User-Agent')}", flush=True)
     try:
-        handler.handle(request.get_data(as_text=True), signature)
-    except InvalidSignatureError:
-        pass
+        handler.handle(body, signature)
+    except InvalidSignatureError as e:
+        print(f"[LINE] InvalidSignatureError: {e}", flush=True)
+        return 'Invalid signature', 400
 
+    print("[LINE] Webhook handled OK", flush=True)
     return 'OK'
+# ===== LINE Login：開始授權 =====
+@app.route('/lineApi/line-login/start')
+def line_login_start():
+    try:
+        if not line_login_channel_id or not line_login_channel_secret:
+            return 'LINE Login 未設定（請設環境變數 LINE_LOGIN_CHANNEL_ID/SECRET 或在 prodConfig.json 加 line_login）', 500
+        # 產生 state/nonce 並存 session 防 CSRF
+        state = secrets.token_urlsafe(16)
+        nonce = secrets.token_urlsafe(16)
+        session['line_login_state'] = state
+        session['line_login_nonce'] = nonce
+        # callback 動態取當前站台（考慮反向代理/ngrok 的 https）
+        scheme = request.headers.get('X-Forwarded-Proto', request.scheme)
+        if scheme != 'https' and ('ngrok' in request.host or 'ngrok-free' in request.host):
+            scheme = 'https'
+        callback = url_for('line_login_callback', _external=True, _scheme=scheme)
+        print(f"[LINE Login] host={request.host} proto={request.headers.get('X-Forwarded-Proto')} redirect_uri={callback}", flush=True)
+        params = {
+            'response_type': 'code',
+            'client_id': line_login_channel_id,
+            'redirect_uri': callback,
+            'scope': 'openid profile',
+            'state': state,
+            'nonce': nonce,
+        }
+        auth_url = 'https://access.line.me/oauth2/v2.1/authorize?' + urlencode(params)
+        return redirect(auth_url)
+    except Exception as e:
+        return f'LINE Login 啟動失敗：{e}', 500
+
+
+# ===== LINE Login：回調處理 =====
+@app.route('/lineApi/line-login/callback')
+def line_login_callback():
+    try:
+        if request.args.get('error'):
+            return f"授權失敗：{request.args.get('error_description', request.args.get('error'))}", 400
+        code = request.args.get('code')
+        state = request.args.get('state')
+        if not code or not state or state != session.get('line_login_state'):
+            return '不合法的授權回調（state 驗證失敗或缺參數）', 400
+        # 與授權時完全一致地組出 redirect_uri（處理 ngrok/代理 https）
+        scheme_cb = request.headers.get('X-Forwarded-Proto', request.scheme)
+        if scheme_cb != 'https' and ('ngrok' in request.host or 'ngrok-free' in request.host):
+            scheme_cb = 'https'
+        callback = url_for('line_login_callback', _external=True, _scheme=scheme_cb)
+        print(f"[LINE Login] (callback) using redirect_uri: {callback}", flush=True)
+        data = urlencode({
+            'grant_type': 'authorization_code',
+            'code': code,
+            'redirect_uri': callback,
+            'client_id': line_login_channel_id,
+            'client_secret': line_login_channel_secret,
+        }).encode('utf-8')
+        req = urllib.request.Request('https://api.line.me/oauth2/v2.1/token', data=data,
+                                     headers={'Content-Type': 'application/x-www-form-urlencoded'})
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            token_payload = json.loads(resp.read().decode('utf-8'))
+        access_token = token_payload.get('access_token')
+        if not access_token:
+            return f"換取 access_token 失敗：{token_payload}", 400
+        # 取使用者基本資料（含 userId）
+        prof_req = urllib.request.Request('https://api.line.me/v2/profile', headers={
+            'Authorization': f'Bearer {access_token}'
+        })
+        with urllib.request.urlopen(prof_req, timeout=20) as resp:
+            profile = json.loads(resp.read().decode('utf-8'))
+        line_user_id = profile.get('userId')
+        if not line_user_id:
+            return f"讀取使用者資料失敗：{profile}", 400
+
+        # 轉發給 service 層處理綁定邏輯
+        result = linebot_service.handle_line_login_callback(line_user_id, session)
+
+        if result['action'] == 'bind_success':
+            flash('LINE 帳號綁定成功！', 'success')
+            return redirect(url_for('ticket'))
+        elif result['action'] == 'bind_error':
+            flash(result.get('message', '綁定失敗'), 'error')
+            return redirect(url_for('index'))
+        elif result['action'] == 'need_login':
+            # 設定 flag 讓首頁自動彈出登入 Modal
+            session['show_login_modal'] = True
+            flash('請先登入網站帳號以完成 LINE 綁定', 'info')
+            return redirect(url_for('index'))
+        else:
+            return f"未知的處理結果：{result}", 500
+    except Exception as e:
+        return f'LINE Login 回調處理失敗：{e}', 500
+
 
 
 @handler.add(MessageEvent, message=TextMessage)
 def handle_message(event):
     try:
+        uid = getattr(event.source, 'user_id', None)
+        txt = getattr(getattr(event, 'message', None), 'text', None)
+        print(f"[LINE] MessageEvent uid={uid} text={txt}", flush=True)
         # 轉發給 service 層處理，取得回應物件
         reply = linebot_service.handle_text_message(event)
         if reply:
             line_bot_api.reply_message(event.reply_token, reply)
+            print("[LINE] reply_message sent", flush=True)
     except Exception as e:
         # 錯誤處理
         error_message = "❌ 處理訊息時發生錯誤，請稍後再試。\n\n輸入「幫助」查看使用說明。"
@@ -307,10 +416,14 @@ def handle_message(event):
 @handler.add(PostbackEvent)
 def handle_postback(event):
     try:
+        uid = getattr(event.source, 'user_id', None)
+        data = getattr(getattr(event, 'postback', None), 'data', None)
+        print(f"[LINE] PostbackEvent uid={uid} data={data}", flush=True)
         # 轉發給 service 層處理，取得回應物件
         reply = linebot_service.handle_postback_event(event)
         if reply:
             line_bot_api.reply_message(event.reply_token, reply)
+            print("[LINE] reply_message sent", flush=True)
     except Exception as e:
         line_bot_api.reply_message(
             event.reply_token,
@@ -469,4 +582,7 @@ def refresh_cache():
 
 
 if __name__ == '__main__':
+    # 預先載入機場快取（避免第一次查詢時阻塞）
+    linebot_service.preload_airport_cache()
+
     app.run(host='0.0.0.0', port=5001, debug=True)

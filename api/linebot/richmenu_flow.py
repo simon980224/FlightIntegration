@@ -17,22 +17,170 @@ from . import line_binding_repository, tips
 _STATE = {}
 _TTL_SECONDS = 600  # 10 分鐘
 
-# 常用出發地（台灣主要機場）
-DEPARTURE_OPTIONS = [
-    ("TPE", "桃園 (TPE)"),
-    ("TSA", "台北松山 (TSA)"),
-    ("KHH", "高雄 (KHH)"),
-    ("RMQ", "台中 (RMQ)")
+# 常用出發地（台灣主要機場）- 從統一配置載入
+from api.linebot.airports_config import TaiwanAirports, InternationalCities
+DEPARTURE_OPTIONS = TaiwanAirports.get_departure_options()
+# D 區塊：常見目的地選項（單一來源：wiki_attractions.ORDERED_SUPPORTED_CITIES）
+from api.linebot.wiki_attractions import ORDERED_SUPPORTED_CITIES
+TIP_DEST_OPTIONS = [(city, city) for city in ORDERED_SUPPORTED_CITIES]
+# 常見目的地（快速回應用，避免每步查 DB 造成延遲）
+POPULAR_DEST_OPTIONS = [
+    ("NRT", "東京成田 (NRT)"),
+    ("HND", "東京羽田 (HND)"),
+    ("KIX", "大阪關西 (KIX)"),
+    ("ICN", "首爾仁川 (ICN)"),
+    ("GMP", "首爾金浦 (GMP)"),
+    ("PUS", "釜山金海 (PUS)"),
+    ("BKK", "曼谷素萬那普 (BKK)"),
+    ("DMK", "曼谷廊曼 (DMK)"),
+    ("SIN", "新加坡樟宜 (SIN)"),
+    ("HKG", "香港 (HKG)"),
+    ("KUL", "吉隆坡 (KUL)"),
+    ("MFM", "澳門 (MFM)")
 ]
-# D 區塊：常見目的地選項（可擴充）
-TIP_DEST_OPTIONS = [
-    ("東京", "東京"),
-    ("大阪", "大阪"),
-    ("首爾", "首爾"),
-    ("曼谷", "曼谷"),
-    ("新加坡", "新加坡"),
-    ("香港", "香港"),
-]
+
+
+# ---------- 後送推播工具（回覆「查詢中」後再推送結果） ----------
+
+def _push_in_background(target, *args, **kwargs):
+    """以背景執行 target，不阻塞回覆。"""
+    import threading
+    t = threading.Thread(target=target, args=args, kwargs=kwargs, daemon=True)
+    t.start()
+    return t
+
+
+def _get_line_bot_api():
+    """取得 LineBotApi 實例（優先環境變數，其次 config）。"""
+    try:
+        from linebot import LineBotApi
+        import os
+        token = os.getenv('LINE_CHANNEL_ACCESS_TOKEN')
+        if not token:
+            # 從既有的 service 取設定（避免重複讀檔邏輯）
+            cfg = linebot_service.load_config() or {}
+            token = (cfg.get('line_bot') or {}).get('channel_access_token')
+        if not token:
+            return None
+        return LineBotApi(token)
+    except Exception:
+        return None
+
+
+def _push_flight_results(user_id: str, from_id: str, to_id: str, date_value: str):
+    """背景查詢航班並以 push_message 傳回 Flex 清單。"""
+    try:
+        api = _get_line_bot_api()
+        if api is None:
+            return
+        # 查詢航班（沿用快取）
+        res = linebot_service.get_cached_flight_data(
+            from_id=from_id,
+            to_id=to_id,
+            dep_time=date_value
+        )
+        from linebot.models import TextSendMessage
+        if not res.get('success'):
+            api.push_message(user_id, TextSendMessage(text=f"❌ 搜尋航班時發生錯誤：{res.get('error','未知錯誤')}"))
+            return
+        flights = res.get('data', [])
+        if not flights:
+            api.push_message(user_id, TextSendMessage(text="❌ 找不到符合條件的航班"))
+            return
+        date_display = linebot_service.format_date_display(date_value)
+        from_label = flights[0].get('From_Airport', from_id)
+        to_label = flights[0].get('To_Airport', to_id)
+        flex = _build_flight_list_flex(
+            flights=flights,
+            from_label=from_label,
+            to_label=to_label,
+            date_display=date_display,
+            offset=0,
+            page_size=5,
+        )
+        api.push_message(user_id, flex)
+
+        # 輕量連動：在航班結果後，附上一則 Quick Reply 引導至「活動＆小貼士」
+        try:
+            # 解析月份
+            try:
+                _m = int(str(date_value).split("-")[1]) if date_value else None
+            except Exception:
+                _m = None
+
+            # 取得目的地名稱（優先使用城市名稱）
+            from api.linebot.wiki_attractions import AIRPORT_TO_CITY_MAP
+
+            # 先嘗試從 AIRPORT_TO_CITY_MAP 轉換為城市名稱
+            city_name = AIRPORT_TO_CITY_MAP.get(to_id.upper())
+            if not city_name:
+                # 如果找不到，使用 _get_airport_name 函數
+                city_name = _get_airport_name(to_id) or to_id
+
+            dest_name = city_name
+            month_text = f"{_m}月" if _m else "當月"
+
+            # 構造 Quick Reply - 直接使用 confirm 步驟，避免重複詢問
+            from linebot.models import QuickReply, QuickReplyButton, PostbackAction
+
+            # 先設定狀態，讓用戶點擊後可以直接產生小貼士
+            # 使用城市名稱而不是機場代碼，確保 Wikipedia/Overpass API 可以查詢
+            _set_state(user_id, stage="tips_confirm", tips_dest=city_name, tips_month=_m)
+
+            items = [
+                QuickReplyButton(action=PostbackAction(
+                    label=f"✅ 查看 {dest_name} {month_text}",
+                    data=f"act=tips&step=confirm&val=yes"
+                )),
+                QuickReplyButton(action=PostbackAction(
+                    label="🔄 選擇其他目的地",
+                    data=f"act=tips&step=confirm&val=no"
+                )),
+                QuickReplyButton(action=PostbackAction(
+                    label="❌ 不要",
+                    data=f"act=tips&step=confirm&val=cancel"
+                ))
+            ]
+
+            text = f"您剛查詢了 {dest_name} 的航班，要查看 {dest_name} {month_text}的活動&小貼士嗎？"
+            api.push_message(
+                user_id,
+                TextSendMessage(text=text, quick_reply=QuickReply(items=items))
+            )
+        except Exception:
+            pass
+
+    except Exception as e:
+        # 背景錯誤不影響互動流程
+        print(f"[richmenu_flow] push flight results failed: {e}")
+
+
+def _push_tips_results(user_id: str, dest: str, month: int | None):
+    """背景產生小貼士並推送 Flex（失敗則降級為純文字）。"""
+    try:
+        api = _get_line_bot_api()
+        if api is None:
+            return
+        # 優先使用 Flex 版（含 Google 地圖 / Wikipedia 連結）
+        try:
+            from linebot.models import FlexSendMessage
+            payload = getattr(tips, 'build_tips_flex_payload', None)
+            if callable(payload):
+                alt_text, contents = payload(dest, month)
+                api.push_message(user_id, FlexSendMessage(alt_text=alt_text, contents=contents))
+                return
+        except Exception as e:
+            # 記錄 Flex 版本失敗的原因
+            print(f"[richmenu_flow] Flex tips failed for {dest} {month}: {e}")
+            import traceback
+            traceback.print_exc()
+        # 降級：純文字版
+        from linebot.models import TextSendMessage
+        txt = tips.render_tips_message(dest, month)
+        api.push_message(user_id, TextSendMessage(text=txt))
+    except Exception as e:
+        print(f"[richmenu_flow] push tips failed: {e}")
+
 
 
 # ---------- 工具方法 ----------
@@ -112,6 +260,22 @@ def handle_postback(event):
         # D 區塊：小貼士互動式流程
         if step in ("start", ""):
             return _tips_ask_destination(user_id)
+        if step == "confirm":
+            # 處理智能確認（使用航班查詢歷史）
+            if val == "yes":
+                st = _get_state(user_id)
+                dest = st.get("tips_dest")
+                month = st.get("tips_month")
+                if dest:
+                    _set_state(user_id, stage="tips_done")
+                    _push_in_background(_push_tips_results, user_id, dest, month)
+                    return TextSendMessage(text="🔎 產生小貼士中，請稍候...")
+            elif val == "cancel":
+                # 用戶選擇「不要」，取消查看小貼士
+                _set_state(user_id, stage="idle")
+                return TextSendMessage(text="已取消查看活動&小貼士。")
+            # val == "no" 或沒有 dest，重新選擇
+            return _tips_ask_destination_manual(user_id)
         if step == "dest":
             return _tips_on_destination_selected(user_id, val)
         if step == "date":
@@ -136,21 +300,145 @@ def handle_postback(event):
 
     # 其他未知 act
     return TextSendMessage(text="未識別的功能，請點選選單重新開始。")
+# ---------- 處理流程中的文字輸入 ----------
+
+def detect_tips_query(message_text: str):
+    """
+    偵測使用者是否想查詢小貼士/景點/天氣資訊
+
+    支援格式：
+    - 「東京天氣」、「Tokyo weather」
+    - 「巴黎景點」、「Paris attractions」
+    - 「DPS 小貼士」、「JFK tips」
+    - 「紐約」、「New York」（單純城市名稱）
+
+    Returns:
+        城市名稱（如果偵測到），否則 None
+    """
+    import re
+    from api.linebot.wiki_attractions import CITY_ALIASES
+
+    text = message_text.strip()
+
+    # 關鍵字列表
+    tips_keywords = ['天氣', '景點', '小貼士', '活動', 'weather', 'attractions', 'tips', 'things to do']
+
+    # 1. 檢查是否包含關鍵字
+    has_keyword = any(kw in text for kw in tips_keywords)
+
+    if has_keyword:
+        # 移除關鍵字，提取城市名稱
+        for kw in tips_keywords:
+            text = text.replace(kw, ' ')
+        text = text.strip()
+
+    # 2. 檢查是否為已知城市別名（機場代碼、中文城市名稱等）
+    if text.upper() in CITY_ALIASES:
+        return CITY_ALIASES[text.upper()]
+    elif text in CITY_ALIASES:
+        return CITY_ALIASES[text]
+
+    # 3. 如果包含關鍵字，嘗試使用剩餘文字作為城市名稱
+    if has_keyword and len(text) >= 2:
+        return text
+
+    # 4. 如果是單純的城市名稱（2-20 字元），且包含中文或英文字母
+    if 2 <= len(text) <= 20:
+        # 檢查是否包含中文或英文字母
+        if re.search(r'[\u4e00-\u9fff]', text) or re.search(r'[a-zA-Z]', text):
+            # 檢查是否為已知城市（在 CITY_ALIASES 的值中）
+            if text in CITY_ALIASES.values():
+                return text
+            # 或者直接返回，讓 get_city_coordinates 動態查詢
+            # 但為了避免誤判，這裡不返回
+
+    return None
+
+
+def handle_text_in_flow(user_id: str, message_text: str):
+    """處理用戶在互動流程中的文字輸入
+
+    檢查用戶當前的流程狀態，並根據狀態處理文字輸入。
+    如果用戶不在流程中，返回 None。
+    """
+    from linebot.models import TextSendMessage
+
+    # 忽略觸發關鍵字（這些是 Rich Menu 按鈕的文字，會同時觸發 Postback 和 Text 事件）
+    trigger_keywords = ['查詢航班', '航班', '查航班', '找航班', '搜尋航班',
+                       '小貼士', '活動', '活動&小貼士', 'tips',
+                       '查看訂票', '我的訂票', '訂票']
+    if message_text.strip() in trigger_keywords:
+        return None  # 忽略觸發關鍵字，由 Postback 事件處理
+
+    st = _get_state(user_id)
+    stage = st.get("stage")
+
+    if not stage or stage in ("idle", "done"):
+        return None  # 不在流程中
+
+    # 航班查詢流程
+    if stage == "from":
+        # 用戶應該輸入出發地
+        from_id = linebot_service.find_best_airport_match(message_text)
+        if from_id:
+            return _on_departure_selected(user_id, from_id)
+        else:
+            return TextSendMessage(text=f"❌ 找不到機場：{message_text}\n請重新輸入或選擇按鈕")
+
+    elif stage == "to":
+        # 用戶應該輸入目的地
+        to_id = linebot_service.find_best_airport_match(message_text)
+        if to_id:
+            return _on_destination_selected(user_id, to_id)
+        else:
+            return TextSendMessage(text=f"❌ 找不到機場：{message_text}\n請重新輸入或選擇按鈕")
+
+    elif stage == "date":
+        # 用戶應該輸入日期
+        date_value, _ = linebot_service.extract_date_from_message(message_text)
+        if date_value:
+            return _on_date_selected(user_id, date_value)
+        else:
+            return TextSendMessage(text=f"❌ 無法解析日期：{message_text}\n請重新輸入或選擇日期選擇器")
+
+    # 活動&小貼士流程
+    elif stage == "tips_dest":
+        # 用戶應該輸入目的地
+        return _tips_on_destination_selected(user_id, message_text)
+
+    elif stage == "tips_date":
+        # 用戶應該輸入日期/月份
+        date_value, _ = linebot_service.extract_date_from_message(message_text)
+        if date_value:
+            return _tips_on_date_selected(user_id, date_value)
+        else:
+            return TextSendMessage(text=f"❌ 無法解析日期：{message_text}\n請重新輸入或選擇日期選擇器")
+
+    return None  # 其他狀態不處理
+
+
 # ---------- 自然語句直查：輸入一句話也回 Flex 清單 ----------
 
 def flex_search_from_text(user_id: str, message_text: str):
     """
-    嘗試將使用者的自然語句解析為航班查詢，成功則：
-    - 設置使用者狀態（from/to/date），
-    - 回傳清單式 Flex（可分頁）。
-    若判斷不是航班查詢，回傳 None 讓上層沿用原邏輯。
+    嘗試將使用者的自然語句解析為航班查詢或小貼士查詢，成功則：
+    - 航班查詢：設置使用者狀態（from/to/date），回傳清單式 Flex（可分頁）
+    - 小貼士查詢：直接生成小貼士 Flex Message
+    若判斷不是航班查詢或小貼士查詢，回傳 None 讓上層沿用原邏輯。
     """
     try:
         original = (message_text or '').strip()
         if not original:
             return None
 
-        # 解析日期與地點
+        # 1. 優先檢查是否為小貼士查詢
+        city_name = detect_tips_query(original)
+        if city_name:
+            # 直接生成小貼士 Flex Message
+            _set_state(user_id, stage="done")
+            return _push_tips_results(user_id, city_name, month=None)
+
+        # 2. 解析日期與地點（航班查詢）
         date_value, message_wo_date = linebot_service.extract_date_from_message(original)
         locs = linebot_service.extract_locations_from_message(message_wo_date)
         if len(locs) < 2:
@@ -191,7 +479,14 @@ def flex_search_from_text(user_id: str, message_text: str):
 # ---------- 階段 1：選出發地 ----------
 
 def _ask_departure(user_id: str):
-    _set_state(user_id, stage="from", from_airport=None, to_airport=None, date=None)
+    """開始航班查詢流程：選擇出發地
+
+    修改：允許從任何狀態重新開始查詢（包括 tips_confirm 狀態）
+    因為用戶點擊「重新查詢」按鈕時，應該清除所有狀態並重新開始
+    """
+    # 清除所有狀態，重新開始查詢流程
+    _set_state(user_id, stage="from", from_airport=None, to_airport=None, date=None,
+               tips_dest=None, tips_month=None)
     items = [
         QuickReplyButton(action=PostbackAction(
             label=label, data=f"act=search&step=from&val={code}"))
@@ -214,45 +509,14 @@ def _on_departure_selected(user_id: str, from_code: str):
 # ---------- 階段 2：選目的地（僅顯示資料庫有路線者） ----------
 
 def _ask_destination(user_id: str, from_code: str):
-    # 讀取資料庫，過濾出此出發地有航班的目的地列表（僅未來/所有皆可，不含日期）
-    result = search_service.get_flight_data(from_id=from_code)
-    if not result.get("success"):
-        return TextSendMessage(text=f"❌ 取得目的地清單失敗：{result.get('error', '未知錯誤')}")
-
-    # 聚合目的地代碼與顯示名稱
-    destinations = []  # [(code, display_zh)]
-    seen = set()
-    for row in result.get("data", []):
-        code = row.get("To_Airport")  # 目前查詢回傳中文名，需轉代碼，改用機場表
-        # 嘗試用快取查找代碼
-        airport_lookup = linebot_service.get_airport_lookup() or {}
-        # 反查：中文 -> 代碼
-        airport_code = None
-        if row.get("To_Airport"):
-            zh = row["To_Airport"]
-            airport_code = airport_lookup.get(zh) or None
-        # 若無反查，從 Flight 不含代碼，退回以中文當 key，避免重覆
-        key = airport_code or row.get("To_Airport")
-        if key and key not in seen:
-            seen.add(key)
-            if not airport_code:
-                label = f"{row.get('To_Airport')}"
-            else:
-                label = f"{row.get('To_Airport')} ({airport_code})"
-            destinations.append((airport_code or key, label))
-
-    if not destinations:
-        return TextSendMessage(text="❌ 目前此出發地無可查詢的目的地")
-
-    # 限制 Quick Reply 最多 13 項（保守），若超過則取前 13
-    destinations = destinations[:13]
-
+    # 快速給出常見目的地，不查 DB，體感更流暢
+    destinations = POPULAR_DEST_OPTIONS[:13]
     items = [
         QuickReplyButton(action=PostbackAction(
             label=label, data=f"act=search&step=to&val={code}"))
         for code, label in destinations
     ]
-    text = "請選擇目的地，或直接輸入：例如『桃園 東京』或『TPE NRT』"
+    text = "請選擇熱門目的地，或直接輸入其他目的地：例如『桃園 峇里島』、『TPE DPS』、『胡志明市』"
     return TextSendMessage(text=text, quick_reply=QuickReply(items=items))
 
 
@@ -289,34 +553,9 @@ def _on_date_selected(user_id: str, date_value: str):
 
     _set_state(user_id, stage="done", date=date_value)
 
-    # 查詢航班資料（使用快取）
-    flights_result = linebot_service.get_cached_flight_data(
-        from_id=st["from_airport"],
-        to_id=st["to_airport"],
-        dep_time=date_value
-    )
-    if not flights_result.get("success"):
-        return TextSendMessage(text=f"❌ 搜尋航班時發生錯誤：{flights_result.get('error', '未知錯誤')}")
-
-    flights = flights_result.get("data", [])
-    if not flights:
-        from_name = st["from_airport"]
-        to_name = st["to_airport"]
-        return TextSendMessage(text=f"❌ 找不到 {from_name} 到 {to_name} 的航班")
-
-    date_display = linebot_service.format_date_display(date_value)
-    from_label = flights[0].get("From_Airport", st["from_airport"]) if flights else st["from_airport"]
-    to_label = flights[0].get("To_Airport", st["to_airport"]) if flights else st["to_airport"]
-
-    # 以 Flex 清單 + 分頁回覆（每頁 5 筆）
-    return _build_flight_list_flex(
-        flights=flights,
-        from_label=from_label,
-        to_label=to_label,
-        date_display=date_display,
-        offset=0,
-        page_size=5,
-    )
+    # 立即回覆「查詢中，請稍候...」，並在背景查詢完成後 push 結果
+    _push_in_background(_push_flight_results, user_id, st["from_airport"], st["to_airport"], date_value)
+    return TextSendMessage(text="🔎 查詢中，請稍候...")
 
 
 def _render_results_by_state(user_id: str, offset: int = 0):
@@ -354,110 +593,245 @@ def _render_results_by_state(user_id: str, offset: int = 0):
 
 
 def _build_flight_list_flex(*, flights, from_label: str, to_label: str, date_display: str, offset: int, page_size: int = 5):
-    """將航班結果渲染為一張 Flex Bubble：
-    - 標題：{from} → {to}（日期）
-    - 內容：每筆兩行（航班號·航空公司；時間區間）
-    - 分頁：上一頁/下一頁（Postback: act=search&step=results&offset=...）
+    """將航班結果渲染為 Carousel（輪播卡片）：
+    - 每張卡片顯示多個航班（page_size 個）
+    - 左右滑動查看不同頁
+    - 最後一張卡片提供「重新查詢」和「官網連結」按鈕
+    - Carousel 最多 10 張卡片
     """
+    from linebot.models import URIAction
+
+    # 取得網站 URL
+    website_url = None
+    try:
+        from service.linebot_service import WEBSITE_URL as _WEBSITE_URL
+        website_url = _WEBSITE_URL if _WEBSITE_URL and not _WEBSITE_URL.startswith('請在') else None
+    except Exception:
+        pass
+
     total = len(flights)
-    start = max(0, min(offset, total))
-    end = min(total, start + page_size)
+    # Carousel 最多 10 張卡片
+    max_cards = 10
 
-    contents = [
-        TextComponent(text=f"{from_label} → {to_label}（{date_display}）", weight="bold", size="md", wrap=True),
-        SeparatorComponent(margin="md"),
-    ]
+    # 計算需要多少張卡片
+    total_pages = (total + page_size - 1) // page_size  # 向上取整
+    total_pages = min(total_pages, max_cards)  # 最多 10 張
 
-    for f in flights[start:end]:
-        no = f.get('No', 'N/A')
-        airline = f.get('Airline_Name_ZH', '')
-        d = linebot_service.format_time_display(f.get('D_Time'), show_date=False)
-        a = linebot_service.format_time_display(f.get('A_Time'), show_date=False)
-        contents.append(TextComponent(text=f"{no} · {airline}", size="sm", weight="bold", wrap=True))
-        contents.append(TextComponent(text=f"{d} - {a}", size="sm", color="#666666"))
-        contents.append(SeparatorComponent(margin="sm"))
+    bubbles = []
 
-    # Footer buttons
-    footer_buttons = []
-    prev_off = max(0, start - page_size)
-    next_off = end
-    if start > 0:
-        footer_buttons.append(ButtonComponent(style="secondary", height="sm",
-            action=PostbackAction(label="上一頁", data=f"act=search&step=results&offset={prev_off}")))
-    if end < total:
-        footer_buttons.append(ButtonComponent(style="primary", height="sm",
-            action=PostbackAction(label="下一頁", data=f"act=search&step=results&offset={next_off}")))
-    footer_buttons.append(ButtonComponent(style="link", height="sm",
-        action=PostbackAction(label="重新查詢", data="act=search&step=start")))
+    # 為每一頁創建一張卡片
+    for page_idx in range(total_pages):
+        start_idx = page_idx * page_size
+        end_idx = min(start_idx + page_size, total)
+        page_flights = flights[start_idx:end_idx]
 
-    bubble = BubbleContainer(
-        body=BoxComponent(layout="vertical", spacing="sm", contents=contents),
-        footer=BoxComponent(layout="horizontal", spacing="sm", contents=footer_buttons)
+        # 卡片標題
+        title = TextComponent(
+            text=f"{from_label} → {to_label}（{date_display}）",
+            weight="bold",
+            size="md",
+            wrap=True
+        )
+
+        body_contents = [title, SeparatorComponent(margin="md")]
+
+        # 添加該頁的所有航班
+        for f in page_flights:
+            no = f.get('No', 'N/A')
+            airline = f.get('Airline_Name_ZH', '')
+            d_time = linebot_service.format_time_display(f.get('D_Time'), show_date=False)
+            a_time = linebot_service.format_time_display(f.get('A_Time'), show_date=False)
+
+            body_contents.append(TextComponent(
+                text=f"{no} · {airline}",
+                size="sm",
+                weight="bold",
+                wrap=True
+            ))
+            body_contents.append(TextComponent(
+                text=f"{d_time} - {a_time}",
+                size="sm",
+                color="#666666"
+            ))
+            body_contents.append(SeparatorComponent(margin="sm"))
+
+        # 判斷是否為最後一張卡片
+        is_last_card = (page_idx == total_pages - 1)
+
+        # Footer 按鈕
+        footer_buttons = []
+
+        if is_last_card:
+            # 最後一張卡片：顯示「重新查詢」和「官網連結」
+            footer_buttons.append(ButtonComponent(
+                style="link",
+                height="sm",
+                action=PostbackAction(label="🔄 重新查詢", data="act=search&step=start")
+            ))
+
+            if website_url:
+                footer_buttons.append(ButtonComponent(
+                    style="primary",
+                    height="sm",
+                    action=URIAction(label="🔗 官網查詢更多", uri=website_url)
+                ))
+
+        # 創建卡片
+        if footer_buttons:
+            bubble = BubbleContainer(
+                body=BoxComponent(layout="vertical", spacing="sm", contents=body_contents),
+                footer=BoxComponent(layout="vertical", spacing="sm", contents=footer_buttons)
+            )
+        else:
+            # 非最後一張卡片：沒有 footer
+            bubble = BubbleContainer(
+                body=BoxComponent(layout="vertical", spacing="sm", contents=body_contents)
+            )
+
+        bubbles.append(bubble)
+
+    # 創建 Carousel
+    carousel = CarouselContainer(contents=bubbles)
+    return FlexSendMessage(
+        alt_text=f"{from_label}→{to_label} 航班（{date_display}）共 {total} 個",
+        contents=carousel
     )
-    return FlexSendMessage(alt_text=f"{from_label}→{to_label} 航班（{date_display}）", contents=bubble)
-
-    flights_result = linebot_service.get_cached_flight_data(
-        from_id=st["from_airport"],
-        to_id=st["to_airport"],
-        dep_time=date_value
-    )
-
-    if not flights_result.get("success"):
-        return TextSendMessage(text=f"❌ 搜尋航班時發生錯誤：{flights_result.get('error', '未知錯誤')}")
-
-    flights = flights_result.get("data", [])
-    if not flights:
-        # 嘗試用中文名稱顯示
-        from_name = st["from_airport"]
-        to_name = st["to_airport"]
-        return TextSendMessage(text=f"❌ 找不到 {from_name} 到 {to_name} 的航班")
-
-    # 使用 linebot_service 既有格式
-    date_display = linebot_service.format_date_display(date_value)
-
-    # 反查中文名稱以符合現有輸出風格
-    from_label = st["from_airport"]
-    to_label = st["to_airport"]
-    if flights:
-        from_label = flights[0].get("From_Airport", from_label)
-        to_label = flights[0].get("To_Airport", to_label)
-
-    parts = [f"🔍 {from_label} → {to_label} 的航班資訊 ({date_display})：", ""]
-    for i, flight in enumerate(flights[:5]):
-        parts.append(linebot_service.format_flight_info(flight))
-        if i < min(5, len(flights)) - 1:
-            parts.append("\n" + "─" * 16 + "\n")
-
-    if len(flights) > 5:
-        website_url = None
-        try:
-            from service.linebot_service import WEBSITE_URL as _WEBSITE_URL  # 延後導入避免循環
-            website_url = _WEBSITE_URL
-        except Exception as _e:
-            website_url = None
-        parts.append(f"\n... 還有 {len(flights) - 5} 筆航班\n\n💻 想查詢更多航班請至網頁版")
-        if website_url and not website_url.startswith('請在'):
-            parts.append(f"\n🔗 {website_url}")
-
-    return TextSendMessage(text="\n".join(parts))
 
 # ---------- D 區塊：小貼士互動流程 ----------
 
 def _tips_ask_destination(user_id: str):
+    """活動&小貼士入口：智能檢測航班查詢歷史
+
+    修改：簡化防重複點擊邏輯，允許用戶隨時重新開始小貼士流程
+    """
+    # 檢查用戶是否有航班查詢記錄
+    st = _get_state(user_id)
+    to_airport = st.get("to_airport")
+    date_str = st.get("date")
+
+    # 如果有航班查詢記錄，直接使用目的地和日期
+    if to_airport and date_str:
+        try:
+            # 解析月份
+            month = int(date_str.split("-")[1]) if date_str else None
+
+            # 取得目的地名稱（優先使用城市名稱）
+            from api.linebot.wiki_attractions import AIRPORT_TO_CITY_MAP
+
+            # 先嘗試從 AIRPORT_TO_CITY_MAP 轉換為城市名稱
+            city_name = AIRPORT_TO_CITY_MAP.get(to_airport.upper())
+            if not city_name:
+                # 如果找不到，使用 _get_airport_name 函數
+                city_name = _get_airport_name(to_airport) or to_airport
+
+            dest_name = city_name
+            month_text = f"{month}月" if month else "當月"
+
+            # 直接詢問是否要查看該目的地的小貼士
+            # 使用城市名稱而不是機場代碼，確保 Wikipedia/Overpass API 可以查詢
+            _set_state(user_id, stage="tips_confirm", tips_dest=city_name, tips_month=month)
+            items = [
+                QuickReplyButton(action=PostbackAction(
+                    label=f"✅ 查看 {dest_name} {month_text}",
+                    data=f"act=tips&step=confirm&val=yes"
+                )),
+                QuickReplyButton(action=PostbackAction(
+                    label="🔄 選擇其他目的地",
+                    data=f"act=tips&step=confirm&val=no"
+                )),
+                QuickReplyButton(action=PostbackAction(
+                    label="❌ 不要",
+                    data=f"act=tips&step=confirm&val=cancel"
+                ))
+            ]
+            text = f"您剛查詢了 {dest_name} 的航班，要查看 {dest_name} {month_text}的活動&小貼士嗎？"
+            return TextSendMessage(text=text, quick_reply=QuickReply(items=items))
+        except Exception:
+            pass  # 解析失敗，走正常流程
+
+    # 沒有航班查詢記錄，正常選擇目的地
+    return _tips_ask_destination_manual(user_id)
+
+
+def _get_airport_name(airport_code: str) -> str:
+    """取得機場名稱（用於顯示）"""
+    # 從常見目的地選項中查找
+    for code, label in TIP_DEST_OPTIONS:
+        if code == airport_code:
+            return label
+    for code, label in POPULAR_DEST_OPTIONS:
+        if code == airport_code:
+            return label
+
+    # 如果找不到，嘗試從資料庫查詢機場名稱
+    try:
+        airports = linebot_service.get_cached_airports()
+        for airport in airports:
+            if airport.get('Airport_Id', '').upper() == airport_code.upper():
+                # 優先使用中文名稱，去掉「國際機場」等後綴
+                zh_name = airport.get('Airport_Name_ZH', '')
+                if zh_name:
+                    # 移除常見後綴
+                    for suffix in ['國際機場', '機場', '國際', ' International Airport', ' Airport']:
+                        zh_name = zh_name.replace(suffix, '')
+                    return zh_name.strip()
+                # 否則使用英文名稱
+                en_name = airport.get('Airport_Name', '')
+                if en_name:
+                    for suffix in [' International Airport', ' Airport', ' Intl']:
+                        en_name = en_name.replace(suffix, '')
+                    return en_name.strip()
+    except Exception:
+        pass
+
+    return airport_code
+
+
+def _tips_ask_destination_manual(user_id: str):
+    """手動選擇目的地（不檢查航班歷史）"""
     _set_state(user_id, stage="tips_dest", tips_dest=None, tips_month=None)
     items = [
         QuickReplyButton(action=PostbackAction(
             label=label, data=f"act=tips&step=dest&val={code}"))
         for code, label in TIP_DEST_OPTIONS
     ]
-    text = "請選擇目的地，或直接輸入：例如『東京 8月』或『小貼士 東京』"
+    text = "請選擇熱門目的地，或直接輸入其他目的地：例如『峇里島 8月』、『小貼士 胡志明市』、『清邁』"
     return TextSendMessage(text=text, quick_reply=QuickReply(items=items))
 
 
 def _tips_on_destination_selected(user_id: str, dest: str):
-
     if not dest:
         return _tips_ask_destination(user_id)
+
+    # 智能日期檢測：如果有航班查詢記錄，檢查是否為同一個目的地
+    st = _get_state(user_id)
+    to_airport = st.get("to_airport")
+    date_str = st.get("date")
+
+    # 如果有航班查詢記錄且目的地匹配，直接使用該月份
+    if to_airport and date_str:
+        try:
+            # 檢查目的地是否匹配（支援城市名稱或機場代碼）
+            dest_match = False
+            if to_airport == dest:  # 機場代碼完全匹配
+                dest_match = True
+            else:
+                # 檢查城市名稱是否匹配（例如「東京」匹配 NRT/HND）
+                dest_name = _get_airport_name(to_airport)
+                if dest in dest_name or dest_name in dest:
+                    dest_match = True
+
+            if dest_match:
+                # 解析月份並直接產生小貼士
+                month = int(date_str.split("-")[1]) if date_str else None
+                if month:
+                    _set_state(user_id, stage="tips_done", tips_dest=dest, tips_month=month)
+                    _push_in_background(_push_tips_results, user_id, dest, month)
+                    return TextSendMessage(text="🔎 產生小貼士中，請稍候...")
+        except Exception:
+            pass  # 解析失敗，走正常流程
+
+    # 沒有匹配的航班記錄，正常選擇日期
     _set_state(user_id, stage="tips_date", tips_dest=dest)
     return _tips_ask_date(user_id)
 
@@ -484,9 +858,11 @@ def _tips_on_date_selected(user_id: str, date_value: str):
         except Exception:
             month = None
 
-    text = tips.render_tips_message(dest, month)
     _set_state(user_id, stage="tips_done", tips_month=month)
-    return TextSendMessage(text=text)
+
+    # 立即回覆「產生中」，並於背景完成後推送結果
+    _push_in_background(_push_tips_results, user_id, dest, month)
+    return TextSendMessage(text="🔎 產生小貼士中，請稍候...")
 
 
 # ---------- C 區塊：查看訂票（Flex Carousel） ----------
@@ -513,18 +889,14 @@ def _orders_entry(line_user_id: str):
     ticket_url = f"{base_url}/ticket" if base_url else "/ticket"
 
     if not user_id:
-        return TextSendMessage(text=(
-            "尚未綁定網站帳號，請先在網站登入以完成綁定。\n"
-            f"查看訂票：{ticket_url}"
-        ))
+        bind_url = f"{base_url}/lineApi/line-login/start" if base_url else "/lineApi/line-login/start"
+        return _build_bind_prompt_flex(bind_url, ticket_url)
 
     # 3) 取得使用者訂票清單（TODO: 接資料庫；目前先回空）
     bookings = _fetch_user_bookings(user_id)
     if not bookings:
-        return TextSendMessage(text=(
-            "目前沒有訂票記錄。\n"
-            f"查看訂票：{ticket_url}"
-        ))
+        # 改為 Flex Message，提供更友善的介面
+        return _build_no_bookings_flex(ticket_url, base_url)
 
     return _build_bookings_flex(bookings, base_url, ticket_url)
 
@@ -619,3 +991,50 @@ def _build_bookings_flex(bookings, base_url: str | None = None, ticket_url: str 
 
     carousel = CarouselContainer(contents=bubbles)
     return FlexSendMessage(alt_text="我的訂票", contents=carousel)
+
+
+def _build_no_bookings_flex(ticket_url: str, base_url: str | None = None):
+    """已綁定但無訂票記錄時的 Flex Message"""
+    from linebot.models import FlexSendMessage, BubbleContainer, BoxComponent, TextComponent, ButtonComponent, URIAction
+
+    # 查詢航班 URL
+    flight_url = f"{base_url}/flight" if base_url else "/flight"
+
+    title = TextComponent(text="目前沒有訂票記錄", weight="bold", size="md", wrap=True)
+    hint = TextComponent(text="開始您的旅程，查詢並預訂航班！", size="sm", color="#666666", wrap=True)
+    body = BoxComponent(layout="vertical", spacing="sm", contents=[title, hint])
+
+    btn_search = ButtonComponent(style="primary", action=URIAction(label="🔍 查詢航班", uri=flight_url))
+    btn_ticket = ButtonComponent(style="link", action=URIAction(label="📋 我的訂票", uri=ticket_url))
+    footer = BoxComponent(layout="vertical", spacing="sm", contents=[btn_search, btn_ticket])
+
+    bubble = BubbleContainer(body=body, footer=footer)
+    return FlexSendMessage(alt_text="目前沒有訂票記錄", contents=bubble)
+
+
+def _build_bind_prompt_flex(bind_url: str, ticket_url: str):
+    """未綁定時的提示 Flex：提供「綁定 LINE」與「我的訂票」兩個按鈕
+
+    修改：「我的訂票」按鈕改為跳轉到首頁（會自動彈出登入 Modal）
+    """
+    from linebot.models import FlexSendMessage, BubbleContainer, BoxComponent, TextComponent, ButtonComponent, URIAction
+
+    # 取得網站基底 URL
+    base_url = None
+    try:
+        from service.linebot_service import WEBSITE_URL as _WEBSITE_URL
+        base_url = _WEBSITE_URL
+    except Exception:
+        base_url = None
+
+    # 首頁 URL（會自動彈出登入 Modal）
+    home_url = base_url if base_url else "/"
+
+    title = TextComponent(text="尚未綁定網站帳號", weight="bold", size="md", wrap=True)
+    hint = TextComponent(text="請先登入網站並點「綁定 LINE」以查看訂票", size="sm", color="#666666", wrap=True)
+    body = BoxComponent(layout="vertical", spacing="sm", contents=[title, hint])
+    btn_bind = ButtonComponent(style="primary", action=URIAction(label="綁定 LINE", uri=bind_url))
+    btn_ticket = ButtonComponent(style="link", action=URIAction(label="我的訂票", uri=home_url))
+    footer = BoxComponent(layout="vertical", spacing="sm", contents=[btn_bind, btn_ticket])
+    bubble = BubbleContainer(body=body, footer=footer)
+    return FlexSendMessage(alt_text="綁定 LINE 以查看訂票", contents=bubble)

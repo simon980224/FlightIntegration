@@ -7,7 +7,8 @@ api.linebot.tips_service
 - render_tips_message(destination, month): 依目的地與月份回傳真實天氣+景點資訊。
 
 整合：
-- OpenTripMap API：真實景點資料
+- Wikipedia API：真實景點資料
+- Overpass API (OpenStreetMap)：景點資料
 - Open-Meteo API：真實天氣預報
 """
 
@@ -16,6 +17,7 @@ import sys
 import os
 from datetime import datetime, timedelta
 from typing import Optional
+import requests
 
 # 添加專案根目錄到路徑，以便匯入 mvp 模組
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
@@ -27,7 +29,12 @@ import json as _json
 from urllib.parse import quote
 
 from typing import Dict, Any, Tuple
-import time as _time
+from api.linebot.cache_utils import cache_get, cache_set, cache_clear_expired
+from api.linebot.logger_config import get_logger, log_error
+from api.linebot import date_utils
+
+# 初始化統一 logger
+logger = get_logger(__name__)
 
 # 簡易月度快取（避免重複打 API）
 _ATTRACTIONS_MONTH_CACHE: Dict[str, Tuple[float, str]] = {}
@@ -36,20 +43,6 @@ _CACHE_TTL_SEC = 60 * 60 * 24  # 24 小時
 
 def _cache_key(dest: str, month: int | None) -> str:
     return f"{(dest or '').strip()}|{month or 0}"
-
-def _cache_get(cache: Dict[str, Tuple[float, Any]], key: str):
-    ent = cache.get(key)
-    if not ent:
-        return None
-    ts, data = ent
-    if _time.time() - ts > _CACHE_TTL_SEC:
-        cache.pop(key, None)
-        return None
-    return data
-
-def _cache_set(cache: Dict[str, Tuple[float, Any]], key: str, data: Any):
-    _AT = _time.time()
-    cache[key] = (_AT, data)
 
 # 快取清理工具（不對外暴露路由）
 def clear_tips_cache():
@@ -74,7 +67,7 @@ def _build_advice_lines(dest: str, month: int) -> list[str]:
     ]
     # 依緯度判斷南北半球
     try:
-        from api.linebot.opentripmap_service import get_city_coordinates
+        from api.linebot.wiki_attractions import get_city_coordinates
         coord = get_city_coordinates(dest)
         lat = (coord or {}).get("lat", 0)
     except Exception:
@@ -168,45 +161,31 @@ def parse_month_from_text(text: str) -> Optional[int]:
     return None
 
 
-# 城市座標對照（用於天氣查詢）
-_CITY_COORDINATES = {
-    "東京": {"lat": 35.6762, "lon": 139.6503},
-    "大阪": {"lat": 34.6937, "lon": 135.5023},
-    "京都": {"lat": 35.0116, "lon": 135.7681},
-    "首爾": {"lat": 37.5665, "lon": 126.9780},
-    "釜山": {"lat": 35.1796, "lon": 129.0756},
-    "曼谷": {"lat": 13.7563, "lon": 100.5018},
-    "清邁": {"lat": 18.7883, "lon": 98.9853},
-    "新加坡": {"lat": 1.3521, "lon": 103.8198},
-    "香港": {"lat": 22.3193, "lon": 114.1694},
-    "澳門": {"lat": 22.1987, "lon": 113.5439},
-    "吉隆坡": {"lat": 3.1390, "lon": 101.6869},
-    "胡志明市": {"lat": 10.8231, "lon": 106.6297},
-    "河內": {"lat": 21.0285, "lon": 105.8542},
-    "馬尼拉": {"lat": 14.5995, "lon": 120.9842},
-    "雅加達": {"lat": -6.2088, "lon": 106.8456},
-    # 歐美常用城市（與 Rich Menu 小貼士選單一致）
-    "巴黎": {"lat": 48.8566, "lon": 2.3522},
-    "倫敦": {"lat": 51.5074, "lon": -0.1278},
-    "紐約": {"lat": 40.7128, "lon": -74.0060},
-    "羅馬": {"lat": 41.9028, "lon": 12.4964},
-}
+# API 無回應時的離線保底熱門地點（僅作為最後退路；優先使用 Wikipedia/Overpass 資料）
+_OFFLINE_FALLBACK_ATTRACTIONS = {}
+
 
 def get_real_weather(city_name: str, month: int) -> str:
     """取得真實天氣資訊"""
     try:
-        from mvp.weather.open_meteo_client import fetch_forecast
+        # 直接透過 Open-Meteo API，以 requests 取得資料（移除對 mvp 模組依賴）
 
-        coordinates = _CITY_COORDINATES.get(city_name)
+        from api.linebot.wiki_attractions import get_city_coordinates
+        coordinates = get_city_coordinates(city_name)
         if not coordinates:
             return f"{month}月氣候資訊待補"
 
         # 取得天氣預報（逐時資料）
-        weather_data = fetch_forecast(
-            lat=coordinates["lat"],
-            lon=coordinates["lon"],
-            hourly="temperature_2m,precipitation_probability,precipitation,uv_index,wind_speed_10m"
-        )
+        params = {
+            "latitude": coordinates["lat"],
+            "longitude": coordinates["lon"],
+            "hourly": "temperature_2m,precipitation_probability,precipitation,uv_index,wind_speed_10m",
+            "timezone": "auto",
+        }
+
+        r = requests.get("https://api.open-meteo.com/v1/forecast", params=params, timeout=10)
+        r.raise_for_status()
+        weather_data = r.json()
 
         if weather_data and "hourly" in weather_data:
             hourly = weather_data["hourly"]
@@ -253,27 +232,32 @@ def get_real_weather(city_name: str, month: int) -> str:
 
             main = "、".join(parts) if parts else "近期天氣資訊"
             tail = ("；" + "；".join(advice)) if advice else ""
-            return f"近期天氣：{main}{tail}"
+            result = f"近期天氣：{main}{tail}"
+            return result
 
         return f"{month}月氣候資訊待補"
 
+    except requests.exceptions.Timeout:
+        logging.error(f"[Weather] {city_name}: API 請求逾時")
+        return f"{month}月氣候資訊待補"
+    except requests.exceptions.RequestException as e:
+        logging.error(f"[Weather] {city_name}: API 請求失敗 - {e}")
+        return f"{month}月氣候資訊待補"
     except Exception as e:
-        print(f"[Weather] 取得天氣失敗: {e}")
+        logging.error(f"[Weather] {city_name}: 取得天氣失敗 - {e}")
         return f"{month}月氣候資訊待補"
 
 def get_real_attractions(city_name: str, month: Optional[int] = None) -> str:
-    """取得真實景點資訊（增強：含類別 emoji + 一句摘要），同目的地同月份使用快取。"""
+    """取得真實景點資訊（使用 Wikipedia/Overpass API），同目的地同月份使用快取。"""
     try:
         key = _cache_key(city_name, month)
-        cached = _cache_get(_ATTRACTIONS_MONTH_CACHE, key)
+        cached = cache_get(_ATTRACTIONS_MONTH_CACHE, key, _CACHE_TTL_SEC)
         if cached is not None:
             return cached
 
-        from api.linebot.opentripmap_service import (
-            get_enhanced_attractions, search_attractions, get_bilingual_name
-        )
+        from api.linebot.wiki_attractions import get_attractions_with_fallback
 
-        items = get_enhanced_attractions(city_name, limit=3)
+        items = get_attractions_with_fallback(city_name, limit=3)
         if items:
             parts = []
             for it in items:
@@ -286,19 +270,13 @@ def get_real_attractions(city_name: str, month: Optional[int] = None) -> str:
                 parts.append(piece)
             if parts:
                 out = "； ".join(parts)
-                _cache_set(_ATTRACTIONS_MONTH_CACHE, key, out)
+                cache_set(_ATTRACTIONS_MONTH_CACHE, key, out)
                 return out
-        # Fallback：退回到簡易清單（雙語名稱），避免顯示破折號
-        attractions = search_attractions(city_name, limit=5)
-        names = [get_bilingual_name(a.get("name", "")) for a in attractions[:5] if a.get("name")]
-        if names:
-            out = "、".join(names)
-            _cache_set(_ATTRACTIONS_MONTH_CACHE, key, out)
-            return out
-        _cache_set(_ATTRACTIONS_MONTH_CACHE, key, "—")  # 避免重複呼叫；短 TTL
+
+        cache_set(_ATTRACTIONS_MONTH_CACHE, key, "—")  # 避免重複呼叫；短 TTL
         return "—"
     except Exception as e:
-        print(f"[Attractions] 取得景點失敗: {e}")
+        logging.error(f"[Attractions] 取得景點失敗: {e}")
         return "—"
 
 
@@ -319,7 +297,8 @@ def render_tips_message(destination: str, month: Optional[int] = None) -> str:
     - month：1-12；None 則使用當月。
 
     整合真實 API：
-    - OpenTripMap：真實景點資料
+    - Wikipedia API：真實景點資料
+    - Overpass API (OpenStreetMap)：景點資料
     - Open-Meteo：真實天氣預報
     """
     dest = (destination or "").strip()
@@ -339,8 +318,12 @@ def render_tips_message(destination: str, month: Optional[int] = None) -> str:
     # 取得真實景點資訊（同目的地同月份使用快取）
     attractions_info = get_real_attractions(dest, m)
 
-    # 檢查是否有座標資料（支援的城市）
-    if dest in _CITY_COORDINATES:
+    # 檢查是否有有效的天氣和景點資訊（動態判斷是否支援）
+    has_weather = weather_info and weather_info != f"{m}月氣候資訊待補"
+    has_attractions = attractions_info and attractions_info != "—"
+
+    if has_weather or has_attractions:
+        # 有天氣或景點資訊，顯示完整版
         return (
             f"🎯 {dest} {m}月 旅遊小貼士\n\n"
             f"🌤️ 天氣預報：{weather_info}\n"
@@ -353,7 +336,7 @@ def render_tips_message(destination: str, month: Optional[int] = None) -> str:
             "• 📋 護照、簽證、保險單拍照備份至雲端"
         )
     else:
-        # 不支援的城市，回傳通用建議
+        # 無法取得天氣和景點資訊，回傳通用建議
         return (
             f"🎯 {dest} {m}月 旅遊小貼士\n\n"
             "• 先確認簽證與入境規定\n"
@@ -365,6 +348,87 @@ def render_tips_message(destination: str, month: Optional[int] = None) -> str:
 
 # ---- Flex 版：小貼士（含天氣 + 景點卡片）----
 
+def build_tips_flex_payload(destination: str, month: Optional[int] = None):
+    """回傳 (alt_text, contents_dict)，供 v2/v3 皆可使用。"""
+    dest = (destination or '').strip()
+    if not dest:
+        return None
+    now = datetime.now()
+    m = month if (isinstance(month, int) and 1 <= month <= 12) else now.month
+    # 取得資料
+    weather_info = get_real_weather(dest, m)
+    from api.linebot.wiki_attractions import get_attractions_with_fallback
+    items = get_attractions_with_fallback(dest, limit=5)
+
+    # Weather bubble
+    body_contents = [
+        {"type": "text", "text": f"{dest} {m}月 旅遊小貼士", "weight": "bold", "size": "md", "wrap": True},
+        {"type": "separator", "margin": "md"},
+        {"type": "text", "text": f"🌤️ 天氣預報：{weather_info}", "size": "sm", "wrap": True},
+    ]
+    body_contents.append({"type": "text", "text": "💡 實用建議：", "margin": "md", "size": "sm", "weight": "bold"})
+    for tip in _build_advice_lines(dest, m):
+        body_contents.append({"type": "text", "text": tip, "size": "xs", "wrap": True, "color": "#666666"})
+    weather_bubble = {
+        "type": "bubble",
+        "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": body_contents}
+    }
+
+    # Attraction bubbles
+    bubbles = [weather_bubble]
+    for it in items:
+        name = it.get("name") or dest
+        emoji = it.get("emoji") or "📍"
+        summary = it.get("summary") or ""
+
+        # 限制摘要長度為 100 字以內（確保在 LINE Flex Message 中顯示良好）
+        if summary and len(summary) > 100:
+            # 找到最接近 100 字的句號位置
+            truncate_pos = summary.rfind('. ', 0, 100)
+            if truncate_pos > 50:  # 如果找到合理的句號位置
+                summary = summary[:truncate_pos + 1]
+            else:
+                summary = summary[:97] + "..."
+
+        map_url = it.get("map_url")
+        if not map_url:
+            q = quote(f"{dest} {name}")
+            map_url = f"https://www.google.com/maps/search/?api=1&query={q}"
+        wiki_url = it.get("wiki_url")
+
+        body = [
+            {"type": "text", "text": f"{emoji} {name}", "weight": "bold", "size": "md", "wrap": True}
+        ]
+        if summary:
+            body.append({"type": "text", "text": summary, "size": "sm", "color": "#666666", "wrap": True})
+        hours_text = it.get("hours_text")
+        if hours_text:
+            body.append({"type": "text", "text": hours_text, "size": "xs", "color": "#666666", "wrap": True})
+
+        # 根據資料來源顯示不同的標註
+        if wiki_url:
+            source_text = "資料來源：Wikipedia"
+        else:
+            source_text = "資料來源：Google Maps"
+        body.append({"type": "text", "text": source_text, "size": "xxs", "color": "#999999", "wrap": True, "margin": "md"})
+
+        footer_btns = [
+            {"type": "button", "style": "primary", "action": {"type": "uri", "label": "📍 Google 地圖", "uri": map_url}}
+        ]
+        if wiki_url:
+            footer_btns.append({"type": "button", "style": "link", "action": {"type": "uri", "label": "...更多", "uri": wiki_url}})
+
+        bubble = {
+            "type": "bubble",
+            "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": body},
+            "footer": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": footer_btns}
+        }
+        bubbles.append(bubble)
+
+    carousel = {"type": "carousel", "contents": bubbles[:10]}
+    alt_text = f"{dest} {m}月 旅遊小貼士"
+    return alt_text, carousel
+
 def build_tips_flex_message(destination: str, month: Optional[int] = None):
     dest = (destination or '').strip()
     if not dest:
@@ -372,75 +436,22 @@ def build_tips_flex_message(destination: str, month: Optional[int] = None):
     try:
         now = datetime.now()
         m = month if (isinstance(month, int) and 1 <= month <= 12) else now.month
-        # 取得資料
-        weather_info = get_real_weather(dest, m)
-        from api.linebot.opentripmap_service import get_enhanced_attractions
         key = _cache_key(dest, m)
-        cached_flex = _cache_get(_FLEX_MONTH_CACHE, key)
+        cached_flex = cache_get(_FLEX_MONTH_CACHE, key, _CACHE_TTL_SEC)
         if cached_flex is not None:
             return cached_flex
-        items = get_enhanced_attractions(dest, limit=3)
-
-        # Weather bubble
-        body_contents = [
-            {"type": "text", "text": f"{dest} {m}月 旅遊小貼士", "weight": "bold", "size": "md", "wrap": True},
-            {"type": "separator", "margin": "md"},
-            {"type": "text", "text": f"🌤️ 天氣預報：{weather_info}", "size": "sm", "wrap": True},
-        ]
-        # 實用建議（避免天氣卡底部留白）
-        body_contents.append({"type": "text", "text": "💡 實用建議：", "margin": "md", "size": "sm", "weight": "bold"})
-        for tip in _build_advice_lines(dest, m):
-            body_contents.append({"type": "text", "text": tip, "size": "xs", "wrap": True, "color": "#666666"})
-        weather_bubble = {
-            "type": "bubble",
-            "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": body_contents}
-        }
-
-        # Attraction bubbles
-        bubbles = [weather_bubble]
-        for it in items:
-            name = it.get("name") or dest
-            emoji = it.get("emoji") or "📍"
-            summary = it.get("summary") or ""
-            map_url = it.get("map_url")
-            if not map_url:
-                q = quote(f"{dest} {name}")
-                map_url = f"https://www.google.com/maps/search/?api=1&query={q}"
-            wiki_url = it.get("wiki_url")
-
-            body = [
-                {"type": "text", "text": f"{emoji} {name}", "weight": "bold", "size": "md", "wrap": True}
-            ]
-            if summary:
-                body.append({"type": "text", "text": summary, "size": "sm", "color": "#666666", "wrap": True})
-            hours_text = it.get("hours_text")
-            if hours_text:
-                body.append({"type": "text", "text": hours_text, "size": "xs", "color": "#666666", "wrap": True})
-            # 資料來源標示
-            body.append({"type": "text", "text": "資料來源：OpenTripMap / Wikipedia", "size": "xxs", "color": "#999999", "wrap": True, "margin": "md"})
-
-            footer_btns = [
-                {"type": "button", "style": "primary", "action": {"type": "uri", "label": "在 Google 地圖開啟", "uri": map_url}}
-            ]
-            if wiki_url:
-                footer_btns.append({"type": "button", "style": "link", "action": {"type": "uri", "label": "更多介紹", "uri": wiki_url}})
-
-            bubble = {
-                "type": "bubble",
-                "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": body},
-                "footer": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": footer_btns}
-            }
-            bubbles.append(bubble)
-
-        carousel = {"type": "carousel", "contents": bubbles[:10]}
+        payload = build_tips_flex_payload(dest, m)
+        if not payload:
+            return None
+        alt_text, carousel = payload
         fm = FlexMessage(
-            alt_text=f"{dest} {m}月 旅遊小貼士",
+            alt_text=alt_text,
             contents=FlexContainer.from_json(_json.dumps(carousel, ensure_ascii=False))
         )
-        _cache_set(_FLEX_MONTH_CACHE, key, fm)
+        cache_set(_FLEX_MONTH_CACHE, key, fm)
         return fm
     except Exception as e:
-        print(f"[TipsFlex] build failed: {e}")
+        logging.error(f"[TipsFlex] build failed: {e}")
         return None
 
 
