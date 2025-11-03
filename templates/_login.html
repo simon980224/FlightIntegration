@@ -92,29 +92,76 @@
           <i class="fas fa-key me-2"></i>忘記密碼
         </h4>
         
-        <p class="text-muted text-center mb-4">
-          請輸入您註冊時使用的電子郵件地址，我們將發送重設密碼的指示到您的信箱。
-        </p>
+        <!-- 步驟 1：輸入 Email -->
+        <div id="forgotPasswordStep1">
+          <p class="text-muted text-center mb-4">
+            請輸入您註冊時使用的電子郵件地址，我們將發送驗證碼到您的信箱。
+          </p>
 
-        <!-- 忘記密碼表單 -->
-        <form id="forgotPasswordFormElement">
-          <div class="mb-4">
-            <label for="forgot_email" class="form-label">電子郵件</label>
-            <div class="input-group">
-              <span class="input-group-text bg-light"><i class="fas fa-envelope"></i></span>
-              <input type="email" class="form-control" id="forgot_email" name="email" placeholder="請輸入您的電子郵件" required>
+          <form id="forgotPasswordFormElement">
+            <div class="mb-4">
+              <label for="forgot_email" class="form-label">電子郵件</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="fas fa-envelope"></i></span>
+                <input type="email" class="form-control" id="forgot_email" name="email" placeholder="請輸入您的電子郵件" required>
+              </div>
             </div>
+            
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-paper-plane me-2"></i>發送驗證碼
+              </button>
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                <i class="fas fa-times me-2"></i>取消
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- 步驟 2：輸入驗證碼和新密碼 -->
+        <div id="forgotPasswordStep2" style="display: none;">
+          <div class="alert alert-info mb-4">
+            <i class="fas fa-info-circle me-2"></i>
+            驗證碼已發送至 <strong id="displayEmail"></strong>
+            <br><small class="text-muted">驗證碼有效期限為 10 分鐘</small>
           </div>
-          
-          <div class="d-grid gap-2">
-            <button type="submit" class="btn btn-primary">
-              <i class="fas fa-paper-plane me-2"></i>發送重設指示
-            </button>
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
-              <i class="fas fa-times me-2"></i>取消
-            </button>
-          </div>
-        </form>
+
+          <form id="resetPasswordFormElement">
+            <div class="mb-3">
+              <label for="reset_verification_code" class="form-label">驗證碼</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="fas fa-shield-alt"></i></span>
+                <input type="text" class="form-control" id="reset_verification_code" name="verification_code" placeholder="請輸入 4 位數驗證碼" required maxlength="4" pattern="[0-9]{4}">
+              </div>
+              <small class="text-muted">請查看您的電子郵件收件匣</small>
+            </div>
+
+            <div class="mb-3">
+              <label for="reset_new_password" class="form-label">新密碼</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="fas fa-lock"></i></span>
+                <input type="password" class="form-control" id="reset_new_password" name="new_password" placeholder="請輸入新密碼" required>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <label for="reset_confirm_password" class="form-label">確認新密碼</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="fas fa-lock"></i></span>
+                <input type="password" class="form-control" id="reset_confirm_password" name="confirm_password" placeholder="請再次輸入新密碼" required>
+              </div>
+            </div>
+            
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-check me-2"></i>重設密碼
+              </button>
+              <button type="button" class="btn btn-outline-secondary" id="backToStep1">
+                <i class="fas fa-arrow-left me-2"></i>返回
+              </button>
+            </div>
+          </form>
+        </div>
 
         <hr class="my-4">
         
@@ -291,7 +338,10 @@
       });
   });
 
-  // 忘記密碼表單處理
+  // 儲存當前的 email（用於步驟2）
+  let currentResetEmail = "";
+
+  // 步驟 1：發送驗證碼表單處理
   document.getElementById("forgotPasswordFormElement").addEventListener("submit", function (event) {
     event.preventDefault();
 
@@ -309,24 +359,141 @@
       return;
     }
 
-    showLoading("處理中", "正在發送重設密碼指示，請稍候...");
+    showLoading("處理中", "正在發送驗證碼，請稍候...");
 
-    // 模擬發送重設密碼請求
-    setTimeout(() => {
-      closeLoading();
-      
-      // 這裡是前端模擬，實際應該發送請求到後端
-      showToast("發送成功", 
-        "重設密碼的指示已發送至您註冊時的電子郵件，請檢查收件匣（包含垃圾郵件資料夾）。", 
-        "success");
-      
-      // 關閉模態框並重設表單
-      const modal = bootstrap.Modal.getInstance(document.getElementById('forgotPasswordModal'));
-      if (modal) {
-        modal.hide();
-      }
-      document.getElementById("forgotPasswordFormElement").reset();
-      
-    }, 2000); // 模擬網路延遲
+    // 呼叫後端 API 發送驗證碼
+    fetch("/forgot_password", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ user_id_or_email: email }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        closeLoading();
+        if (data.success) {
+          // 儲存 email 用於步驟2
+          currentResetEmail = email;
+          
+          showToast("發送成功", 
+            "驗證碼已發送至您的電子郵件，請檢查收件匣（包含垃圾郵件資料夾）。", 
+            "success");
+          
+          // 顯示驗證碼（開發用，正式環境應移除）
+          if (data.verify_code) {
+            console.log("🔑 驗證碼（開發用）:", data.verify_code);
+          }
+          
+          // 切換到步驟 2
+          document.getElementById("forgotPasswordStep1").style.display = "none";
+          document.getElementById("forgotPasswordStep2").style.display = "block";
+          document.getElementById("displayEmail").textContent = email;
+          
+        } else {
+          showToast("發送失敗", data.message || "無法發送驗證碼，請稍後再試", "error");
+        }
+      })
+      .catch((error) => {
+        closeLoading();
+        console.error("發送驗證碼時出錯:", error);
+        showToast("發生錯誤", "請稍後再試", "error");
+      });
   });
+
+  // 步驟 2：重設密碼表單處理
+  document.getElementById("resetPasswordFormElement").addEventListener("submit", function (event) {
+    event.preventDefault();
+
+    const verificationCode = document.getElementById("reset_verification_code").value.trim();
+    const newPassword = document.getElementById("reset_new_password").value;
+    const confirmPassword = document.getElementById("reset_confirm_password").value;
+
+    if (!verificationCode) {
+      showToast("提示", "請輸入驗證碼", "warning");
+      return;
+    }
+
+    if (verificationCode.length !== 4 || !/^\d{4}$/.test(verificationCode)) {
+      showToast("提示", "驗證碼必須是 4 位數字", "warning");
+      return;
+    }
+
+    if (!newPassword || !confirmPassword) {
+      showToast("提示", "請輸入新密碼和確認密碼", "warning");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      showToast("提示", "兩次輸入的密碼不一致", "warning");
+      return;
+    }
+
+    showLoading("處理中", "正在重設密碼，請稍候...");
+
+    // 呼叫後端 API 重設密碼
+    fetch("/reset_password", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ 
+        user_id: currentResetEmail, 
+        verification_code: verificationCode,
+        new_password: newPassword 
+      }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        closeLoading();
+        if (data.success) {
+          showToast("重設成功", "密碼已成功重設，請使用新密碼登入", "success");
+          
+          // 重設表單並切回步驟 1
+          document.getElementById("forgotPasswordFormElement").reset();
+          document.getElementById("resetPasswordFormElement").reset();
+          document.getElementById("forgotPasswordStep1").style.display = "block";
+          document.getElementById("forgotPasswordStep2").style.display = "none";
+          currentResetEmail = "";
+          
+          // 關閉忘記密碼模態框，開啟登入模態框
+          const forgotModal = bootstrap.Modal.getInstance(document.getElementById('forgotPasswordModal'));
+          if (forgotModal) {
+            forgotModal.hide();
+          }
+          
+          setTimeout(() => {
+            const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+            loginModal.show();
+          }, 500);
+          
+        } else {
+          showToast("重設失敗", data.message || "無法重設密碼，請檢查驗證碼是否正確", "error");
+        }
+      })
+      .catch((error) => {
+        closeLoading();
+        console.error("重設密碼時出錯:", error);
+        showToast("發生錯誤", "請稍後再試", "error");
+      });
+  });
+
+  // 返回步驟 1 按鈕
+  document.getElementById("backToStep1").addEventListener("click", function() {
+    document.getElementById("forgotPasswordStep1").style.display = "block";
+    document.getElementById("forgotPasswordStep2").style.display = "none";
+    document.getElementById("resetPasswordFormElement").reset();
+  });
+
+  // 當忘記密碼模態框關閉時，重設狀態
+  const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+  if (forgotPasswordModal) {
+    forgotPasswordModal.addEventListener('hidden.bs.modal', function () {
+      document.getElementById("forgotPasswordStep1").style.display = "block";
+      document.getElementById("forgotPasswordStep2").style.display = "none";
+      document.getElementById("forgotPasswordFormElement").reset();
+      document.getElementById("resetPasswordFormElement").reset();
+      currentResetEmail = "";
+    });
+  }
 </script> 
