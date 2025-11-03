@@ -373,7 +373,7 @@ def parse_price_int(offer: Dict) -> int:
 def extract_cabin_and_bags(offer: Dict, segment: Dict):
     """
     從 travelerPricings.fareDetailsBySegment 比對 segmentId，取回：
-    - cabin（字串，如 ECONOMY）
+    - cabin（字串，如 ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST）
     - checked_bags（件數，如 quantity；若僅有重量，粗略視為 1 件）
     - cabin_bags（手提件數，若有）
     若找不到則回傳 ("ECONOMY", None, None)。
@@ -405,7 +405,7 @@ def extract_cabin_and_bags(offer: Dict, segment: Dict):
         pass
     if not cabin:
         cabin = "ECONOMY"
-    return cabin[:10], checked, cabin_bag
+    return cabin, checked, cabin_bag
 
 
 def make_ticket_id(offer_id: str, segment_id: str, flight_id: str, cabin: str) -> str:
@@ -416,7 +416,7 @@ def make_ticket_id(offer_id: str, segment_id: str, flight_id: str, cabin: str) -
     - 長度截斷至 50 以符合目前欄位限制
     """
     date_str = date.today().strftime("%Y%m%d")
-    cab = (cabin or "").upper()[:10]
+    cab = (cabin or "").upper()
     base = f"TKT_{flight_id}{cab}{date_str}"
     return base[:50]
 
