@@ -185,9 +185,6 @@ WHERE User_Id = %s
         finally:
             conn and conn.close()
 
-
-
-
 def UpdateUserInfo(
     user_id,
     user_name=None,
@@ -341,3 +338,125 @@ def VerifyCaptcha(user_input, correct_answer):
         return {"success": False, "message": "驗證碼錯誤，請重新輸入"}
     
     return {"success": True}
+
+def SendResetPasswordCode(user_email):
+
+    conn = cursor = None
+    try:
+        if not user_email:
+            return {"success": False, "message": "請輸入電子郵件"}
+
+        conn = pymssql.connect(**conn_args)
+        cursor = conn.cursor()
+
+        # 查找使用者
+        cursor.execute("SELECT User_Id FROM [User] WHERE User_Email = %s", (user_email,))
+        row = cursor.fetchone()
+        if not row:
+            return {"success": False, "message": "查無此電子郵件"}
+
+        user_id = row[0]
+
+        # 生成四碼驗證碼
+        verify_code = ''.join(random.choices('0123456789', k=4))
+        now = datetime.datetime.now()
+        expired_time = now + datetime.timedelta(minutes=10)
+
+        # 直接更新（假設 User_Verify_Log 已存在該 User_Id）
+        cursor.execute("""
+UPDATE [User_Verify_Log]
+SET Verify_Type = 'reset_pswd',
+    Verify_Number = %s,
+    Verify_Value = %s,
+    Status = '0',
+    Create_At = %s,
+    Expired_Time = %s
+WHERE User_Id = %s
+        """, (verify_code, verify_code, now, expired_time, user_id))
+
+        conn.commit()
+
+        return {
+            "success": True,
+            "message": "驗證碼已更新（有效 10 分鐘）",
+            "user_id": user_id,
+            "verify_code": verify_code
+        }
+
+    except Exception as e:
+        return {"success": False, "message": f"產生驗證碼失敗：{e}"}
+
+    finally:
+        try:
+            cursor and cursor.close()
+        finally:
+            conn and conn.close()
+        
+def ResetPasswordByCode(user_email, verify_code, new_password):
+    """
+    忘記密碼流程：用 Email + 驗證碼 驗證成功後更新密碼
+    """
+    conn = cursor = None
+    try:
+        conn = pymssql.connect(**conn_args)
+        cursor = conn.cursor(as_dict=True)
+
+        # 1️⃣ 查找使用者
+        cursor.execute("SELECT User_Id FROM [User] WHERE User_Email = %s", (user_email,))
+        user = cursor.fetchone()
+        if not user:
+            return {"success": False, "message": "查無此電子郵件"}
+
+        user_id = user["User_Id"]
+
+        # 2️⃣ 查找驗證碼
+        cursor.execute("""
+SELECT TOP 1 Verify_Value, Status, Expired_Time
+FROM [User_Verify_Log]
+WHERE User_Id = %s AND (Verify_Type = 'reset_password' OR Verify_Type = 'reset_pswd')
+ORDER BY Create_At DESC
+        """, (user_id,))
+        log = cursor.fetchone()
+
+        if not log:
+            return {"success": False, "message": "查無可用的驗證碼，請重新申請"}
+
+        if log["Status"] == '1':
+            return {"success": False, "message": "此驗證碼已使用"}
+
+        # 檢查是否過期
+        now = datetime.datetime.now()
+        if now > log["Expired_Time"]:
+            return {"success": False, "message": "驗證碼已過期，請重新申請"}
+
+        # 驗證碼比對
+        if str(log["Verify_Value"]).strip() != str(verify_code).strip():
+            return {"success": False, "message": "驗證碼錯誤"}
+
+        # 3️⃣ 更新密碼
+        new_password_hash = hashlib.sha256(new_password.encode("utf-8")).hexdigest()
+        cursor.execute("""
+UPDATE [User]
+SET Password_Hash = %s, Modify_At = %s
+WHERE User_Id = %s
+        """, (new_password_hash, now, user_id))
+
+        # 標記驗證碼已使用
+        cursor.execute("""
+UPDATE [User_Verify_Log]
+SET Status = '1'
+WHERE User_Id = %s AND Verify_Value = %s
+        """, (user_id, verify_code))
+
+        conn.commit()
+        return {"success": True, "message": "密碼重設成功"}
+
+    except Exception as e:
+        return {"success": False, "message": f"重設密碼失敗：{e}"}
+
+    finally:
+        try:
+            cursor and cursor.close()
+        finally:
+            conn and conn.close()
+

@@ -280,6 +280,24 @@ def profile_page():
     else:
         return jsonify({'success': False, 'message': '無法獲取使用者資料'})
 
+# 產生驗證碼
+@app.route('/forgot_password', methods=['POST'])
+def forgot_password():
+    data = request.get_json()
+    email = data.get("user_id_or_email")
+    result = user_service.SendResetPasswordCode(email)
+    return jsonify(result)
+
+# 驗證 + 改密碼
+@app.route('/reset_password', methods=['POST'])
+def reset_password():
+    data = request.get_json()
+    user_id = data.get("user_id")     # 這裡其實是 email
+    code = data.get("verification_code")
+    new_password = data.get("new_password")
+    result = user_service.ResetPasswordByCode(user_id, code, new_password)
+    return jsonify(result)
+
 
 # LINE Bot 訊息處理
 @app.route("/lineApi", methods=['GET', 'POST'])
