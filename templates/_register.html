@@ -141,6 +141,17 @@
   // ================================
   
   /**
+   * 清除所有 Modal 背景遮罩和相關樣式
+   */
+  function clearAllBackdrops() {
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    backdrops.forEach(backdrop => backdrop.remove());
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+  }
+  
+  /**
    * 隱藏指定的 Modal
    * @param {string} modalId - Modal 的 ID
    */
@@ -150,6 +161,10 @@
     if (modal) {
       modal.hide();
     }
+    // 確保清除所有殘留的 backdrop
+    setTimeout(() => {
+      clearAllBackdrops();
+    }, 300);
   }
 
   /**
@@ -234,9 +249,22 @@
    * @param {string} errorMessage - 錯誤訊息
    */
   function handleRegistrationError(errorMessage) {
-    showToast("註冊失敗", errorMessage, "error");
-    hideModal("emailVerificationModal");
-    showModal("registerModal");
+    closeLoading(); // 確保關閉載入中遮罩
+    
+    // 等待 SweetAlert2 完全關閉後再清理 Bootstrap backdrop
+    setTimeout(() => {
+      clearAllBackdrops(); // 清除所有可能殘留的 backdrop
+      
+      showToast("註冊失敗", errorMessage, "error");
+      
+      // 先關閉驗證模態框
+      hideModal("emailVerificationModal");
+      
+      // 延遲後再開啟註冊模態框，確保前一個模態框完全關閉
+      setTimeout(() => {
+        showModal("registerModal");
+      }, 500);
+    }, 300);
   }
 
   /**
@@ -349,7 +377,22 @@
     .catch((error) => {
       closeLoading();
       console.error("註冊過程中出錯:", error);
-      handleRegistrationError("發生錯誤，請稍後再試");
+      
+      // 等待 SweetAlert2 完全關閉後再清理 Bootstrap backdrop
+      setTimeout(() => {
+        clearAllBackdrops(); // 清除所有可能殘留的 backdrop
+        
+        // 顯示錯誤訊息
+        showToast("註冊失敗", "發生錯誤，請稍後再試", "error");
+        
+        // 先關閉驗證模態框
+        hideModal("emailVerificationModal");
+        
+        // 延遲後再開啟註冊模態框
+        setTimeout(() => {
+          showModal("registerModal");
+        }, 500);
+      }, 300);
     });
   }
 
@@ -437,7 +480,12 @@
     .catch((error) => {
       closeLoading();
       console.error("驗證過程中出錯:", error);
-      showToast("驗證失敗", "發生錯誤，請稍後再試", "error");
+      
+      // 等待 SweetAlert2 完全關閉後再清理 Bootstrap backdrop
+      setTimeout(() => {
+        clearAllBackdrops(); // 清除所有可能殘留的 backdrop
+        showToast("驗證失敗", "發生錯誤，請稍後再試", "error");
+      }, 300);
     });
   }
 

@@ -22,7 +22,7 @@
   </div>
 
   <div class="row justify-content-center">
-    <div class="col-lg-10">
+    <div class="col-12 col-lg-10 col-xl-9">
       <div class="card shadow-lg border-0">
         <div class="card-body p-4 p-md-5">
           <h4 class="card-title mb-4 text-primary">
@@ -60,7 +60,7 @@
                 </label>
                 <div class="input-group">
                   <span class="input-group-text bg-light"><i class="fas fa-calendar-alt"></i></span>
-                   <input type="text" class="form-control" id="departure_date" name="departure_date" placeholder="請選擇出發日期" required />
+                   <input type="text" class="form-control" id="departure_date" name="departure_date" placeholder="請選擇出發日期" autocomplete="off" required />
                 </div>
               </div>
               <div class="col-12">
@@ -361,50 +361,56 @@
       const flightCard = `
         <div class="card mb-3 shadow-sm flight-result-card">
           <div class="card-body p-3 p-md-4">
-            <div class="row align-items-center">
-              <div class="col-lg-3 mb-3 mb-lg-0">
-                <div class="d-flex flex-wrap flex-lg-nowrap align-items-center gap-2">
-                  <img src="/static/img/airline_icon/${flight.Airline_Id}.jpg" class="me-2" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px; flex-shrink: 0;">
-                  <div class="flex-grow-1" style="min-width: 0;">
-                    <div class="fw-bold h6 mb-0">${flight.Airline_Name_ZH}</div>
-                    <div class="small text-muted">航班 ${flight.No}</div>                        
+            <div class="row g-3">
+              <!-- 航空公司資訊與訂票按鈕 -->
+              <div class="col-12 col-lg-3">
+                <div class="d-flex flex-row flex-lg-column justify-content-between align-items-center h-100 gap-3">
+                  <div class="d-flex align-items-center gap-2 flex-grow-1">
+                    <img src="/static/img/airline_icon/${flight.Airline_Id}.jpg" class="flex-shrink-0" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px;">
+                    <div class="flex-grow-1" style="min-width: 0;">
+                      <div class="fw-bold h6 mb-0">${flight.Airline_Name_ZH}</div>
+                      <div class="small text-muted">航班 ${flight.No}</div>                        
+                    </div>
                   </div>
                   <div class="flex-shrink-0">
                     ${flight.ticket_status === 1 ? `
                     <button 
-                      class="btn btn-success booking-btn" style="min-width: 100px;"
+                      class="btn btn-success booking-btn w-100" style="min-width: 100px;"
                       data-flight-id="${flight.Flight_Id}"
                       data-flight-no="${flight.No}"
                       data-airline="${flight.Airline_Id}"
                       onclick="handleBookingClick('${flight.Flight_Id}')"
                     ><i class="fa-solid fa-ticket"></i> 訂票</button>
                     ` : `
-                    <button class="btn btn-secondary" style="min-width: 100px;" disabled>
+                    <button class="btn btn-secondary w-100" style="min-width: 100px;" disabled>
                       <i class="fa-solid fa-plane-departure"></i> 已起飛
                     </button>
                     `}
                   </div>
                 </div>
               </div>
-              <div class="col-lg-9">
-                <div class="d-flex justify-content-between align-items-center">
-                  <div class="text-start">
+              
+              <!-- 航班時間資訊 -->
+              <div class="col-12 col-lg-9">
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center h-100 gap-3">
+                  <div class="text-center text-sm-start flex-shrink-0">
                     <div class="fs-5 fw-bold">${formattedDep}</div>
                     <div class="fs-6 text-muted">${flight.From_Airport}</div>
                   </div>
-                  <div class="flex-grow-1 px-3 d-none d-md-block">
+                  <div class="flex-grow-1 px-3 d-none d-sm-block">
                     <div class="d-flex align-items-center">
-                      <hr class="w-100">
-                      <i class="fas fa-plane mx-2 text-muted"></i>
-                      <hr class="w-100">
+                      <hr class="w-100 m-0">
+                      <i class="fas fa-plane mx-2 text-muted flex-shrink-0"></i>
+                      <hr class="w-100 m-0">
                     </div>
                   </div>
-                  <div class="text-end">
+                  <div class="d-sm-none">
+                    <i class="fas fa-plane-departure text-muted"></i>
+                  </div>
+                  <div class="text-center text-sm-end flex-shrink-0">
                     <div class="fs-5 fw-bold">${formattedArr}</div>
                     <div class="fs-6 text-muted">${flight.To_Airport}</div>
                   </div>
-                </div>
-                
                 </div>
               </div>
             </div>
@@ -416,16 +422,18 @@
     
     // 顯示結果統計
     const resultInfo = `
-      <div class="alert alert-info mb-3 d-flex justify-content-between align-items-center">
-        <div>
-          <i class="fas fa-info-circle me-2"></i>
-          共找到 <strong>${allFlights.length}</strong> 筆航班${filteredFlights.length < allFlights.length ? `，篩選後剩餘 <strong>${filteredFlights.length}</strong> 筆` : ''}，目前顯示第 <strong>${startIndex + 1}</strong> - <strong>${endIndex}</strong> 筆
-        </div>
-        <div class="form-check mb-0">
-          <input class="form-check-input" type="checkbox" id="filter-available" ${showOnlyAvailable ? 'checked' : ''} onchange="toggleAvailableFilter()">
-          <label class="form-check-label" for="filter-available">
-            僅顯示未起飛
-          </label>
+      <div class="alert alert-info mb-3">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+          <div class="flex-grow-1">
+            <i class="fas fa-info-circle me-2"></i>
+            共找到 <strong>${allFlights.length}</strong> 筆航班${filteredFlights.length < allFlights.length ? `，篩選後剩餘 <strong>${filteredFlights.length}</strong> 筆` : ''}，目前顯示第 <strong>${startIndex + 1}</strong> - <strong>${endIndex}</strong> 筆
+          </div>
+          <div class="form-check mb-0 flex-shrink-0">
+            <input class="form-check-input" type="checkbox" id="filter-available" ${showOnlyAvailable ? 'checked' : ''} onchange="toggleAvailableFilter()">
+            <label class="form-check-label" for="filter-available">
+              僅顯示未起飛
+            </label>
+          </div>
         </div>
       </div>
     `;

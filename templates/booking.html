@@ -574,6 +574,7 @@
   color: #6c757d;
 }
 
+/* 基礎座位樣式 */
 .seat {
   width: 40px;
   height: 40px;
@@ -587,6 +588,35 @@
   font-weight: 600;
   transition: all 0.2s;
   background: white;
+}
+
+/* 商務艙座位 - 更大更寬敞 */
+.seat-map.business-class .seat {
+  width: 55px;
+  height: 50px;
+  font-size: 0.85rem;
+  border-width: 3px;
+  border-radius: 10px 10px 15px 15px;
+}
+
+/* 頭等艙座位 - 最大最豪華 */
+.seat-map.first-class .seat {
+  width: 70px;
+  height: 60px;
+  font-size: 1rem;
+  border-width: 3px;
+  border-radius: 12px 12px 18px 18px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 商務艙走道更寬 */
+.seat-map.business-class .aisle {
+  width: 40px;
+}
+
+/* 頭等艙走道最寬 */
+.seat-map.first-class .aisle {
+  width: 60px;
 }
 
 .seat.available:hover {
@@ -610,6 +640,38 @@
 .seat.exit {
   background: #fff3cd;
   border-color: #ffc107;
+}
+
+/* 商務艙座位特殊樣式 */
+.seat-map.business-class .seat.available {
+  border-color: #f0ad4e;
+  background: linear-gradient(135deg, #fff 0%, #fff8e1 100%);
+}
+
+.seat-map.business-class .seat.available:hover {
+  background: #fff3cd;
+  border-color: #f0ad4e;
+}
+
+.seat-map.business-class .seat.selected {
+  background: linear-gradient(135deg, #f0ad4e 0%, #ec971f 100%);
+  border-color: #ec971f;
+}
+
+/* 頭等艙座位特殊樣式 */
+.seat-map.first-class .seat.available {
+  border-color: #d9534f;
+  background: linear-gradient(135deg, #fff 0%, #ffe6e6 100%);
+}
+
+.seat-map.first-class .seat.available:hover {
+  background: #ffe6e6;
+  border-color: #d9534f;
+}
+
+.seat-map.first-class .seat.selected {
+  background: linear-gradient(135deg, #d9534f 0%, #c9302c 100%);
+  border-color: #c9302c;
 }
 
 .aisle {
@@ -936,7 +998,7 @@ const cabinData = {
     price: baseFareFromBackend,       // 使用後端提供的基礎票價（FARE = 10000）
     available: 50,                    // 剩餘座位數
     rows: 20,                         // 座位排數
-    config: ['A', 'B', 'C', '', 'D', 'E', 'F', '', 'G', 'H', 'J'],  // 座位配置（''表示走道）
+    config: ['A', 'B', 'C', '', 'D', 'E', 'F'],  // 3-3 布局（經濟艙標準配置）
     checked_baggage: 20,              // 託運行李重量限制（kg）
     cabin_baggage: 7                  // 手提行李重量限制（kg）
   },
@@ -945,7 +1007,7 @@ const cabinData = {
     price: baseFareFromBackend * 3.5, // 商務艙為基礎票價的3.5倍
     available: 12, 
     rows: 8, 
-    config: ['A', 'B', '', 'D', 'E', '', 'G', 'H'],
+    config: ['A', 'C', '', '', 'D', 'F'],  // 2-2 布局（商務艙較寬敞配置，中間走道較寬）
     checked_baggage: 40,
     cabin_baggage: 7
   },
@@ -954,7 +1016,7 @@ const cabinData = {
     price: baseFareFromBackend * 8,   // 頭等艙為基礎票價的8倍
     available: 3, 
     rows: 4, 
-    config: ['A', '', 'D', 'E', '', 'K'],
+    config: ['A', '', '', '', 'K'],  // 1-1 布局（頭等艙最豪華配置，超寬走道）
     checked_baggage: 60,
     cabin_baggage: 10
   }
@@ -1042,13 +1104,55 @@ function showStep(step) {
 
 function validateCurrentStep() {
   if (currentStep === 2 && !selectedCabin) {
-    alert('請選擇艙等');
+    showToast('請選擇艙等', '請先選擇經濟艙、商務艙或頭等艙', 'warning');
     return false;
   }
   if (currentStep === 3 && selectedSeats.length === 0) {
-    alert('請至少選擇一個座位');
+    showToast('請選擇座位', '請至少選擇一個座位', 'warning');
     return false;
   }
+  
+  // 驗證步驟 4：乘客資訊
+  if (currentStep === 4) {
+    // 檢查每位乘客的姓名和電話
+    for (let i = 0; i < selectedSeats.length; i++) {
+      const nameInput = document.getElementById(`passenger-name-${i}`);
+      const phoneInput = document.getElementById(`passenger-phone-${i}`);
+      
+      // 檢查是否存在
+      if (!nameInput || !phoneInput) {
+        showToast('請填寫乘客資訊', '乘客資訊表單未正確載入', 'error');
+        return false;
+      }
+      
+      const name = nameInput.value.trim();
+      const phone = phoneInput.value.trim();
+      
+      // 檢查姓名是否填寫
+      if (!name) {
+        showToast('姓名未填寫', `請填寫乘客 ${i + 1} 的姓名`, 'warning');
+        nameInput.focus();
+        return false;
+      }
+      
+      // 檢查電話是否填寫
+      if (!phone) {
+        showToast('電話未填寫', `請填寫乘客 ${i + 1} 的聯絡電話`, 'warning');
+        phoneInput.focus();
+        return false;
+      }
+      
+      // 檢查電話格式（必須是10碼數字）
+      const phoneRegex = /^[0-9]{10}$/;
+      if (!phoneRegex.test(phone)) {
+        showToast('電話格式錯誤', `乘客 ${i + 1} 的電話必須為10碼數字（例：0912345678）`, 'error');
+        phoneInput.focus();
+        phoneInput.select();
+        return false;
+      }
+    }
+  }
+  
   return true;
 }
 
@@ -1082,6 +1186,14 @@ document.addEventListener('DOMContentLoaded', function() {
 function generateSeatMap() {
   const seatMap = document.getElementById('seat-map');
   seatMap.innerHTML = '';
+  
+  // 根據艙等添加對應的 CSS class
+  seatMap.className = 'seat-map';
+  if (selectedCabin === 'business') {
+    seatMap.classList.add('business-class');
+  } else if (selectedCabin === 'first') {
+    seatMap.classList.add('first-class');
+  }
   
   // 從 cabinData 取得配置
   const cabinInfo = cabinData[selectedCabin];
@@ -1176,7 +1288,7 @@ function toggleSeat(seatElement, seatId) {
   } else {
     // 檢查是否超過限制
     if (selectedSeats.length >= maxSeats) {
-      alert(`最多只能選擇 ${maxSeats} 個座位`);
+      showToast('座位數量已達上限', `最多只能選擇 ${maxSeats} 個座位`, 'warning');
       return;
     }
     
@@ -1230,8 +1342,14 @@ function generatePassengerForms() {
         <div class="col-md-6 mb-3">
           <label class="form-label">聯絡電話 <span class="text-danger">*</span></label>
           <input type="tel" class="form-control" 
-                 placeholder="例：0912-345-678" 
-                 id="passenger-phone-${index}" required>
+                 placeholder="請輸入手機號碼" 
+                 id="passenger-phone-${index}" 
+                 pattern="[0-9]{10}"
+                 maxlength="10"
+                 minlength="10"
+                 title="請輸入10碼數字"
+                 oninput="this.value = this.value.replace(/[^0-9]/g, '')"
+                 required>
         </div>
       </div>
     `;
@@ -1332,7 +1450,7 @@ async function confirmBooking() {
   const cardHolder = document.getElementById('card-holder').value;
 
   if (!cardNumber || !cardExpiry || !cardCvv || !cardHolder) {
-    alert('請填寫完整的信用卡資訊');
+    showToast('信用卡資訊未完整', '請填寫完整的信用卡資訊', 'warning');
     return;
   }
 
@@ -1346,14 +1464,14 @@ async function confirmBooking() {
   // ✅ 驗證乘客資料（必須填寫姓名和電話）
   for (let i = 0; i < passengers.length; i++) {
     if (!passengers[i].name || !passengers[i].phone) {
-      alert(`請填寫完整的乘客 ${i + 1} 資訊（姓名和電話為必填）`);
+      showToast('乘客資訊未完整', `請填寫完整的乘客 ${i + 1} 資訊（姓名和電話為必填）`, 'warning');
       return;
     }
     
-    // ✅ 驗證電話格式（基本檢查）
-    const phoneRegex = /^[0-9\-\+\(\)\s]{8,}$/;
+    // ✅ 驗證電話格式（必須是10碼數字）
+    const phoneRegex = /^[0-9]{10}$/;
     if (!phoneRegex.test(passengers[i].phone)) {
-      alert(`乘客 ${i + 1} 的電話格式不正確，請輸入有效的電話號碼`);
+      showToast('電話格式錯誤', `乘客 ${i + 1} 的電話必須為10碼數字（例：0912345678）`, 'error');
       return;
     }
   }
@@ -1403,11 +1521,7 @@ async function confirmBooking() {
       
       // ✅ 檢查是否為未登入（對應 app.py 第420-421行的登入檢查）
       if (response.status === 401 || response.redirected) {
-        if (typeof showToast === 'function') {
-          showToast('請先登入', '您需要登入才能訂票', 'warning');
-        } else {
-          alert('⚠️ 請先登入才能訂票');
-        }
+        showToast('請先登入', '請您先登入才能訂機票喔！', 'warning');
         setTimeout(() => {
           window.location.href = '/login';
         }, 1500);
@@ -1415,22 +1529,7 @@ async function confirmBooking() {
       }
       
       // ✅ 其他 HTTP 錯誤
-      let errorMessage = '系統錯誤，請稍後再試';
-      try {
-        const contentType = response.headers.get('content-type');
-        if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        }
-      } catch (e) {
-        // 解析失敗，使用預設錯誤訊息
-      }
-      
-      if (typeof showToast === 'function') {
-        showToast('訂票失敗', errorMessage, 'error');
-      } else {
-        alert('❌ 訂票失敗：' + errorMessage);
-      }
+      showToast('訂票失敗', '系統出了點問題，請稍後再試試看', 'error');
       return;
     }
     
@@ -1446,11 +1545,7 @@ async function confirmBooking() {
       if (typeof closeLoading === 'function') {
         closeLoading();
       }
-      if (typeof showToast === 'function') {
-        showToast('訂票失敗', '系統回應格式錯誤，請稍後再試', 'error');
-      } else {
-        alert('❌ 訂票失敗：系統回應格式錯誤');
-      }
+      showToast('訂票失敗', '系統回應有問題，請稍後再試試看', 'error');
       return;
     }
     
@@ -1461,24 +1556,8 @@ async function confirmBooking() {
         closeLoading();
       }
       
-      // ✅ 獲取行李額度資訊
-      const cabinInfo = cabinData[selectedCabin];
-      
-      // ✅ 顯示成功訊息（包含後端回傳的 Ticket_Id）
-      const message = `訂單編號：${result.Ticket_Id}\n` +
-                     `總金額：NT$ ${totalAmount.toLocaleString()}\n` +
-                     `艙等：${cabinInfo.name}\n` +
-                     `座位數量：${selectedSeats.length} 個座位\n` +
-                     `座位：${selectedSeats.join(', ')}\n` +
-                     `持票人：${holderName}\n` +
-                     `聯絡電話：${holderMobile}\n` +
-                     `託運行李：${cabinInfo.checked_baggage}kg | 手提行李：${cabinInfo.cabin_baggage}kg`;
-      
-      if (typeof showToast === 'function') {
-        showToast('訂票成功！', message, 'success');
-      } else {
-        alert('✅ 訂票成功！\n\n' + message);
-      }
+      // ✅ 顯示簡潔的成功訊息
+      showToast('訂購成功！', '您的機票已成功訂購，即將跳轉至我的訂票頁面', 'success');
       
       // ✅ 2 秒後導向我的訂票頁面
       setTimeout(() => {
@@ -1491,11 +1570,7 @@ async function confirmBooking() {
         closeLoading();
       }
       
-      if (typeof showToast === 'function') {
-        showToast('訂票失敗', result.message || '系統錯誤', 'error');
-      } else {
-        alert('❌ 訂票失敗：' + (result.message || '系統錯誤'));
-      }
+      showToast('訂票失敗', '系統出了點問題，請稍後再試試看', 'error');
     }
     
   } catch (error) {
@@ -1504,11 +1579,7 @@ async function confirmBooking() {
       closeLoading();
     }
     
-    if (typeof showToast === 'function') {
-      showToast('訂票失敗', '網路錯誤，請稍後再試', 'error');
-    } else {
-      alert('❌ 訂票失敗：網路錯誤，請稍後再試');
-    }
+    showToast('訂票失敗', '網路好像不太穩定，請稍後再試試看', 'error');
   }
 }
 
@@ -1527,7 +1598,7 @@ async function openCTBCPaymentWindow(orderNo, totalAmount) {
     );
     
     if (!paymentWindow) {
-      alert('⚠️ 請允許彈出視窗以完成付款');
+      showToast('無法開啟付款視窗', '請允許瀏覽器開啟新視窗來付款喔！', 'warning');
       resolve(false);
       return;
     }
@@ -1538,11 +1609,7 @@ async function openCTBCPaymentWindow(orderNo, totalAmount) {
     form.submit();
     
     // ✅ 顯示提示訊息
-    if (typeof showToast === 'function') {
-      showToast('請完成付款', '請在彈出的視窗中完成信用卡付款，完成後請關閉該視窗', 'info');
-    } else {
-      alert('ℹ️ 請在彈出的視窗中完成信用卡付款\n完成後請關閉該視窗繼續訂票流程');
-    }
+    showToast('請完成付款', '請在彈出的視窗中完成信用卡付款，完成後請關閉該視窗', 'info');
     
     // ✅ 監聽視窗關閉事件
     const checkWindowClosed = setInterval(() => {
@@ -1559,29 +1626,12 @@ async function openCTBCPaymentWindow(orderNo, totalAmount) {
       if (!paymentWindow.closed) {
         clearInterval(checkWindowClosed);
         paymentWindow.close();
-        alert('⏱️ 付款逾時，請重新訂票');
+        showToast('付款逾時', '付款時間已超過，請重新訂票', 'error');
         resolve(false);
       }
     }, 300000); // 5分鐘
   });
 }
-
-// ===== 中國信託支付處理（保留供日後整合）=====
-// 如果需要整合第三方支付，可以在訂票成功後調用此函數
-function processCTBCPayment(orderNo, totalAmount) {
-  // 填入表單資料
-  document.getElementById('ctbc-order-no').value = orderNo;
-  document.getElementById('ctbc-amount').value = totalAmount;
-  
-  // 開啟支付視窗
-  const paymentWindow = window.open('', 'ctbc_payment', 'width=800,height=600,scrollbars=yes,location=yes');
-  
-  // 提交表單到新視窗
-  const form = document.getElementById('ctbc-form');
-  form.target = 'ctbc_payment';
-  form.submit();
-}
-
 
 // ===== 3D 信用卡互動效果 =====
 document.addEventListener('DOMContentLoaded', function() {
@@ -1687,6 +1737,8 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     cardCvvInput.addEventListener('focus', function() {
+      // 清除鼠標移動效果的內聯樣式，避免覆蓋翻轉效果
+      card3D.style.transform = '';
       // 翻轉到背面
       card3D.classList.add('flipped');
       setTimeout(() => {
