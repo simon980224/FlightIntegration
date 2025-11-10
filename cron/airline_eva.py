@@ -7,21 +7,21 @@ import os
 
 today = date.today()
 
-# def log_info(message):
-#     log_dir = os.path.join("logs", "CronLog")
-#     os.makedirs(log_dir, exist_ok=True)
-#     log_filename = f"{today.strftime('%Y%m%d')}_eva.log"
-#     log_path = os.path.join(log_dir, log_filename)
+def log_info(message):
+    log_dir = os.path.join("logs", "CronLog")
+    os.makedirs(log_dir, exist_ok=True)
+    log_filename = f"{today.strftime('%Y%m%d')}_eva.log"
+    log_path = os.path.join(log_dir, log_filename)
     
-#     logging.basicConfig(
-#         filename=log_path,
-#         filemode="a",
-#         level=logging.INFO,
-#         format="%(asctime)s - %(message)s",
-#         datefmt="%Y-%m-%d %H:%M:%S",
-#         encoding="utf-8"
-#     )
-#     logging.info(message)
+    logging.basicConfig(
+        filename=log_path,
+        filemode="a",
+        level=logging.INFO,
+        format="%(asctime)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        encoding="utf-8"
+    )
+    logging.info(message)
 
 def connect_db():
     return pymssql.connect(
@@ -109,9 +109,9 @@ def insert_flight_data(cursor, conn, flight_id_db, airline_id_db, d_airport_db, 
             VALUES (%s, %s, %s, %s, %s, %s, %s)
         """, (flight_id_db, airline_id_db, d_airport_db, a_airport_db, d_time_db, a_time_db, Num))
         conn.commit()
-        # log_info(f"插入：{flight_id_db}，{d_airport_db} ➜ {a_airport_db}，出發：{d_time_db}，抵達：{a_time_db}")
+        log_info(f"插入：{flight_id_db}，{d_airport_db} ➜ {a_airport_db}，出發：{d_time_db}，抵達：{a_time_db}")
     except pymssql.IntegrityError:
-        # log_info(f"略過（已存在）：{flight_id_db}，{d_airport_db} ➜ {a_airport_db}，出發：{d_time_db}，抵達：{a_time_db}")
+        log_info(f"略過（已存在）：{flight_id_db}，{d_airport_db} ➜ {a_airport_db}，出發：{d_time_db}，抵達：{a_time_db}")
         pass
 
 def cleanup(cursor, conn):
@@ -144,7 +144,7 @@ def main():
                 flight_number, d_code, a_code, d_time, a_time, flight_number = parse_flight_data(row)
                 flight_id = f"EVA_{today.strftime('%Y%m%d')}_{flight_number}_{d_code}_{a_code}"
                 insert_flight_data(cursor, conn, flight_id, "BR", d_code, a_code, d_time, a_time, flight_number)
-                # print(f"插入：{flight_id}，{d_code} ➜ {a_code}，出發：{d_time}，抵達：{a_time}")
+                print(f"插入：{flight_id}，{d_code} ➜ {a_code}，出發：{d_time}，抵達：{a_time}")
 
     cleanup(cursor, conn)
 
