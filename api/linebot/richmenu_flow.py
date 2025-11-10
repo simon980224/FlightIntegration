@@ -902,9 +902,9 @@ def _orders_entry(line_user_id: str):
 
 
 def _fetch_user_bookings(user_id: str):
-    """唯讀：從 DB 撈取使用者訂票清單。
+    """唯讀：從 Wallet 表撈取使用者訂票清單。
     回傳清單元素格式：
-    { 'flight_id', 'no', 'from', 'to', 'date', 'dep', 'arr', 'price' }
+    { 'ticket_id', 'no', 'from', 'to', 'date', 'dep', 'arr', 'price', 'status', 'holder_name' }
     """
     rows = []
     conn = None
@@ -914,19 +914,25 @@ def _fetch_user_bookings(user_id: str):
         cursor = conn.cursor(as_dict=True)
         sql = """
 SELECT
-    T.Flight_Id      AS Flight_Id,
+    W.Ticket_Id,
+    W.Holder_Name,
+    W.Holder_Mobile,
+    W.Status,
+    W.Create_At,
+    T.Flight_Id,
+    T.Price,
     F.No             AS Flight_No,
     DAP.Airport_Name_ZH AS From_Airport_ZH,
     AAP.Airport_Name_ZH AS To_Airport_ZH,
     F.D_Time,
-    F.A_Time,
-    T.Price
-FROM dbo.Ticket AS T
-JOIN dbo.Flight AS F       ON T.Flight_Id = F.Flight_Id
+    F.A_Time
+FROM dbo.Wallet AS W
+JOIN dbo.Ticket AS T ON W.Ticket_Id = T.Ticket_Id
+JOIN dbo.Flight AS F ON T.Flight_Id = F.Flight_Id
 LEFT JOIN dbo.Airport AS DAP ON F.D_Airport_Id = DAP.Airport_Id
 LEFT JOIN dbo.Airport AS AAP ON F.A_Airport_Id = AAP.Airport_Id
-WHERE T.User_Id = %s
-ORDER BY F.D_Time DESC
+WHERE W.User_Id = %s
+ORDER BY W.Create_At DESC
         """
         cursor.execute(sql, (user_id,))
         for r in cursor.fetchall():
@@ -941,6 +947,7 @@ ORDER BY F.D_Time DESC
                     s = str(x)
                     return s[11:16] if len(s) >= 16 else s
             rows.append({
+                'ticket_id': r.get('Ticket_Id'),
                 'flight_id': r.get('Flight_Id'),
                 'no': r.get('Flight_No') or r.get('No'),
                 'from': r.get('From_Airport_ZH') or '',
@@ -949,6 +956,8 @@ ORDER BY F.D_Time DESC
                 'dep': _fmt_time(d),
                 'arr': _fmt_time(a),
                 'price': str(r.get('Price') or 0),
+                'status': r.get('Status') or '1',
+                'holder_name': r.get('Holder_Name') or '',
             })
         return rows
     except Exception:
@@ -966,25 +975,34 @@ def _build_bookings_flex(bookings, base_url: str | None = None, ticket_url: str 
         title = f"{b.get('no','')} {b.get('from','')}→{b.get('to','')}".strip()
         subtitle = f"{b.get('date','')} {b.get('dep','')} - {b.get('arr','')}".strip()
         price = b.get('price')
-        flight_id = b.get('flight_id')
-        if flight_id:
-            link = f"{base_url}/booking/{flight_id}" if base_url else f"/booking/{flight_id}"
-        else:
-            link = f"{base_url}/ticket" if base_url else "/ticket"
+        ticket_id = b.get('ticket_id')
+        holder_name = b.get('holder_name', '')
+        status = b.get('status', '1')
+
+        # 訂票狀態顯示
+        status_text = "✅ 已確認" if status == '1' else "❌ 已取消"
+        status_color = "#1B5E20" if status == '1' else "#D32F2F"
+
+        # 連結到訂票頁面
+        link = f"{base_url}/ticket" if base_url else "/ticket"
 
         body_contents = [
             TextComponent(text=title or "我的訂票", weight="bold", size="md", wrap=True),
         ]
         if subtitle:
             body_contents.append(TextComponent(text=subtitle, size="sm", color="#666666", wrap=True))
+        if holder_name:
+            body_contents.append(TextComponent(text=f"持票人：{holder_name}", size="xs", color="#999999", wrap=True))
         if price:
-            body_contents.append(TextComponent(text=f"NT$ {price}", size="sm", color="#1B5E20"))
+            body_contents.append(TextComponent(text=f"NT$ {price}", size="sm", color="#1B5E20", weight="bold"))
+        # 顯示訂票狀態
+        body_contents.append(TextComponent(text=status_text, size="xs", color=status_color, weight="bold"))
 
         bubble = BubbleContainer(
             body=BoxComponent(layout="vertical", spacing="sm", contents=body_contents),
             footer=BoxComponent(layout="vertical", spacing="sm", contents=[
                 ButtonComponent(style="primary", action=URIAction(label="查看詳情", uri=link)),
-                ButtonComponent(style="link", action=URIAction(label="我的訂票", uri=(ticket_url or (base_url + "/ticket" if base_url else "/ticket"))))
+                ButtonComponent(style="link", action=URIAction(label="所有訂票", uri=(ticket_url or (base_url + "/ticket" if base_url else "/ticket"))))
             ])
         )
         bubbles.append(bubble)

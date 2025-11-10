@@ -56,8 +56,11 @@ def login_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         if 'user_id' not in session:
+            # 記住用戶原本想去的頁面
+            session['next_url'] = request.url
             flash('請先登入')
-            return redirect(url_for('login'))
+            # 重定向到首頁並自動彈出登入 Modal
+            return redirect(url_for('index', show_login='true'))
         return f(*args, **kwargs)
     return decorated_function
 
@@ -181,7 +184,14 @@ def login():
         # 轉發給 service 層處理登入後的 LINE 綁定
         bind_result = linebot_service.handle_login_line_binding(user_id, session)
 
-        return jsonify({'success': True, 'message': bind_result.get('message', '登入成功')})
+        # 取得登入前想去的頁面
+        next_url = session.pop('next_url', None)
+
+        return jsonify({
+            'success': True,
+            'message': bind_result.get('message', '登入成功'),
+            'next_url': next_url  # 傳給前端,讓前端跳轉
+        })
 
     return jsonify({'success': False, 'message': '使用者名稱或密碼錯誤'})
 
@@ -234,9 +244,6 @@ def logout():
 @login_required
 def profile():
     user_id = session.get('user_id')
-    if not user_id:
-        flash('請先登入', 'error')
-        return redirect(url_for('login'))
 
     result = user_service.GetUserInfo(user_id)
 
@@ -398,6 +405,16 @@ def _handle_binding_result(result):
     return (f"未知的處理結果：{result}", 500)
 
 
+# ===== LINE 解除綁定 API =====
+@app.route('/api/line/unbind', methods=['POST'])
+@login_required
+def unbind_line():
+    """解除 LINE 帳號綁定 - 轉發給 service 層處理"""
+    user_id = session.get('user_id')
+    result = linebot_service.unbind_line_account(user_id)
+    return jsonify(result)
+
+
 # ===== LINE Login：回調處理 =====
 @app.route('/lineApi/line-login/callback')
 def line_login_callback():
@@ -502,10 +519,6 @@ def process_booking(flight_id):
 @login_required
 def ticket():
     user_id = session.get('user_id')
-
-    if not user_id:
-        flash('請先登入', 'error')
-        return redirect(url_for('login'))
 
     # 🔹 從 ticket_service 撈真實訂票紀錄
     result = ticket_service.getWallet(user_id)

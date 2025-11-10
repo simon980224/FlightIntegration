@@ -1209,10 +1209,37 @@ def handle_login_line_binding(user_id: str, session_obj: dict) -> dict:
             if res.get('success'):
                 session_obj.pop('line_user_id', None)  # 綁定成功後清除
                 return {'success': True, 'message': '登入成功，LINE 帳號已自動綁定！'}
+
+
         except Exception:
             pass  # 綁定失敗不影響登入
 
     return {'success': True, 'message': '登入成功'}
+
+
+def unbind_line_account(user_id: str) -> dict:
+    """解除 LINE 帳號綁定
+
+    Args:
+        user_id: 網站用戶 ID
+
+    Returns:
+        dict: {
+            'success': bool,
+            'message': str
+        }
+    """
+    try:
+        from api.linebot import line_binding_repository as lbs
+        result = lbs.unbind_by_user(user_id)
+
+        if result.get('success'):
+            return {'success': True, 'message': 'LINE 帳號解除綁定成功'}
+        else:
+            return {'success': False, 'message': result.get('error', '解除綁定失敗')}
+    except Exception as e:
+        logger.error(f"解除 LINE 綁定失敗: {e}")
+        return {'success': False, 'message': f'解除綁定失敗：{str(e)}'}
 
 
 def preload_airport_cache():
