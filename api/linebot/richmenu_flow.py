@@ -1027,8 +1027,11 @@ def _build_bind_prompt_flex(bind_url: str, ticket_url: str):
     except Exception:
         base_url = None
 
-    # 首頁 URL（會自動彈出登入 Modal）
-    home_url = base_url if base_url else "/"
+    # 首頁 URL（加上參數以自動彈出登入 Modal）
+    if base_url:
+        home_url = f"{base_url}/?show_login=true"
+    else:
+        home_url = "/?show_login=true"
 
     title = TextComponent(text="尚未綁定網站帳號", weight="bold", size="md", wrap=True)
     hint = TextComponent(text="請先登入網站並點「綁定 LINE」以查看訂票", size="sm", color="#666666", wrap=True)
