@@ -265,10 +265,13 @@
         if (data.success) {
           showToast("登入成功", "歡迎回來！", "success");
           setTimeout(() => {
-            if (window.postLoginRedirect) {
+            // 優先順序: 1. 後端返回的 next_url  2. postLoginRedirect  3. 首頁
+            if (data.next_url) {
+              window.location.href = data.next_url;
+            } else if (window.postLoginRedirect) {
               window.location.href = window.postLoginRedirect;
             } else {
-              window.location.reload();
+              window.location.href = '/';  // 跳轉到首頁(不帶參數)
             }
           }, 500);
         } else {
