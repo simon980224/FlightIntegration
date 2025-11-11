@@ -351,7 +351,7 @@ try:
                         ok = insert_flight(m)       # 只做 INSERT；存在則略過
                         if ok:
                             success_cnt += 1
-                            # log_append(m)          # 只寫入 dbo.Cron_log
+                            log_append(m)          # 只寫入 dbo.Cron_log
 
                     got = True
                     break
