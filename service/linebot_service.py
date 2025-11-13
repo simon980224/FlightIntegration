@@ -11,7 +11,6 @@ import threading
 from queue import Queue
 
 # 導入統一配置和工具
-from api.linebot.logger_config import get_logger, log_info, log_error
 from api.linebot.constants import (
     CACHE_TTL_FLIGHT, ERROR_GENERAL, ERROR_NO_FLIGHTS,
     LOADING_FLIGHTS, DB_CONNECT_TIMEOUT,
@@ -20,8 +19,8 @@ from api.linebot.constants import (
 )
 from api.linebot.cache_utils import cache_clear_expired
 
-# 初始化統一 logger
-logger = get_logger(__name__)
+# 初始化 logger
+logger = logging.getLogger(__name__)
 
 # from service import tips_service
 
@@ -57,7 +56,7 @@ from api.linebot.airports_config import TaiwanAirports, InternationalCities
 TAIWAN_AIRPORT_ALIASES = TaiwanAirports.get_aliases_dict()
 
 # 網頁連結常量（直接寫死，不從全局配置讀取）
-WEBSITE_URL = "https://959a368bfc22.ngrok-free.app"
+WEBSITE_URL = "https://8abf55929404.ngrok-free.app"
 
 # 寫入 MSSQL dbo.API_Log
 # 連線參數（由使用者提供）
@@ -98,7 +97,7 @@ def _log_worker():
             # 標記任務完成
             _log_queue.task_done()
         except Exception as e:
-            log_error(f"[API_Log] Worker error: {e}")
+            print(f"[API_Log] Worker error: {e}")
 
 def _start_log_worker():
     """啟動日誌工作執行緒（僅啟動一次）"""
@@ -207,7 +206,7 @@ def get_cached_airports():
     """取得快取的機場資料，避免重複查詢資料庫"""
     global _airport_cache, _airport_lookup
     if _airport_cache is None:
-        log_info(logger, "載入機場資料到快取")
+        print("[機場快取] 載入機場資料到快取")
         d_airports = search_service.get_airport_data('1')  # 國外機場
         a_airports = search_service.get_airport_data('0')  # 國內機場
 
@@ -233,9 +232,9 @@ def get_cached_airports():
                 if airport_name:
                     _airport_lookup[airport_name.upper()] = airport_id
 
-            log_info(logger, f"機場資料快取完成，共 {len(_airport_cache)} 個機場，{len(_airport_lookup)} 個查找項目")
+            print(f"[機場快取] 機場資料快取完成，共 {len(_airport_cache)} 個機場，{len(_airport_lookup)} 個查找項目")
         else:
-            log_error(logger, "機場資料載入失敗")
+            print("[機場快取] 機場資料載入失敗")
             _airport_cache = []
             _airport_lookup = {}
 
@@ -1210,10 +1209,37 @@ def handle_login_line_binding(user_id: str, session_obj: dict) -> dict:
             if res.get('success'):
                 session_obj.pop('line_user_id', None)  # 綁定成功後清除
                 return {'success': True, 'message': '登入成功，LINE 帳號已自動綁定！'}
+
+
         except Exception:
             pass  # 綁定失敗不影響登入
 
     return {'success': True, 'message': '登入成功'}
+
+
+def unbind_line_account(user_id: str) -> dict:
+    """解除 LINE 帳號綁定
+
+    Args:
+        user_id: 網站用戶 ID
+
+    Returns:
+        dict: {
+            'success': bool,
+            'message': str
+        }
+    """
+    try:
+        from api.linebot import line_binding_repository as lbs
+        result = lbs.unbind_by_user(user_id)
+
+        if result.get('success'):
+            return {'success': True, 'message': 'LINE 帳號解除綁定成功'}
+        else:
+            return {'success': False, 'message': result.get('error', '解除綁定失敗')}
+    except Exception as e:
+        logger.error(f"解除 LINE 綁定失敗: {e}")
+        return {'success': False, 'message': f'解除綁定失敗：{str(e)}'}
 
 
 def preload_airport_cache():
@@ -1224,11 +1250,101 @@ def preload_airport_cache():
     """
     # 只在子進程（實際運行的進程）中載入，避免 Debug 模式重複載入
     if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
-        log_info(logger, "預先載入機場快取")
+        print("[機場快取] 預先載入機場快取")
         get_cached_airports()
-        log_info(logger, "機場快取載入完成")
+        print("[機場快取] 機場快取載入完成")
     elif os.environ.get('WERKZEUG_RUN_MAIN') is None:
         # 非 debug 模式（production），直接載入
-        log_info(logger, "預先載入機場快取")
+        print("[機場快取] 預先載入機場快取")
         get_cached_airports()
-        log_info(logger, "機場快取載入完成")
+        print("[機場快取] 機場快取載入完成")
+
+
+# ===== LINE Login OAuth 業務邏輯 =====
+
+def exchange_line_token(code, callback_url, channel_id, channel_secret):
+    """交換 LINE OAuth code 為 access_token
+
+    Args:
+        code: LINE OAuth authorization code
+        callback_url: OAuth callback URL
+        channel_id: LINE Login channel ID
+        channel_secret: LINE Login channel secret
+
+    Returns:
+        str: access_token，失敗返回 None
+    """
+    import urllib.request
+    from urllib.parse import urlencode
+
+    try:
+        data = urlencode({
+            'grant_type': 'authorization_code',
+            'code': code,
+            'redirect_uri': callback_url,
+            'client_id': channel_id,
+            'client_secret': channel_secret,
+        }).encode('utf-8')
+
+        req = urllib.request.Request(
+            'https://api.line.me/oauth2/v2.1/token',
+            data=data,
+            headers={'Content-Type': 'application/x-www-form-urlencoded'}
+        )
+
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            token_payload = json.loads(resp.read().decode('utf-8'))
+
+        return token_payload.get('access_token')
+    except Exception as e:
+        print(f"[LINE Login] 交換 LINE token 失敗: {e}")
+        return None
+
+
+def get_line_user_profile(access_token):
+    """取得 LINE 使用者資料
+
+    Args:
+        access_token: LINE access token
+
+    Returns:
+        str: LINE user_id，失敗返回 None
+    """
+    import urllib.request
+
+    try:
+        prof_req = urllib.request.Request(
+            'https://api.line.me/v2/profile',
+            headers={'Authorization': f'Bearer {access_token}'}
+        )
+
+        with urllib.request.urlopen(prof_req, timeout=20) as resp:
+            user_profile = json.loads(resp.read().decode('utf-8'))
+
+        return user_profile.get('userId')
+    except Exception as e:
+        print(f"[LINE Login] 取得 LINE 使用者資料失敗: {e}")
+        return None
+
+
+def validate_line_callback_params(code, state, session_state):
+    """驗證 LINE Login callback 參數
+
+    Args:
+        code: OAuth authorization code
+        state: OAuth state parameter
+        session_state: Session 中儲存的 state
+
+    Returns:
+        dict: {
+            'valid': bool,
+            'error_message': str (僅在 valid=False 時)
+        }
+    """
+    if not code or not state or state != session_state:
+        return {
+            'valid': False,
+            'error_message': '不合法的授權回調（state 驗證失敗或缺參數）'
+        }
+
+    return {'valid': True}

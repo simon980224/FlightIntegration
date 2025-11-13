@@ -83,36 +83,36 @@ def insert_flight(mapped: dict) -> bool:
             pass
 
 # ======================== [ADD-3] 只寫資料庫的 Cron_log ======================
-# def _build_label_body(m: dict) -> str:
-#     """回傳『插入：…，TPE ➜ HKG，出發：YYYY-MM-DD HH:MM，抵達：YYYY-MM-DD HH:MM』"""
-#     return (f"插入：{m['Flight_id']}，"
-#             f"{m['d_airport_id']} ➜ {m['a_airport_id']}，"
-#             f"出發：{m['D_time'][:16]}，抵達：{m['A_time'][:16]}")
+def _build_label_body(m: dict) -> str:
+    """回傳『插入：…，TPE ➜ HKG，出發：YYYY-MM-DD HH:MM，抵達：YYYY-MM-DD HH:MM』"""
+    return (f"插入：{m['Flight_id']}，"
+            f"{m['d_airport_id']} ➜ {m['a_airport_id']}，"
+            f"出發：{m['D_time'][:16]}，抵達：{m['A_time'][:16]}")
 
-# def log_append(mapped_row: dict):
-#     """把 log 寫入資料庫，時間直接用 mapped_row['D_time']（或其它來源）"""
-#     body = _build_label_body(mapped_row)
+def log_append(mapped_row: dict):
+    """把 log 寫入資料庫，時間直接用 mapped_row['D_time']（或其它來源）"""
+    body = _build_label_body(mapped_row)
 
-#     # 這裡改掉 GETDATE()，直接用參數傳入
-#     sql = "INSERT INTO dbo.Cron_log (label01, Create_At) VALUES (%s, %s)"
+    # 這裡改掉 GETDATE()，直接用參數傳入
+    sql = "INSERT INTO dbo.Cron_log (label01, Create_At) VALUES (%s, %s)"
 
-#     log_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # 或直接用 Python 現在時間
+    log_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")  # 或直接用 Python 現在時間
 
-#     conn = cur = None
-#     try:
-#         conn = connect_db()
-#         cur = conn.cursor()
-#         cur.execute(sql, (body, log_time))
-#         conn.commit()
-#     except Exception as e:
-#         # print(f"Cron_log DB 寫入失敗：{e}")
-#         pass
-#     finally:
-#         try:
-#             if cur: cur.close()
-#             if conn: conn.close()
-#         except:
-#             pass
+    conn = cur = None
+    try:
+        conn = connect_db()
+        cur = conn.cursor()
+        cur.execute(sql, (body, log_time))
+        conn.commit()
+    except Exception as e:
+        # print(f"Cron_log DB 寫入失敗：{e}")
+        pass
+    finally:
+        try:
+            if cur: cur.close()
+            if conn: conn.close()
+        except:
+            pass
 
 
 # ============  XPath 與 URL（保留） ============
@@ -351,7 +351,7 @@ try:
                         ok = insert_flight(m)       # 只做 INSERT；存在則略過
                         if ok:
                             success_cnt += 1
-                            # log_append(m)          # 只寫入 dbo.Cron_log
+                            log_append(m)          # 只寫入 dbo.Cron_log
 
                     got = True
                     break

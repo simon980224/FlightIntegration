@@ -7,21 +7,21 @@ import logging
 
 today = date.today()
 
-# def log_info(message):
-#     log_dir = os.path.join("logs", "CronLog")
-#     os.makedirs(log_dir, exist_ok=True)
-#     log_filename = f"{today.strftime('%Y%m%d')}_starlux.log"
-#     log_path = os.path.join(log_dir, log_filename)
+def log_info(message):
+    log_dir = os.path.join("logs", "CronLog")
+    os.makedirs(log_dir, exist_ok=True)
+    log_filename = f"{today.strftime('%Y%m%d')}_starlux.log"
+    log_path = os.path.join(log_dir, log_filename)
     
-#     logging.basicConfig(
-#         filename=log_path,
-#         filemode="a",
-#         level=logging.INFO,
-#         format="%(asctime)s - %(message)s",
-#         datefmt="%Y-%m-%d %H:%M:%S",
-#         encoding="utf-8"
-#     )
-#     logging.info(message)
+    logging.basicConfig(
+        filename=log_path,
+        filemode="a",
+        level=logging.INFO,
+        format="%(asctime)s - %(message)s",
+        datefmt="%Y-%m-%d %H:%M:%S",
+        encoding="utf-8"
+    )
+    logging.info(message)
 
 def connect_db():
     return pymssql.connect(

@@ -24,17 +24,16 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..',
 
 __all__ = ["parse_month_from_text", "render_tips_message", "build_tips_flex_message"]
 
-from linebot.v3.messaging.models import FlexMessage, FlexContainer
-import json as _json
+from linebot.models import FlexSendMessage
 from urllib.parse import quote
 
 from typing import Dict, Any, Tuple
 from api.linebot.cache_utils import cache_get, cache_set, cache_clear_expired
-from api.linebot.logger_config import get_logger, log_error
 from api.linebot import date_utils
+import logging
 
-# 初始化統一 logger
-logger = get_logger(__name__)
+# 初始化 logger
+logger = logging.getLogger(__name__)
 
 # 簡易月度快取（避免重複打 API）
 _ATTRACTIONS_MONTH_CACHE: Dict[str, Tuple[float, str]] = {}
@@ -444,9 +443,9 @@ def build_tips_flex_message(destination: str, month: Optional[int] = None):
         if not payload:
             return None
         alt_text, carousel = payload
-        fm = FlexMessage(
+        fm = FlexSendMessage(
             alt_text=alt_text,
-            contents=FlexContainer.from_json(_json.dumps(carousel, ensure_ascii=False))
+            contents=carousel
         )
         cache_set(_FLEX_MONTH_CACHE, key, fm)
         return fm

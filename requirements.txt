@@ -12,3 +12,9 @@ chromedriver
 datetime
 Pillow
 captcha
+undetected_chromedriver
+typing
+hashlib
+uuid
+random
+string
