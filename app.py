@@ -415,6 +415,70 @@ def unbind_line():
     return jsonify(result)
 
 
+# ===== LIFF 相關路由 =====
+@app.route('/liff/booking')
+def liff_booking():
+    """LIFF 訂票頁面"""
+    return render_template('liff_booking.html')
+
+
+@app.route('/api/liff/config')
+def liff_config():
+    """取得 LIFF 設定"""
+    liff_id = config.get('liff', {}).get('booking_liff_id', '')
+    return jsonify({'liff_id': liff_id})
+
+
+@app.route('/api/flight/<flight_id>')
+def get_flight_info(flight_id):
+    """取得航班資訊（供 LIFF 使用）"""
+    result = ticket_service.get_booking_imf(flight_id)
+    return jsonify(result)
+
+
+@app.route('/api/ticket/insert_liff', methods=['POST'])
+def insert_ticket_liff():
+    """LIFF 訂票 API（使用 LINE User ID）"""
+    data = request.get_json() or {}
+    line_user_id = data.get('line_user_id')
+
+    if not line_user_id:
+        return jsonify({"success": False, "message": "缺少 LINE User ID"}), 400
+
+    # 從 LINE User ID 取得網站 User ID
+    try:
+        from api.linebot.line_binding_repository import get_user_id_by_line
+        user_id = get_user_id_by_line(line_user_id)
+    except Exception:
+        user_id = None
+
+    if not user_id:
+        return jsonify({"success": False, "message": "請先綁定網站帳號"}), 401
+
+    # 接收訂票資料
+    flight_id = data.get("Flight_Id")
+    cabin = data.get("Cabin")
+    price = data.get("Price")
+    holder_name = data.get("Holder_Name", "").strip()
+    holder_mobile = data.get("Holder_Mobile", "").strip()
+
+    # 必填檢查
+    if not holder_name or not holder_mobile:
+        return jsonify({"success": False, "message": "持票人姓名與電話為必填"}), 400
+
+    # 呼叫 ticket_service 寫入 Ticket + Wallet
+    result = ticket_service.InsertWallet(
+        flight_id=flight_id,
+        cabin=cabin,
+        price=price,
+        holder_name=holder_name,
+        holder_mobile=holder_mobile,
+        user_id=user_id
+    )
+
+    return jsonify(result)
+
+
 # ===== LINE Login：回調處理 =====
 @app.route('/lineApi/line-login/callback')
 def line_login_callback():
