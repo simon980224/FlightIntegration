@@ -8,6 +8,10 @@ import random
 import string
 import base64
 from captcha.image import ImageCaptcha
+import smtplib
+from email.mime.text import MIMEText
+from email.header import Header
+
 
 # 連接字串配置
 conn_args = {
@@ -16,6 +20,26 @@ conn_args = {
     "password": "Flight_admin123@",
     "database": "114-FlightIntegration_DB"
 }
+
+
+# 你的 Gmail 帳號與 16 碼密碼
+GMAIL_ACCOUNT = "flightintegration0ntub@gmail.com"
+GMAIL_PASSWORD = "dnavxcfgyijkthco"
+
+def send_gmail(to_email, verify_code):
+    """寄送驗證碼到對方信箱"""
+    subject = "FlightIntegration 註冊驗證碼"
+    body = f"您的驗證碼是：{verify_code}\n此驗證碼 10 分鐘內有效。"
+
+    msg = MIMEText(body, "plain", "utf-8")
+    msg["Subject"] = Header(subject, "utf-8")
+    msg["From"] = GMAIL_ACCOUNT
+    msg["To"] = to_email
+
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+        server.login(GMAIL_ACCOUNT, GMAIL_PASSWORD)
+        server.sendmail(GMAIL_ACCOUNT, [to_email], msg.as_string())
+
 
 # 設定上傳資料夾路徑
 UPLOAD_FOLDER = os.path.join('static', 'img', 'user_photos')
@@ -75,13 +99,14 @@ def RegisterUser(user_id, user_name, password, user_email):
         if cursor.fetchone()[0] > 0:
             return {"success": False, "message": "使用者已存在"}
 
-        # （可選）若要限制 Email 唯一，解除註解以下兩行
+        # 檢查 Email 唯一性（你原本已有）
         cursor.execute("SELECT COUNT(*) FROM [User] WHERE User_Email = %s", (user_email,))
-        if cursor.fetchone()[0] > 0: return {"success": False, "message": "Email 已被註冊"}
+        if cursor.fetchone()[0] > 0:
+            return {"success": False, "message": "Email 已被註冊"}
 
         now = datetime.datetime.now()
 
-        # 僅插入 User 相關欄位（Status/Verify 一律不碰）
+        # 寫入 User 基本資料
         cursor.execute("""
 INSERT INTO [User] (
     User_Id, User_Name, Password_Hash, User_Email, User_Img, User_Grade, Status, Create_At, Modify_At
@@ -90,25 +115,29 @@ INSERT INTO [User] (
 
         conn.commit()
 
-        # 註冊成功後，新增一筆驗證碼資料到 User_Verify_Log
-        verify_type = 'register'  # 可依需求調整
-        verify_number = str(uuid.uuid4())[:4]  # 產生驗證碼
-        verify_value = verify_number  # 這裡直接用驗證碼本身
+        # ======== 產生驗證碼 ========
+        verify_type = 'register'
+        verify_number = str(uuid.uuid4())[:4]  # 4碼驗證碼
+        verify_value = verify_number
         status = '0'
         create_at = now
-        expired_time = now + datetime.timedelta(minutes=10)  # 驗證碼10分鐘有效
+        expired_time = now + datetime.timedelta(minutes=10)
 
-        try:
-            cursor.execute("""
+        # 寫入 User_Verify_Log
+        cursor.execute("""
 INSERT INTO [User_Verify_Log] (User_Id, Verify_Type, Verify_Number, Verify_Value, Status, Create_At, Expired_Time)
 VALUES (%s, %s, %s, %s, %s, %s, %s)
-            """, (user_id, verify_type, verify_number, verify_value, status, create_at, expired_time))
-            conn.commit()
-        except Exception as e:
-            return {"success": True, "message": "註冊成功，但驗證碼寫入失敗：" + str(e)}
+        """, (user_id, verify_type, verify_number, verify_value, status, create_at, expired_time))
 
-        return {"success": True, "message": "註冊成功，驗證碼已產生", "verify_code": verify_number}
+        conn.commit()
 
+        # ======== 寄信：把驗證碼寄出 ========
+        try:
+            send_gmail(user_email, verify_number)
+        except Exception as mail_err:
+            return {"success": True, "message": f'註冊成功，但寄送驗證信失敗：{mail_err}'}
+
+        return {"success": True, "message": "註冊成功，驗證碼已寄到您的 Email"}
 
     except Exception as e:
         return {"success": False, "message": f"註冊失敗：{e}"}
@@ -118,6 +147,7 @@ VALUES (%s, %s, %s, %s, %s, %s, %s)
             cursor and cursor.close()
         finally:
             conn and conn.close()
+
 
 def VerifyRegisterCode(user_id: str, verification_code: str):
 
@@ -362,7 +392,7 @@ def SendResetPasswordCode(user_email):
         now = datetime.datetime.now()
         expired_time = now + datetime.timedelta(minutes=10)
 
-        # 直接更新（假設 User_Verify_Log 已存在該 User_Id）
+        # 寫入或更新驗證碼 Log
         cursor.execute("""
 UPDATE [User_Verify_Log]
 SET Verify_Type = 'reset_pswd',
@@ -374,13 +404,29 @@ SET Verify_Type = 'reset_pswd',
 WHERE User_Id = %s
         """, (verify_code, verify_code, now, expired_time, user_id))
 
+        # 如果沒有任何 row 被更新 → 對方第一次申請 reset code → 新增一筆
+        if cursor.rowcount == 0:
+            cursor.execute("""
+INSERT INTO [User_Verify_Log]
+(User_Id, Verify_Type, Verify_Number, Verify_Value, Status, Create_At, Expired_Time)
+VALUES (%s, 'reset_pswd', %s, %s, '0', %s, %s)
+            """, (user_id, verify_code, verify_code, now, expired_time))
+
         conn.commit()
+
+        # 🔥 === 寄送 Gmail 驗證碼 ===
+        try:
+            send_gmail(user_email, verify_code)
+        except Exception as mail_err:
+            return {
+                "success": False,
+                "message": f"驗證碼已產生，但 Email 寄送失敗：{mail_err}"
+            }
 
         return {
             "success": True,
-            "message": "驗證碼已更新（有效 10 分鐘）",
-            "user_id": user_id,
-            "verify_code": verify_code
+            "message": "驗證碼已寄到您的 Email（有效 10 分鐘）",
+            "user_id": user_id
         }
 
     except Exception as e:
@@ -391,6 +437,7 @@ WHERE User_Id = %s
             cursor and cursor.close()
         finally:
             conn and conn.close()
+
         
 def ResetPasswordByCode(user_email, verify_code, new_password):
     """
