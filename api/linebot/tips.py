@@ -348,7 +348,11 @@ def render_tips_message(destination: str, month: Optional[int] = None) -> str:
 # ---- Flex 版：小貼士（含天氣 + 景點卡片）----
 
 def build_tips_flex_payload(destination: str, month: Optional[int] = None):
-    """回傳 (alt_text, contents_dict)，供 v2/v3 皆可使用。"""
+    """回傳 (alt_text, contents_dict)，供 v2/v3 皆可使用。
+    🎨 使用品牌色彩設計
+    """
+    from api.linebot.design_system import FlightBotColors, FlightBotEmojis
+
     dest = (destination or '').strip()
     if not dest:
         return None
@@ -359,25 +363,72 @@ def build_tips_flex_payload(destination: str, month: Optional[int] = None):
     from api.linebot.wiki_attractions import get_attractions_with_fallback
     items = get_attractions_with_fallback(dest, limit=5)
 
-    # Weather bubble
+    # 🎨 Weather bubble（帶品牌色標題）
+    header_contents = {
+        "type": "box",
+        "layout": "vertical",
+        "contents": [
+            {
+                "type": "text",
+                "text": f"{FlightBotEmojis.TIPS} {dest} {m}月 旅遊小貼士",
+                "weight": "bold",
+                "size": "lg",
+                "color": FlightBotColors.WHITE,
+                "wrap": True
+            }
+        ],
+        "backgroundColor": FlightBotColors.TIPS_HEADER,
+        "paddingAll": "md"
+    }
+
     body_contents = [
-        {"type": "text", "text": f"{dest} {m}月 旅遊小貼士", "weight": "bold", "size": "md", "wrap": True},
-        {"type": "separator", "margin": "md"},
-        {"type": "text", "text": f"🌤️ 天氣預報：{weather_info}", "size": "sm", "wrap": True},
+        {
+            "type": "text",
+            "text": f"{FlightBotEmojis.WEATHER} 天氣預報",
+            "weight": "bold",
+            "size": "sm",
+            "color": FlightBotColors.PRIMARY_DARK,
+            "margin": "md"
+        },
+        {
+            "type": "text",
+            "text": weather_info,
+            "size": "sm",
+            "wrap": True,
+            "color": FlightBotColors.TEXT_PRIMARY,
+            "margin": "xs"
+        },
+        {"type": "separator", "margin": "md", "color": FlightBotColors.DIVIDER},
+        {
+            "type": "text",
+            "text": f"{FlightBotEmojis.TIPS} 實用建議",
+            "margin": "md",
+            "size": "sm",
+            "weight": "bold",
+            "color": FlightBotColors.PRIMARY_DARK
+        }
     ]
-    body_contents.append({"type": "text", "text": "💡 實用建議：", "margin": "md", "size": "sm", "weight": "bold"})
     for tip in _build_advice_lines(dest, m):
-        body_contents.append({"type": "text", "text": tip, "size": "xs", "wrap": True, "color": "#666666"})
+        body_contents.append({
+            "type": "text",
+            "text": tip,
+            "size": "xs",
+            "wrap": True,
+            "color": FlightBotColors.TEXT_SECONDARY,
+            "margin": "xs"
+        })
+
     weather_bubble = {
         "type": "bubble",
+        "header": header_contents,
         "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": body_contents}
     }
 
-    # Attraction bubbles
+    # 🎨 Attraction bubbles（帶品牌色設計）
     bubbles = [weather_bubble]
     for it in items:
         name = it.get("name") or dest
-        emoji = it.get("emoji") or "📍"
+        emoji = it.get("emoji") or FlightBotEmojis.ATTRACTION
         summary = it.get("summary") or ""
 
         # 限制摘要長度為 100 字以內（確保在 LINE Flex Message 中顯示良好）
@@ -395,30 +446,86 @@ def build_tips_flex_payload(destination: str, month: Optional[int] = None):
             map_url = f"https://www.google.com/maps/search/?api=1&query={q}"
         wiki_url = it.get("wiki_url")
 
-        body = [
-            {"type": "text", "text": f"{emoji} {name}", "weight": "bold", "size": "md", "wrap": True}
-        ]
+        # 🎨 景點標題（帶品牌色背景）
+        header_contents = {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": f"{emoji} {name}",
+                    "weight": "bold",
+                    "size": "md",
+                    "color": FlightBotColors.WHITE,
+                    "wrap": True
+                }
+            ],
+            "backgroundColor": FlightBotColors.ATTRACTION,
+            "paddingAll": "md"
+        }
+
+        body = []
         if summary:
-            body.append({"type": "text", "text": summary, "size": "sm", "color": "#666666", "wrap": True})
+            body.append({
+                "type": "text",
+                "text": summary,
+                "size": "sm",
+                "color": FlightBotColors.TEXT_PRIMARY,
+                "wrap": True,
+                "margin": "md"
+            })
         hours_text = it.get("hours_text")
         if hours_text:
-            body.append({"type": "text", "text": hours_text, "size": "xs", "color": "#666666", "wrap": True})
+            body.append({
+                "type": "text",
+                "text": f"{FlightBotEmojis.CLOCK} {hours_text}",
+                "size": "xs",
+                "color": FlightBotColors.TEXT_SECONDARY,
+                "wrap": True,
+                "margin": "sm"
+            })
 
         # 根據資料來源顯示不同的標註
         if wiki_url:
             source_text = "資料來源：Wikipedia"
         else:
             source_text = "資料來源：Google Maps"
-        body.append({"type": "text", "text": source_text, "size": "xxs", "color": "#999999", "wrap": True, "margin": "md"})
+        body.append({
+            "type": "text",
+            "text": source_text,
+            "size": "xxs",
+            "color": FlightBotColors.TEXT_HINT,
+            "wrap": True,
+            "margin": "md"
+        })
 
+        # 🎨 按鈕（品牌色）
         footer_btns = [
-            {"type": "button", "style": "primary", "action": {"type": "uri", "label": "📍 Google 地圖", "uri": map_url}}
+            {
+                "type": "button",
+                "style": "primary",
+                "color": FlightBotColors.PRIMARY,
+                "action": {
+                    "type": "uri",
+                    "label": f"{FlightBotEmojis.MAP} Google 地圖",
+                    "uri": map_url
+                }
+            }
         ]
         if wiki_url:
-            footer_btns.append({"type": "button", "style": "link", "action": {"type": "uri", "label": "...更多", "uri": wiki_url}})
+            footer_btns.append({
+                "type": "button",
+                "style": "link",
+                "action": {
+                    "type": "uri",
+                    "label": "...更多",
+                    "uri": wiki_url
+                }
+            })
 
         bubble = {
             "type": "bubble",
+            "header": header_contents,
             "body": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": body},
             "footer": {"type": "box", "layout": "vertical", "spacing": "sm", "contents": footer_btns}
         }
