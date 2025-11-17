@@ -355,7 +355,7 @@
     })
     .then((data) => {
       closeLoading();
-      if (data.success && data.verify_code) {
+      if (data.success) {
         // 註冊成功，資料已寫入資料庫，顯示驗證碼並要求驗證
         window.pendingRegistrationData = {
           user_id: formData.user_id,
@@ -369,7 +369,7 @@
         document.getElementById("verificationUserEmail").textContent = formData.user_email;
         
         // 提示使用者註冊成功但需要驗證才能登入
-        showToast("註冊成功", `帳號已建立！您的驗證碼是：${data.verify_code}（請注意大小寫）\n必須完成驗證才能登入`, "info");
+        showToast("註冊成功", data.message || "驗證碼已寄到您的 Email（有效 10 分鐘），請完成驗證後登入", "info");
       } else {
         handleRegistrationError(data.message || "註冊失敗");
       }
