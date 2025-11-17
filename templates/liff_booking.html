@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>訂票 - FlightIntegration</title>
+    
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- LIFF SDK -->
+    <script charset="utf-8" src="https://static.line-scdn.net/liff/edge/2/sdk.js"></script>
+    
+    <style>
+        body {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px 0;
+        }
+        .booking-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .flight-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+        .step-indicator {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            position: relative;
+        }
+        .step {
+            flex: 1;
+            text-align: center;
+            position: relative;
+        }
+        .step-number {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #e0e0e0;
+            color: #666;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 8px;
+            font-weight: bold;
+            transition: all 0.3s;
+        }
+        .step.active .step-number {
+            background: #1E88E5;
+            color: white;
+        }
+        .step.completed .step-number {
+            background: #00C853;
+            color: white;
+        }
+        .step-label {
+            font-size: 12px;
+            color: #666;
+        }
+        .cabin-option {
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .cabin-option:hover {
+            border-color: #1E88E5;
+            background: #f5f5f5;
+        }
+        .cabin-option.selected {
+            border-color: #1E88E5;
+            background: #E3F2FD;
+        }
+        .seat-map {
+            display: grid;
+            grid-template-columns: repeat(6, 1fr);
+            gap: 10px;
+            margin: 20px 0;
+        }
+        .seat {
+            aspect-ratio: 1;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 12px;
+            transition: all 0.3s;
+        }
+        .seat:hover:not(.occupied) {
+            border-color: #1E88E5;
+            background: #f5f5f5;
+        }
+        .seat.selected {
+            background: #1E88E5;
+            color: white;
+            border-color: #1E88E5;
+        }
+        .seat.occupied {
+            background: #e0e0e0;
+            cursor: not-allowed;
+        }
+        .btn-primary {
+            background: #1E88E5;
+            border: none;
+        }
+        .btn-primary:hover {
+            background: #1565C0;
+        }
+        .price-summary {
+            background: #f5f5f5;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .loading {
+            text-align: center;
+            padding: 50px;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
+        }
+
+        /* 3D 信用卡樣式 */
+        #credit-card-container {
+            perspective: 1000px;
+            height: 200px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .credit-card-3d {
+            width: 100%;
+            max-width: 350px;
+            height: 200px;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 0.6s;
+        }
+        .credit-card-3d.flipped {
+            transform: rotateY(180deg);
+        }
+        .card-face {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .card-front {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        .card-back {
+            background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+            color: white;
+            transform: rotateY(180deg);
+        }
+        .card-chip {
+            width: 50px;
+            height: 40px;
+            background: linear-gradient(135deg, #FFD700 0%, #FFA500 100%);
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .card-logo {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: 900;
+            font-style: italic;
+            letter-spacing: 2px;
+        }
+        .card-number {
+            font-size: 22px;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 3px;
+            margin: 30px 0 20px;
+        }
+        .card-info {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+        }
+        .card-holder, .card-expiry {
+            display: flex;
+            flex-direction: column;
+        }
+        .card-label {
+            font-size: 10px;
+            opacity: 0.8;
+            margin-bottom: 5px;
+        }
+        .card-value {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        .card-magnetic-strip {
+            width: 100%;
+            height: 40px;
+            background: #000;
+            margin: 20px 0;
+        }
+        .card-cvv-section {
+            background: white;
+            color: #000;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: right;
+            font-family: 'Courier New', monospace;
+            font-size: 18px;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+    <div class="booking-container">
+        <!-- Loading -->
+        <div id="loading" class="loading">
+            <div class="spinner-border text-light" role="status">
+                <span class="visually-hidden">載入中...</span>
+            </div>
+            <p class="text-white mt-3">正在載入訂票資訊...</p>
+        </div>
+
+        <!-- Main Content (Hidden initially) -->
+        <div id="main-content" style="display: none;">
+            <!-- Flight Info Card -->
+            <div class="flight-card">
+                <h5 class="fw-bold mb-3">
+                    <i class="fas fa-plane text-primary me-2"></i>航班資訊
+                </h5>
+                <div id="flight-info"></div>
+            </div>
+
+            <!-- Step Indicator -->
+            <div class="flight-card">
+                <div class="step-indicator">
+                    <div class="step active" data-step="1">
+                        <div class="step-number">1</div>
+                        <div class="step-label">艙等</div>
+                    </div>
+                    <div class="step" data-step="2">
+                        <div class="step-number">2</div>
+                        <div class="step-label">座位</div>
+                    </div>
+                    <div class="step" data-step="3">
+                        <div class="step-number">3</div>
+                        <div class="step-label">資訊</div>
+                    </div>
+                    <div class="step" data-step="4">
+                        <div class="step-number">4</div>
+                        <div class="step-label">付款</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 1: Cabin Selection -->
+            <div id="step-1" class="flight-card">
+                <h6 class="fw-bold mb-3">選擇艙等</h6>
+                <div id="cabin-options"></div>
+                <button class="btn btn-primary w-100 mt-3" onclick="nextStep(2)">下一步</button>
+            </div>
+
+            <!-- Step 2: Seat Selection -->
+            <div id="step-2" class="flight-card" style="display: none;">
+                <h6 class="fw-bold mb-3">選擇座位</h6>
+                <p class="text-muted small">請選擇 <span id="seat-count">1</span> 個座位</p>
+                <div id="seat-map" class="seat-map"></div>
+                <button class="btn btn-secondary w-100 mt-3 me-2" onclick="prevStep(1)">上一步</button>
+                <button class="btn btn-primary w-100 mt-2" onclick="nextStep(3)">下一步</button>
+            </div>
+
+            <!-- Step 3: Passenger Info -->
+            <div id="step-3" class="flight-card" style="display: none;">
+                <h6 class="fw-bold mb-3">填寫乘客資訊</h6>
+                <div id="passenger-forms"></div>
+
+                <button class="btn btn-secondary w-100 mt-3" onclick="prevStep(2)">上一步</button>
+                <button class="btn btn-primary w-100 mt-2" onclick="nextStep(4)">下一步</button>
+            </div>
+
+            <!-- Step 4: Payment -->
+            <div id="step-4" class="flight-card" style="display: none;">
+                <h6 class="fw-bold mb-3">
+                    <i class="fas fa-credit-card me-2"></i>信用卡付款
+                </h6>
+
+                <div class="alert alert-info mb-3">
+                    <i class="fas fa-info-circle me-2"></i>
+                    請填寫信用卡資訊，點擊「確認付款並訂票」後將進行安全支付驗證
+                </div>
+
+                <!-- 3D 信用卡 -->
+                <div id="credit-card-container" class="mb-4"></div>
+
+                <!-- 信用卡表單 -->
+                <form id="payment-form">
+                    <div class="mb-3">
+                        <label class="form-label">卡號 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" placeholder="1234 5678 9012 3456"
+                               maxlength="19" id="card-number" required>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">持卡人姓名 <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" placeholder="WANG XIAO MING"
+                               id="card-holder" required>
+                    </div>
+
+                    <div class="row">
+                        <div class="col-6 mb-3">
+                            <label class="form-label">有效期限 <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" placeholder="MM/YY"
+                                   maxlength="5" id="card-expiry" required>
+                        </div>
+                        <div class="col-6 mb-3">
+                            <label class="form-label">安全碼 (CVV) <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" placeholder="123"
+                                   maxlength="3" id="card-cvv" required>
+                        </div>
+                    </div>
+                </form>
+
+                <div class="price-summary">
+                    <h6 class="fw-bold mb-3">費用明細</h6>
+                    <div id="price-breakdown-payment"></div>
+                </div>
+
+                <button class="btn btn-secondary w-100 mt-3" onclick="prevStep(3)">上一步</button>
+                <button class="btn btn-success w-100 mt-2" onclick="confirmBooking()">
+                    <i class="fas fa-check-circle me-2"></i>確認付款並訂票
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script src="/static/liff_booking.js"></script>
+</body>
+</html>
+
