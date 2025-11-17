@@ -440,41 +440,17 @@ def get_flight_info(flight_id):
 def insert_ticket_liff():
     """LIFF 訂票 API（使用 LINE User ID）"""
     data = request.get_json() or {}
-    line_user_id = data.get('line_user_id')
+    result = linebot_service.insert_ticket_from_liff(data)
 
-    if not line_user_id:
-        return jsonify({"success": False, "message": "缺少 LINE User ID"}), 400
-
-    # 從 LINE User ID 取得網站 User ID
-    try:
-        from api.linebot.line_binding_repository import get_user_id_by_line
-        user_id = get_user_id_by_line(line_user_id)
-    except Exception:
-        user_id = None
-
-    if not user_id:
-        return jsonify({"success": False, "message": "請先綁定網站帳號"}), 401
-
-    # 接收訂票資料
-    flight_id = data.get("Flight_Id")
-    cabin = data.get("Cabin")
-    price = data.get("Price")
-    holder_name = data.get("Holder_Name", "").strip()
-    holder_mobile = data.get("Holder_Mobile", "").strip()
-
-    # 必填檢查
-    if not holder_name or not holder_mobile:
-        return jsonify({"success": False, "message": "持票人姓名與電話為必填"}), 400
-
-    # 呼叫 ticket_service 寫入 Ticket + Wallet
-    result = ticket_service.InsertWallet(
-        flight_id=flight_id,
-        cabin=cabin,
-        price=price,
-        holder_name=holder_name,
-        holder_mobile=holder_mobile,
-        user_id=user_id
-    )
+    # 根據結果返回適當的 HTTP 狀態碼
+    if not result.get("success"):
+        message = result.get("message", "")
+        if "缺少" in message:
+            return jsonify(result), 400
+        elif "綁定" in message:
+            return jsonify(result), 401
+        else:
+            return jsonify(result), 400
 
     return jsonify(result)
 

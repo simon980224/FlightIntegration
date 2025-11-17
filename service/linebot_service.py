@@ -1354,3 +1354,61 @@ def validate_line_callback_params(code, state, session_state):
         }
 
     return {'valid': True}
+
+
+def insert_ticket_from_liff(data):
+    """
+    LIFF 訂票業務邏輯
+
+    Args:
+        data (dict): 包含訂票資料的字典
+            - line_user_id: LINE User ID
+            - Flight_Id: 航班 ID
+            - Cabin: 艙等
+            - Price: 價格
+            - Holder_Name: 持票人姓名
+            - Holder_Mobile: 持票人電話
+
+    Returns:
+        dict: {"success": bool, "message": str, ...}
+    """
+    from service import ticket_service
+
+    # 1. 取得 LINE User ID
+    line_user_id = data.get('line_user_id')
+    if not line_user_id:
+        return {"success": False, "message": "缺少 LINE User ID"}
+
+    # 2. 從 LINE User ID 取得網站 User ID
+    try:
+        from api.linebot.line_binding_repository import get_user_id_by_line
+        user_id = get_user_id_by_line(line_user_id)
+    except Exception as e:
+        logger.error(f"取得 User ID 失敗: {e}")
+        user_id = None
+
+    if not user_id:
+        return {"success": False, "message": "請先綁定網站帳號"}
+
+    # 3. 接收訂票資料
+    flight_id = data.get("Flight_Id")
+    cabin = data.get("Cabin")
+    price = data.get("Price")
+    holder_name = data.get("Holder_Name", "").strip()
+    holder_mobile = data.get("Holder_Mobile", "").strip()
+
+    # 4. 必填檢查
+    if not holder_name or not holder_mobile:
+        return {"success": False, "message": "持票人姓名與電話為必填"}
+
+    # 5. 呼叫 ticket_service 寫入 Ticket + Wallet
+    result = ticket_service.InsertWallet(
+        flight_id=flight_id,
+        cabin=cabin,
+        price=price,
+        holder_name=holder_name,
+        holder_mobile=holder_mobile,
+        user_id=user_id
+    )
+
+    return result
