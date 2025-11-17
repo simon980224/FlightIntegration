@@ -63,17 +63,17 @@ def insert_flight_data(cursor, flight, origin):
         ))
 
         print(f"✅ 成功新增：{flight_id}")
-        # log_message = (
-        #     f"插入：{flight_id}，{origin} ➜ {flight['destination']}，"
-        #     f"出發：{flight['D_Time'].strftime('%Y-%m-%d %H:%M')}，"
-        #     f"抵達：{flight['A_Time'].strftime('%Y-%m-%d %H:%M')}"
-        # )
-        # log_info(log_message)
+        log_message = (
+            f"插入：{flight_id}，{origin} ➜ {flight['destination']}，"
+            f"出發：{flight['D_Time'].strftime('%Y-%m-%d %H:%M')}，"
+            f"抵達：{flight['A_Time'].strftime('%Y-%m-%d %H:%M')}"
+        )
+        log_info(log_message)
 
     except Exception as e:
         error_msg = f"❌ 插入失敗：{flight_id}，錯誤：{e}"
         print(error_msg)
-        # log_info(error_msg)
+        log_info(error_msg)
 
 
 def fetch_tigerair_flights(cursor, origin, a_airports):
