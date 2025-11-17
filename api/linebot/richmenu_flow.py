@@ -1246,6 +1246,7 @@ def _build_bind_prompt_flex(bind_url: str, ticket_url: str):
     修改：「我的訂票」按鈕改為跳轉到首頁（會自動彈出登入 Modal）
     """
     from linebot.models import FlexSendMessage, BubbleContainer, BoxComponent, TextComponent, ButtonComponent, URIAction
+    from api.linebot.design_system import FlightBotColors
 
     # 取得網站基底 URL
     base_url = None
@@ -1264,7 +1265,7 @@ def _build_bind_prompt_flex(bind_url: str, ticket_url: str):
     title = TextComponent(text="尚未綁定網站帳號", weight="bold", size="md", wrap=True)
     hint = TextComponent(text="請先登入網站並點「綁定 LINE」以查看訂票", size="sm", color="#666666", wrap=True)
     body = BoxComponent(layout="vertical", spacing="sm", contents=[title, hint])
-    btn_bind = ButtonComponent(style="primary", action=URIAction(label="綁定 LINE", uri=bind_url))
+    btn_bind = ButtonComponent(style="primary", color=FlightBotColors.PRIMARY, action=URIAction(label="綁定 LINE", uri=bind_url))
     btn_ticket = ButtonComponent(style="link", action=URIAction(label="我的訂票", uri=home_url))
     footer = BoxComponent(layout="vertical", spacing="sm", contents=[btn_bind, btn_ticket])
     bubble = BubbleContainer(body=body, footer=footer)
