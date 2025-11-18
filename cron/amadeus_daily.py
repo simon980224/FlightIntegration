@@ -627,7 +627,194 @@ def main():
     except Exception:
         pass
 
+    # =============================
+    # 登機提醒：推播明天起飛的航班
+    # =============================
+    log_info("=== 開始執行登機提醒 ===")
+    send_flight_reminders()
+    log_info("=== 登機提醒完成 ===")
+
     log_info("=== Amadeus Daily Cron 結束 ===")
+
+
+def send_flight_reminders():
+    """推播明天起飛的航班提醒（整合在每日 Cron 中）"""
+    from datetime import timedelta
+    from linebot import LineBotApi
+    from linebot.models import FlexSendMessage, BubbleContainer, BoxComponent, TextComponent, SeparatorComponent
+
+    # LINE Bot API
+    try:
+        from service.linebot_service import api as line_api
+    except Exception as e:
+        log_info(f"⚠️ 無法載入 LINE Bot API: {e}")
+        return
+
+    conn = None
+    try:
+        # 連接資料庫
+        from config.db_config import conn_args
+        conn = pymssql.connect(**conn_args)
+        cursor = conn.cursor(as_dict=True)
+
+        # 查詢明天起飛的航班（00:00 ~ 23:59）
+        tomorrow = date.today() + timedelta(days=1)
+        start_time = datetime.combine(tomorrow, datetime.min.time())
+        end_time = datetime.combine(tomorrow, datetime.max.time())
+
+        query = """
+        SELECT
+            W.User_Id,
+            U.User_LineId,
+            F.No AS flight_no,
+            F.D_Time AS departure_time,
+            A1.Name_CH AS from_airport,
+            A2.Name_CH AS to_airport,
+            A2.City_CH AS destination_city,
+            AL.Name_CH AS airline_name
+        FROM Wallet W
+        JOIN [User] U ON W.User_Id = U.User_Id
+        JOIN Ticket T ON W.Ticket_Id = T.Ticket_Id
+        JOIN Flight F ON T.Flight_Id = F.Flight_Id
+        JOIN Airport A1 ON F.D_AirPort_Id = A1.Airport_Id
+        JOIN Airport A2 ON F.A_AirPort_Id = A2.Airport_Id
+        JOIN Airline AL ON F.Airline_Id = AL.Airline_Id
+        WHERE F.D_Time BETWEEN %s AND %s
+          AND W.Status = '1'
+          AND U.User_LineId IS NOT NULL
+        """
+
+        cursor.execute(query, (start_time, end_time))
+        flights = cursor.fetchall()
+
+        if not flights:
+            log_info("沒有明天起飛的航班需要提醒")
+            return
+
+        log_info(f"找到 {len(flights)} 個明天起飛的航班")
+
+        # 推播提醒
+        for flight in flights:
+            try:
+                line_user_id = flight.get("User_LineId")
+                if not line_user_id:
+                    continue
+
+                destination = flight.get("destination_city", "")
+                weather = get_destination_weather_simple(destination)
+
+                flex_message = build_reminder_flex_simple(flight, weather)
+                line_api.push_message(line_user_id, flex_message)
+
+                log_info(f"✅ 已推播提醒給用戶，航班 {flight.get('flight_no')}")
+                time.sleep(0.5)  # 避免推播過快
+
+            except Exception as e:
+                log_info(f"⚠️ 推播提醒失敗: {e}")
+                continue
+
+    except Exception as e:
+        log_info(f"⚠️ 登機提醒執行失敗: {e}")
+
+    finally:
+        if conn:
+            try:
+                conn.close()
+            except Exception:
+                pass
+
+
+def get_destination_weather_simple(city_name: str) -> str:
+    """取得目的地明天天氣（簡化版）"""
+    try:
+        from api.linebot.travel_kit import get_multi_day_weather, weather_code_to_emoji
+
+        weather_data = get_multi_day_weather(city_name, days=2)
+        if not weather_data:
+            return "天氣資訊暫時無法取得"
+
+        times = weather_data.get("time", [])
+        max_temps = weather_data.get("temperature_2m_max", [])
+        min_temps = weather_data.get("temperature_2m_min", [])
+        rain_probs = weather_data.get("precipitation_probability_max", [])
+        weather_codes = weather_data.get("weather_code", [])
+
+        # 取明天的天氣（index 1）
+        if len(times) < 2:
+            return "天氣資訊暫時無法取得"
+
+        emoji = weather_code_to_emoji(weather_codes[1]) if len(weather_codes) > 1 else "🌤️"
+        min_t = int(min_temps[1]) if len(min_temps) > 1 else 0
+        max_t = int(max_temps[1]) if len(max_temps) > 1 else 0
+        rain = int(rain_probs[1]) if len(rain_probs) > 1 else 0
+
+        return f"{emoji} {min_t}-{max_t}°C，降雨 {rain}%"
+
+    except Exception as e:
+        log_info(f"⚠️ 取得天氣失敗: {e}")
+        return "天氣資訊暫時無法取得"
+
+
+def build_reminder_flex_simple(flight_info: dict, weather: str) -> object:
+    """建立登機提醒 Flex Message（簡化版）"""
+    from linebot.models import FlexSendMessage, BubbleContainer, BoxComponent, TextComponent, SeparatorComponent
+
+    flight_no = flight_info.get("flight_no", "")
+    airline = flight_info.get("airline_name", "")
+    from_airport = flight_info.get("from_airport", "")
+    to_airport = flight_info.get("to_airport", "")
+    departure_time = flight_info.get("departure_time")
+
+    time_str = departure_time.strftime("%H:%M") if departure_time else ""
+    date_str = departure_time.strftime("%m/%d") if departure_time else ""
+
+    bubble = BubbleContainer(
+        body=BoxComponent(
+            layout="vertical",
+            contents=[
+                TextComponent(
+                    text="✈️ 明天起飛提醒",
+                    weight="bold",
+                    size="xl",
+                    color="#1E88E5"
+                ),
+                SeparatorComponent(margin="md"),
+                TextComponent(
+                    text=f"{flight_no} {airline}",
+                    weight="bold",
+                    size="lg",
+                    margin="lg"
+                ),
+                TextComponent(
+                    text=f"{from_airport} → {to_airport}",
+                    size="md",
+                    margin="sm",
+                    color="#666666"
+                ),
+                TextComponent(
+                    text=f"起飛時間：{date_str} {time_str}",
+                    size="md",
+                    margin="sm",
+                    weight="bold"
+                ),
+                SeparatorComponent(margin="lg"),
+                TextComponent(
+                    text="🌤️ 目的地天氣",
+                    weight="bold",
+                    size="md",
+                    margin="lg"
+                ),
+                TextComponent(
+                    text=weather,
+                    size="sm",
+                    margin="sm",
+                    color="#666666"
+                ),
+            ]
+        )
+    )
+
+    return FlexSendMessage(alt_text="明天起飛提醒", contents=bubble)
 
 
 if __name__ == "__main__":
