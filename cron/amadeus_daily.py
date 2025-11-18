@@ -41,8 +41,12 @@ LOG_DIR = os.path.join("logs", "CronLog")
 API_MIN_INTERVAL = float(os.getenv("AMADEUS_MIN_INTERVAL_SEC", "0.1"))
 _LAST_CALL_TS = 0.0
 
-# 查詢艙等（一次全抓）
-TRAVEL_CLASSES = ["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]
+# 查詢艙等（只抓 ECONOMY + BUSINESS，節省 API 用量）
+# PREMIUM_ECONOMY 少數航班有，FIRST 幾乎為 0
+TRAVEL_CLASSES = ["ECONOMY", "BUSINESS"]
+
+# 查詢未來幾天的航班（建議 7-14 天）
+DAYS_AHEAD = 14
 
 def _throttle():
     """在每次呼叫 Amadeus API 前呼叫，確保請求間隔，降低 429 機率。"""
@@ -454,9 +458,15 @@ def main():
 
     log_info("=== Amadeus Daily Cron 開始 ===")
     log_info(f"API_MIN_INTERVAL={API_MIN_INTERVAL}s")
+    log_info(f"查詢未來 {DAYS_AHEAD} 天的航班")
+    log_info(f"艙等：{TRAVEL_CLASSES}")
     log_info("本排程負責補充爬蟲沒有的航班和票價")
 
-    today_str = date.today().strftime("%Y-%m-%d")
+    # 生成未來 14 天的日期列表
+    from datetime import timedelta
+    today = date.today()
+    date_list = [(today + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(DAYS_AHEAD)]
+    log_info(f"查詢日期範圍：{date_list[0]} ~ {date_list[-1]}")
 
     # Get access token
     try:
@@ -514,112 +524,115 @@ def main():
         log_info(f"{origin} 目的地數量（國際）：{len(destinations)}")
 
         for dest in destinations:
-            # 第二步：查詢今天的航班 offers（節流由 _throttle 控制）
-            data = []
-            od_hard_429 = False
-            for _tc in TRAVEL_CLASSES:
-                try:
-                    offers = get_flight_offers(access_token, origin, dest, today_str, travel_class=_tc)
-
-                except PermissionError:
-                    # refresh token once and retry
+            # 第二步：查詢未來 14 天的航班 offers（節流由 _throttle 控制）
+            for dep_date in date_list:
+                data = []
+                od_hard_429 = False
+                for _tc in TRAVEL_CLASSES:
                     try:
-                        access_token = get_access_token()
-                        offers = get_flight_offers(access_token, origin, dest, today_str, travel_class=_tc)
-                    except Exception as e:
-                        is_429 = (isinstance(e, requests.exceptions.HTTPError) and getattr(e, "response", None) is not None and e.response.status_code == 429) or ("429" in str(e))
+                        offers = get_flight_offers(access_token, origin, dest, dep_date, travel_class=_tc)
+
+                    except PermissionError:
+                        # refresh token once and retry
+                        try:
+                            access_token = get_access_token()
+                            offers = get_flight_offers(access_token, origin, dest, dep_date, travel_class=_tc)
+                        except Exception as e:
+                            is_429 = (isinstance(e, requests.exceptions.HTTPError) and getattr(e, "response", None) is not None and e.response.status_code == 429) or ("429" in str(e))
+                            if is_429:
+                                log_info(f"⏳ {origin}→{dest} {dep_date}（{_tc}）遇到 429，跳過此 O/D 其餘艙等")
+                                od_hard_429 = True
+                                break
+                            log_info(f"❌ 查詢 {origin}→{dest} {dep_date}（{_tc}）失敗：{e}")
+                            continue
+                    except requests.exceptions.HTTPError as he:
+                        is_429 = (getattr(he, "response", None) is not None and he.response.status_code == 429) or ("429" in str(he))
                         if is_429:
-                            log_info(f"⏳ {origin}→{dest}（{_tc}）遇到 429，跳過此 O/D 其餘艙等")
+                            log_info(f"⏳ {origin}→{dest} {dep_date}（{_tc}）遇到 429，跳過此 O/D 其餘艙等")
                             od_hard_429 = True
                             break
-                        log_info(f"❌ 查詢 {origin}→{dest}（{_tc}）失敗：{e}")
+                        log_info(f"❌ 查詢 {origin}→{dest} {dep_date}（{_tc}）失敗：{he}")
                         continue
-                except requests.exceptions.HTTPError as he:
-                    is_429 = (getattr(he, "response", None) is not None and he.response.status_code == 429) or ("429" in str(he))
-                    if is_429:
-                        log_info(f"⏳ {origin}→{dest}（{_tc}）遇到 429，跳過此 O/D 其餘艙等")
-                        od_hard_429 = True
-                        break
-                    log_info(f"❌ 查詢 {origin}→{dest}（{_tc}）失敗：{he}")
-                    continue
-                except Exception as e:
-                    log_info(f"❌ 查詢 {origin}→{dest}（{_tc}）失敗：{e}")
+                    except Exception as e:
+                        log_info(f"❌ 查詢 {origin}→{dest} {dep_date}（{_tc}）失敗：{e}")
+                        continue
+
+                    data.extend(offers.get("data") or [])
+
+                if od_hard_429 and not data:
                     continue
 
-                data.extend(offers.get("data") or [])
-            if od_hard_429 and not data:
-                continue
+                # 處理該日期的航班資料
+                for offer in data:
+                    itineraries = offer.get("itineraries") or []
+                    for iti in itineraries:
+                        segments = iti.get("segments") or []
+                        for seg in segments:
+                            dep = seg.get("departure") or {}
+                            arr = seg.get("arrival") or {}
+                            dep_code = dep.get("iataCode")
+                            arr_code = arr.get("iataCode")
+                            dep_at_iso = dep.get("at")
+                            arr_at_iso = arr.get("at")
+                            if not (dep_code and arr_code and dep_at_iso and arr_at_iso):
+                                continue
 
-            for offer in data:
-                itineraries = offer.get("itineraries") or []
-                for iti in itineraries:
-                    segments = iti.get("segments") or []
-                    for seg in segments:
-                        dep = seg.get("departure") or {}
-                        arr = seg.get("arrival") or {}
-                        dep_code = dep.get("iataCode")
-                        arr_code = arr.get("iataCode")
-                        dep_at_iso = dep.get("at")
-                        arr_at_iso = arr.get("at")
-                        if not (dep_code and arr_code and dep_at_iso and arr_at_iso):
-                            continue
+                            op_carrier = (seg.get("operating") or {}).get("carrierCode") or seg.get("carrierCode")
+                            number = seg.get("number")
+                            if not (op_carrier and number):
+                                continue
+                            # 僅保留指定航空公司
+                            if op_carrier not in ALLOWED_CARRIERS:
+                                continue
 
-                        op_carrier = (seg.get("operating") or {}).get("carrierCode") or seg.get("carrierCode")
-                        number = seg.get("number")
-                        if not (op_carrier and number):
-                            continue
-                        # 僅保留指定航空公司
-                        if op_carrier not in ALLOWED_CARRIERS:
-                            continue
+                            # 本次排程執行內去重用的鍵（避免重複寫入）
+                            seg_key = f"{op_carrier}{number}|{dep_at_iso}|{dep_code}|{arr_code}"
+                            if seg_key in seen:
+                                continue
+                            seen.add(seg_key)
 
-                        # 本次排程執行內去重用的鍵（避免重複寫入）
-                        seg_key = f"{op_carrier}{number}|{dep_at_iso}|{dep_code}|{arr_code}"
-                        if seg_key in seen:
-                            continue
-                        seen.add(seg_key)
+                            airline_prefix = get_airline_prefix(op_carrier)
+                            flight_id = build_flight_id(airline_prefix, op_carrier, number, dep_at_iso, dep_code, arr_code)
+                            no = f"{op_carrier}{number}"
 
-                        airline_prefix = get_airline_prefix(op_carrier)
-                        flight_id = build_flight_id(airline_prefix, op_carrier, number, dep_at_iso, dep_code, arr_code)
-                        no = f"{op_carrier}{number}"
+                            d_time = to_datetime_min(dep_at_iso)
+                            a_time = to_datetime_min(arr_at_iso)
 
-                        d_time = to_datetime_min(dep_at_iso)
-                        a_time = to_datetime_min(arr_at_iso)
-
-                        # ===== 檢查航班是否已存在（爬蟲可能已寫入）=====
-                        flight_exists = False
-                        try:
-                            cursor.execute("SELECT TOP 1 1 FROM Flight WHERE Flight_Id=%s", (flight_id,))
-                            if cursor.fetchone():
-                                flight_exists = True
-                        except Exception:
-                            pass
-
-                        # 只寫入爬蟲沒有的航班
-                        if not flight_exists:
-                            insert_flight(cursor, conn, flight_id, op_carrier, dep_code, arr_code, d_time, a_time, no)
-                            log_info(f"✅ 新增航班：{flight_id}")
-
-                        # 票價與艙等寫入 Ticket（無論航班是否已存在，都補充票價）
-                        try:
-                            price_int = parse_price_int(offer)
-                            cabin, checked_bags, _ = extract_cabin_and_bags(offer, seg)
-
-                            # 檢查票價是否已存在
+                            # ===== 檢查航班是否已存在（爬蟲可能已寫入）=====
+                            flight_exists = False
                             try:
-                                cursor.execute("SELECT TOP 1 1 FROM Ticket WHERE Flight_Id=%s AND Cabin=%s", (flight_id, cabin))
+                                cursor.execute("SELECT TOP 1 1 FROM Flight WHERE Flight_Id=%s", (flight_id,))
                                 if cursor.fetchone():
-                                    continue  # 票價已存在，跳過
+                                    flight_exists = True
                             except Exception:
                                 pass
 
-                            ticket_id = make_ticket_id(offer.get("id"), seg.get("id"), flight_id, cabin)
-                            insert_ticket(cursor, conn, ticket_id, flight_id, price_int, cabin, checked_bags)
-                            log_info(f"✅ 新增票價：{flight_id} ({cabin}) - {price_int}")
-                        except Exception as e:
-                            log_info(f"⚠️ Ticket 寫入略過（{flight_id}）：{e}")
+                            # 只寫入爬蟲沒有的航班
+                            if not flight_exists:
+                                insert_flight(cursor, conn, flight_id, op_carrier, dep_code, arr_code, d_time, a_time, no)
+                                log_info(f"✅ 新增航班：{flight_id}")
 
-            # 兩次呼叫之間稍作等待，避免過度頻繁請求
-            time.sleep(0.2)
+                            # 票價與艙等寫入 Ticket（無論航班是否已存在，都補充票價）
+                            try:
+                                price_int = parse_price_int(offer)
+                                cabin, checked_bags, _ = extract_cabin_and_bags(offer, seg)
+
+                                # 檢查票價是否已存在
+                                try:
+                                    cursor.execute("SELECT TOP 1 1 FROM Ticket WHERE Flight_Id=%s AND Cabin=%s", (flight_id, cabin))
+                                    if cursor.fetchone():
+                                        continue  # 票價已存在，跳過
+                                except Exception:
+                                    pass
+
+                                ticket_id = make_ticket_id(offer.get("id"), seg.get("id"), flight_id, cabin)
+                                insert_ticket(cursor, conn, ticket_id, flight_id, price_int, cabin, checked_bags)
+                                log_info(f"✅ 新增票價：{flight_id} ({cabin}) - {price_int}")
+                            except Exception as e:
+                                log_info(f"⚠️ Ticket 寫入略過（{flight_id}）：{e}")
+
+                # 兩次呼叫之間稍作等待，避免過度頻繁請求
+                time.sleep(0.2)
 
     try:
         cursor.close()
@@ -627,194 +640,7 @@ def main():
     except Exception:
         pass
 
-    # =============================
-    # 登機提醒：推播明天起飛的航班
-    # =============================
-    log_info("=== 開始執行登機提醒 ===")
-    send_flight_reminders()
-    log_info("=== 登機提醒完成 ===")
-
     log_info("=== Amadeus Daily Cron 結束 ===")
-
-
-def send_flight_reminders():
-    """推播明天起飛的航班提醒（整合在每日 Cron 中）"""
-    from datetime import timedelta
-    from linebot import LineBotApi
-    from linebot.models import FlexSendMessage, BubbleContainer, BoxComponent, TextComponent, SeparatorComponent
-
-    # LINE Bot API
-    try:
-        from service.linebot_service import api as line_api
-    except Exception as e:
-        log_info(f"⚠️ 無法載入 LINE Bot API: {e}")
-        return
-
-    conn = None
-    try:
-        # 連接資料庫
-        from config.db_config import conn_args
-        conn = pymssql.connect(**conn_args)
-        cursor = conn.cursor(as_dict=True)
-
-        # 查詢明天起飛的航班（00:00 ~ 23:59）
-        tomorrow = date.today() + timedelta(days=1)
-        start_time = datetime.combine(tomorrow, datetime.min.time())
-        end_time = datetime.combine(tomorrow, datetime.max.time())
-
-        query = """
-        SELECT
-            W.User_Id,
-            U.User_LineId,
-            F.No AS flight_no,
-            F.D_Time AS departure_time,
-            A1.Name_CH AS from_airport,
-            A2.Name_CH AS to_airport,
-            A2.City_CH AS destination_city,
-            AL.Name_CH AS airline_name
-        FROM Wallet W
-        JOIN [User] U ON W.User_Id = U.User_Id
-        JOIN Ticket T ON W.Ticket_Id = T.Ticket_Id
-        JOIN Flight F ON T.Flight_Id = F.Flight_Id
-        JOIN Airport A1 ON F.D_AirPort_Id = A1.Airport_Id
-        JOIN Airport A2 ON F.A_AirPort_Id = A2.Airport_Id
-        JOIN Airline AL ON F.Airline_Id = AL.Airline_Id
-        WHERE F.D_Time BETWEEN %s AND %s
-          AND W.Status = '1'
-          AND U.User_LineId IS NOT NULL
-        """
-
-        cursor.execute(query, (start_time, end_time))
-        flights = cursor.fetchall()
-
-        if not flights:
-            log_info("沒有明天起飛的航班需要提醒")
-            return
-
-        log_info(f"找到 {len(flights)} 個明天起飛的航班")
-
-        # 推播提醒
-        for flight in flights:
-            try:
-                line_user_id = flight.get("User_LineId")
-                if not line_user_id:
-                    continue
-
-                destination = flight.get("destination_city", "")
-                weather = get_destination_weather_simple(destination)
-
-                flex_message = build_reminder_flex_simple(flight, weather)
-                line_api.push_message(line_user_id, flex_message)
-
-                log_info(f"✅ 已推播提醒給用戶，航班 {flight.get('flight_no')}")
-                time.sleep(0.5)  # 避免推播過快
-
-            except Exception as e:
-                log_info(f"⚠️ 推播提醒失敗: {e}")
-                continue
-
-    except Exception as e:
-        log_info(f"⚠️ 登機提醒執行失敗: {e}")
-
-    finally:
-        if conn:
-            try:
-                conn.close()
-            except Exception:
-                pass
-
-
-def get_destination_weather_simple(city_name: str) -> str:
-    """取得目的地明天天氣（簡化版）"""
-    try:
-        from api.linebot.travel_kit import get_multi_day_weather, weather_code_to_emoji
-
-        weather_data = get_multi_day_weather(city_name, days=2)
-        if not weather_data:
-            return "天氣資訊暫時無法取得"
-
-        times = weather_data.get("time", [])
-        max_temps = weather_data.get("temperature_2m_max", [])
-        min_temps = weather_data.get("temperature_2m_min", [])
-        rain_probs = weather_data.get("precipitation_probability_max", [])
-        weather_codes = weather_data.get("weather_code", [])
-
-        # 取明天的天氣（index 1）
-        if len(times) < 2:
-            return "天氣資訊暫時無法取得"
-
-        emoji = weather_code_to_emoji(weather_codes[1]) if len(weather_codes) > 1 else "🌤️"
-        min_t = int(min_temps[1]) if len(min_temps) > 1 else 0
-        max_t = int(max_temps[1]) if len(max_temps) > 1 else 0
-        rain = int(rain_probs[1]) if len(rain_probs) > 1 else 0
-
-        return f"{emoji} {min_t}-{max_t}°C，降雨 {rain}%"
-
-    except Exception as e:
-        log_info(f"⚠️ 取得天氣失敗: {e}")
-        return "天氣資訊暫時無法取得"
-
-
-def build_reminder_flex_simple(flight_info: dict, weather: str) -> object:
-    """建立登機提醒 Flex Message（簡化版）"""
-    from linebot.models import FlexSendMessage, BubbleContainer, BoxComponent, TextComponent, SeparatorComponent
-
-    flight_no = flight_info.get("flight_no", "")
-    airline = flight_info.get("airline_name", "")
-    from_airport = flight_info.get("from_airport", "")
-    to_airport = flight_info.get("to_airport", "")
-    departure_time = flight_info.get("departure_time")
-
-    time_str = departure_time.strftime("%H:%M") if departure_time else ""
-    date_str = departure_time.strftime("%m/%d") if departure_time else ""
-
-    bubble = BubbleContainer(
-        body=BoxComponent(
-            layout="vertical",
-            contents=[
-                TextComponent(
-                    text="✈️ 明天起飛提醒",
-                    weight="bold",
-                    size="xl",
-                    color="#1E88E5"
-                ),
-                SeparatorComponent(margin="md"),
-                TextComponent(
-                    text=f"{flight_no} {airline}",
-                    weight="bold",
-                    size="lg",
-                    margin="lg"
-                ),
-                TextComponent(
-                    text=f"{from_airport} → {to_airport}",
-                    size="md",
-                    margin="sm",
-                    color="#666666"
-                ),
-                TextComponent(
-                    text=f"起飛時間：{date_str} {time_str}",
-                    size="md",
-                    margin="sm",
-                    weight="bold"
-                ),
-                SeparatorComponent(margin="lg"),
-                TextComponent(
-                    text="🌤️ 目的地天氣",
-                    weight="bold",
-                    size="md",
-                    margin="lg"
-                ),
-                TextComponent(
-                    text=weather,
-                    size="sm",
-                    margin="sm",
-                    color="#666666"
-                ),
-            ]
-        )
-    )
-
-    return FlexSendMessage(alt_text="明天起飛提醒", contents=bubble)
 
 
 if __name__ == "__main__":
