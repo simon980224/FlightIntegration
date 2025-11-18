@@ -306,8 +306,23 @@ def handle_postback(event):
     val = q.get("val", [""])[0]
 
     # 任意時刻允許使用者直接輸入文字：交由既有訊息處理（由 MessageEvent route）
-    # 這裡處理 act=search、act=select_flight 與 act=tips 的互動
-    if act == "select_flight":
+    # 這裡處理 act=search、act=select_flight、act=share_itinerary 與 act=tips 的互動
+
+    if act == "share_itinerary":
+        # 處理分享行程
+        ticket_id = q.get("ticket_id", [""])[0]
+        if ticket_id:
+            from api.linebot.share_itinerary import get_booking_info_for_share, build_share_itinerary_flex
+            booking_info = get_booking_info_for_share(ticket_id)
+            if booking_info:
+                flex_message = build_share_itinerary_flex(booking_info)
+                return flex_message
+            else:
+                return TextSendMessage(text="❌ 無法取得訂票資訊")
+        else:
+            return TextSendMessage(text="❌ 訂票資訊錯誤")
+
+    elif act == "select_flight":
         # 處理航班選擇（記錄到 state，然後提示用戶點擊「立即訂票」）
         flight_id = q.get("flight_id", [""])[0]
         if flight_id:
@@ -1198,6 +1213,9 @@ def _build_bookings_flex(bookings, base_url: str | None = None, ticket_url: str 
         # 顯示訂票狀態
         body_contents.append(TextComponent(text=status_text, size="xs", color=status_color, weight="bold"))
 
+        # 分享行程按鈕（使用 Postback 觸發）
+        from linebot.models import PostbackAction
+
         bubble = BubbleContainer(
             body=BoxComponent(layout="vertical", spacing="sm", contents=body_contents),
             footer=BoxComponent(layout="vertical", spacing="sm", contents=[
@@ -1205,6 +1223,14 @@ def _build_bookings_flex(bookings, base_url: str | None = None, ticket_url: str 
                     style="primary",
                     color=FlightBotColors.PRIMARY,
                     action=URIAction(label="查看詳情", uri=detail_link)
+                ),
+                ButtonComponent(
+                    style="link",
+                    action=PostbackAction(
+                        label="分享行程",
+                        data=f"act=share_itinerary&ticket_id={ticket_id}",
+                        displayText="分享行程"
+                    )
                 ),
                 ButtonComponent(
                     style="link",

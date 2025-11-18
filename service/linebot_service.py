@@ -1411,4 +1411,55 @@ def insert_ticket_from_liff(data):
         user_id=user_id
     )
 
+    # 6. 訂票成功後推播旅遊錦囊
+    if result.get("success"):
+        try:
+            _push_travel_kit_after_booking(line_user_id, flight_id)
+        except Exception as e:
+            logger.error(f"推播旅遊錦囊失敗: {e}")
+
     return result
+
+
+def _push_travel_kit_after_booking(line_user_id: str, flight_id: str):
+    """訂票成功後推播旅遊錦囊"""
+    import pymssql
+    from config.db_config import conn_args
+    from api.linebot.travel_kit import build_travel_kit_flex
+
+    conn = None
+    try:
+        # 查詢航班資訊
+        conn = pymssql.connect(**conn_args)
+        cursor = conn.cursor(as_dict=True)
+
+        cursor.execute("""
+            SELECT
+                F.No AS flight_no,
+                A.City_CH AS destination
+            FROM Flight F
+            JOIN Airport A ON F.A_AirPort_Id = A.Airport_Id
+            WHERE F.Flight_Id = %s
+        """, (flight_id,))
+
+        flight = cursor.fetchone()
+        if not flight:
+            return
+
+        destination = flight.get("destination", "")
+        if not destination:
+            return
+
+        # 建立旅遊錦囊 Flex Message
+        flex_message = build_travel_kit_flex(destination, flight)
+
+        # 推播給用戶
+        api.push_message(line_user_id, flex_message)
+        logger.info(f"已推播旅遊錦囊給 {line_user_id}，目的地 {destination}")
+
+    except Exception as e:
+        logger.error(f"推播旅遊錦囊失敗: {e}")
+
+    finally:
+        if conn:
+            conn.close()
