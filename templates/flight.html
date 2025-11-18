@@ -115,6 +115,8 @@
     const isLoggedIn = document.body.getAttribute('data-logged-in') === 'true';
     
     if (!isLoggedIn) {
+      // 設置登入後要前往的訂票頁面
+      window.postLoginRedirect = `/booking/${flightId}`;
       showToast('提示', '請先登入才能訂票', 'info');
       const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
       loginModal.show();

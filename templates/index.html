@@ -135,7 +135,12 @@
 document.addEventListener('DOMContentLoaded', function() {
     const profileLink = document.getElementById('profile-link-unauthenticated');
     if (profileLink) {
-        profileLink.addEventListener('click', showLoginModal);
+        profileLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            // 設置登入後要前往會員中心
+            window.postLoginRedirect = '/profile';
+            showLoginModal();
+        });
     }
     
     // 載入最新航班資訊
