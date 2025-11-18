@@ -41,8 +41,12 @@ LOG_DIR = os.path.join("logs", "CronLog")
 API_MIN_INTERVAL = float(os.getenv("AMADEUS_MIN_INTERVAL_SEC", "0.1"))
 _LAST_CALL_TS = 0.0
 
-# 查詢艙等（一次全抓）
-TRAVEL_CLASSES = ["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]
+# 查詢艙等（只抓 ECONOMY + BUSINESS，節省 API 用量）
+# PREMIUM_ECONOMY 少數航班有，FIRST 幾乎為 0
+TRAVEL_CLASSES = ["ECONOMY", "BUSINESS"]
+
+# 查詢未來幾天的航班（建議 7-14 天）
+DAYS_AHEAD = 14
 
 def _throttle():
     """在每次呼叫 Amadeus API 前呼叫，確保請求間隔，降低 429 機率。"""
@@ -454,9 +458,15 @@ def main():
 
     log_info("=== Amadeus Daily Cron 開始 ===")
     log_info(f"API_MIN_INTERVAL={API_MIN_INTERVAL}s")
+    log_info(f"查詢未來 {DAYS_AHEAD} 天的航班")
+    log_info(f"艙等：{TRAVEL_CLASSES}")
     log_info("本排程負責補充爬蟲沒有的航班和票價")
 
-    today_str = date.today().strftime("%Y-%m-%d")
+    # 生成未來 14 天的日期列表
+    from datetime import timedelta
+    today = date.today()
+    date_list = [(today + timedelta(days=i)).strftime("%Y-%m-%d") for i in range(DAYS_AHEAD)]
+    log_info(f"查詢日期範圍：{date_list[0]} ~ {date_list[-1]}")
 
     # Get access token
     try:
@@ -514,112 +524,115 @@ def main():
         log_info(f"{origin} 目的地數量（國際）：{len(destinations)}")
 
         for dest in destinations:
-            # 第二步：查詢今天的航班 offers（節流由 _throttle 控制）
-            data = []
-            od_hard_429 = False
-            for _tc in TRAVEL_CLASSES:
-                try:
-                    offers = get_flight_offers(access_token, origin, dest, today_str, travel_class=_tc)
-
-                except PermissionError:
-                    # refresh token once and retry
+            # 第二步：查詢未來 14 天的航班 offers（節流由 _throttle 控制）
+            for dep_date in date_list:
+                data = []
+                od_hard_429 = False
+                for _tc in TRAVEL_CLASSES:
                     try:
-                        access_token = get_access_token()
-                        offers = get_flight_offers(access_token, origin, dest, today_str, travel_class=_tc)
-                    except Exception as e:
-                        is_429 = (isinstance(e, requests.exceptions.HTTPError) and getattr(e, "response", None) is not None and e.response.status_code == 429) or ("429" in str(e))
+                        offers = get_flight_offers(access_token, origin, dest, dep_date, travel_class=_tc)
+
+                    except PermissionError:
+                        # refresh token once and retry
+                        try:
+                            access_token = get_access_token()
+                            offers = get_flight_offers(access_token, origin, dest, dep_date, travel_class=_tc)
+                        except Exception as e:
+                            is_429 = (isinstance(e, requests.exceptions.HTTPError) and getattr(e, "response", None) is not None and e.response.status_code == 429) or ("429" in str(e))
+                            if is_429:
+                                log_info(f"⏳ {origin}→{dest} {dep_date}（{_tc}）遇到 429，跳過此 O/D 其餘艙等")
+                                od_hard_429 = True
+                                break
+                            log_info(f"❌ 查詢 {origin}→{dest} {dep_date}（{_tc}）失敗：{e}")
+                            continue
+                    except requests.exceptions.HTTPError as he:
+                        is_429 = (getattr(he, "response", None) is not None and he.response.status_code == 429) or ("429" in str(he))
                         if is_429:
-                            log_info(f"⏳ {origin}→{dest}（{_tc}）遇到 429，跳過此 O/D 其餘艙等")
+                            log_info(f"⏳ {origin}→{dest} {dep_date}（{_tc}）遇到 429，跳過此 O/D 其餘艙等")
                             od_hard_429 = True
                             break
-                        log_info(f"❌ 查詢 {origin}→{dest}（{_tc}）失敗：{e}")
+                        log_info(f"❌ 查詢 {origin}→{dest} {dep_date}（{_tc}）失敗：{he}")
                         continue
-                except requests.exceptions.HTTPError as he:
-                    is_429 = (getattr(he, "response", None) is not None and he.response.status_code == 429) or ("429" in str(he))
-                    if is_429:
-                        log_info(f"⏳ {origin}→{dest}（{_tc}）遇到 429，跳過此 O/D 其餘艙等")
-                        od_hard_429 = True
-                        break
-                    log_info(f"❌ 查詢 {origin}→{dest}（{_tc}）失敗：{he}")
-                    continue
-                except Exception as e:
-                    log_info(f"❌ 查詢 {origin}→{dest}（{_tc}）失敗：{e}")
+                    except Exception as e:
+                        log_info(f"❌ 查詢 {origin}→{dest} {dep_date}（{_tc}）失敗：{e}")
+                        continue
+
+                    data.extend(offers.get("data") or [])
+
+                if od_hard_429 and not data:
                     continue
 
-                data.extend(offers.get("data") or [])
-            if od_hard_429 and not data:
-                continue
+                # 處理該日期的航班資料
+                for offer in data:
+                    itineraries = offer.get("itineraries") or []
+                    for iti in itineraries:
+                        segments = iti.get("segments") or []
+                        for seg in segments:
+                            dep = seg.get("departure") or {}
+                            arr = seg.get("arrival") or {}
+                            dep_code = dep.get("iataCode")
+                            arr_code = arr.get("iataCode")
+                            dep_at_iso = dep.get("at")
+                            arr_at_iso = arr.get("at")
+                            if not (dep_code and arr_code and dep_at_iso and arr_at_iso):
+                                continue
 
-            for offer in data:
-                itineraries = offer.get("itineraries") or []
-                for iti in itineraries:
-                    segments = iti.get("segments") or []
-                    for seg in segments:
-                        dep = seg.get("departure") or {}
-                        arr = seg.get("arrival") or {}
-                        dep_code = dep.get("iataCode")
-                        arr_code = arr.get("iataCode")
-                        dep_at_iso = dep.get("at")
-                        arr_at_iso = arr.get("at")
-                        if not (dep_code and arr_code and dep_at_iso and arr_at_iso):
-                            continue
+                            op_carrier = (seg.get("operating") or {}).get("carrierCode") or seg.get("carrierCode")
+                            number = seg.get("number")
+                            if not (op_carrier and number):
+                                continue
+                            # 僅保留指定航空公司
+                            if op_carrier not in ALLOWED_CARRIERS:
+                                continue
 
-                        op_carrier = (seg.get("operating") or {}).get("carrierCode") or seg.get("carrierCode")
-                        number = seg.get("number")
-                        if not (op_carrier and number):
-                            continue
-                        # 僅保留指定航空公司
-                        if op_carrier not in ALLOWED_CARRIERS:
-                            continue
+                            # 本次排程執行內去重用的鍵（避免重複寫入）
+                            seg_key = f"{op_carrier}{number}|{dep_at_iso}|{dep_code}|{arr_code}"
+                            if seg_key in seen:
+                                continue
+                            seen.add(seg_key)
 
-                        # 本次排程執行內去重用的鍵（避免重複寫入）
-                        seg_key = f"{op_carrier}{number}|{dep_at_iso}|{dep_code}|{arr_code}"
-                        if seg_key in seen:
-                            continue
-                        seen.add(seg_key)
+                            airline_prefix = get_airline_prefix(op_carrier)
+                            flight_id = build_flight_id(airline_prefix, op_carrier, number, dep_at_iso, dep_code, arr_code)
+                            no = f"{op_carrier}{number}"
 
-                        airline_prefix = get_airline_prefix(op_carrier)
-                        flight_id = build_flight_id(airline_prefix, op_carrier, number, dep_at_iso, dep_code, arr_code)
-                        no = f"{op_carrier}{number}"
+                            d_time = to_datetime_min(dep_at_iso)
+                            a_time = to_datetime_min(arr_at_iso)
 
-                        d_time = to_datetime_min(dep_at_iso)
-                        a_time = to_datetime_min(arr_at_iso)
-
-                        # ===== 檢查航班是否已存在（爬蟲可能已寫入）=====
-                        flight_exists = False
-                        try:
-                            cursor.execute("SELECT TOP 1 1 FROM Flight WHERE Flight_Id=%s", (flight_id,))
-                            if cursor.fetchone():
-                                flight_exists = True
-                        except Exception:
-                            pass
-
-                        # 只寫入爬蟲沒有的航班
-                        if not flight_exists:
-                            insert_flight(cursor, conn, flight_id, op_carrier, dep_code, arr_code, d_time, a_time, no)
-                            log_info(f"✅ 新增航班：{flight_id}")
-
-                        # 票價與艙等寫入 Ticket（無論航班是否已存在，都補充票價）
-                        try:
-                            price_int = parse_price_int(offer)
-                            cabin, checked_bags, _ = extract_cabin_and_bags(offer, seg)
-
-                            # 檢查票價是否已存在
+                            # ===== 檢查航班是否已存在（爬蟲可能已寫入）=====
+                            flight_exists = False
                             try:
-                                cursor.execute("SELECT TOP 1 1 FROM Ticket WHERE Flight_Id=%s AND Cabin=%s", (flight_id, cabin))
+                                cursor.execute("SELECT TOP 1 1 FROM Flight WHERE Flight_Id=%s", (flight_id,))
                                 if cursor.fetchone():
-                                    continue  # 票價已存在，跳過
+                                    flight_exists = True
                             except Exception:
                                 pass
 
-                            ticket_id = make_ticket_id(offer.get("id"), seg.get("id"), flight_id, cabin)
-                            insert_ticket(cursor, conn, ticket_id, flight_id, price_int, cabin, checked_bags)
-                            log_info(f"✅ 新增票價：{flight_id} ({cabin}) - {price_int}")
-                        except Exception as e:
-                            log_info(f"⚠️ Ticket 寫入略過（{flight_id}）：{e}")
+                            # 只寫入爬蟲沒有的航班
+                            if not flight_exists:
+                                insert_flight(cursor, conn, flight_id, op_carrier, dep_code, arr_code, d_time, a_time, no)
+                                log_info(f"✅ 新增航班：{flight_id}")
 
-            # 兩次呼叫之間稍作等待，避免過度頻繁請求
-            time.sleep(0.2)
+                            # 票價與艙等寫入 Ticket（無論航班是否已存在，都補充票價）
+                            try:
+                                price_int = parse_price_int(offer)
+                                cabin, checked_bags, _ = extract_cabin_and_bags(offer, seg)
+
+                                # 檢查票價是否已存在
+                                try:
+                                    cursor.execute("SELECT TOP 1 1 FROM Ticket WHERE Flight_Id=%s AND Cabin=%s", (flight_id, cabin))
+                                    if cursor.fetchone():
+                                        continue  # 票價已存在，跳過
+                                except Exception:
+                                    pass
+
+                                ticket_id = make_ticket_id(offer.get("id"), seg.get("id"), flight_id, cabin)
+                                insert_ticket(cursor, conn, ticket_id, flight_id, price_int, cabin, checked_bags)
+                                log_info(f"✅ 新增票價：{flight_id} ({cabin}) - {price_int}")
+                            except Exception as e:
+                                log_info(f"⚠️ Ticket 寫入略過（{flight_id}）：{e}")
+
+                # 兩次呼叫之間稍作等待，避免過度頻繁請求
+                time.sleep(0.2)
 
     try:
         cursor.close()

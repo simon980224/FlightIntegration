@@ -415,6 +415,46 @@ def unbind_line():
     return jsonify(result)
 
 
+# ===== LIFF 相關路由 =====
+@app.route('/liff/booking')
+def liff_booking():
+    """LIFF 訂票頁面"""
+    return render_template('liff_booking.html')
+
+
+@app.route('/api/liff/config')
+def liff_config():
+    """取得 LIFF 設定"""
+    liff_id = config.get('liff', {}).get('booking_liff_id', '')
+    return jsonify({'liff_id': liff_id})
+
+
+@app.route('/api/flight/<flight_id>')
+def get_flight_info(flight_id):
+    """取得航班資訊（供 LIFF 使用）"""
+    result = ticket_service.get_booking_imf(flight_id)
+    return jsonify(result)
+
+
+@app.route('/api/ticket/insert_liff', methods=['POST'])
+def insert_ticket_liff():
+    """LIFF 訂票 API（使用 LINE User ID）"""
+    data = request.get_json() or {}
+    result = linebot_service.insert_ticket_from_liff(data)
+
+    # 根據結果返回適當的 HTTP 狀態碼
+    if not result.get("success"):
+        message = result.get("message", "")
+        if "缺少" in message:
+            return jsonify(result), 400
+        elif "綁定" in message:
+            return jsonify(result), 401
+        else:
+            return jsonify(result), 400
+
+    return jsonify(result)
+
+
 # ===== LINE Login：回調處理 =====
 @app.route('/lineApi/line-login/callback')
 def line_login_callback():

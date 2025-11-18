@@ -56,7 +56,7 @@ from api.linebot.airports_config import TaiwanAirports, InternationalCities
 TAIWAN_AIRPORT_ALIASES = TaiwanAirports.get_aliases_dict()
 
 # 網頁連結常量（直接寫死，不從全局配置讀取）
-WEBSITE_URL = "https://8abf55929404.ngrok-free.app"
+WEBSITE_URL = "https://1ac00ad0d40b.ngrok-free.app"
 
 # 寫入 MSSQL dbo.API_Log
 # 連線參數（由使用者提供）
@@ -957,10 +957,11 @@ def get_help_message():
 
 💡 小提示：
 • 可使用機場代碼或中文名稱
-• 目前顯示當日航班資訊
+• 目前顯示當日、過去的航班資訊
 • 如有問題請輸入「幫助」
 
-輸入「幫助」查看此訊息"""
+或者點擊選單中的「航班查詢」，獲得更好的查詢體驗!
+    """
 
 def process_line_message(message_text, user_id=None):
     """統一的訊息處理器 - 整合智能解析和回應生成"""
@@ -986,6 +987,11 @@ def process_line_message(message_text, user_id=None):
 
         # 記錄成功的 API 呼叫
         execution_time = time.time() - start_time
+
+        # 效能監控：記錄慢速回應
+        if execution_time > 0.5:
+            print(f"[效能警告] 訊息處理耗時 {execution_time:.3f}s | 類型: {response_type} | 訊息: {message[:30]}")
+
         log_api_call(user_id, message, response_type, execution_time, response)
 
         return response
@@ -1000,12 +1006,11 @@ def process_line_message(message_text, user_id=None):
         raise
 
 def unified_message_processor(message):
-    """統一的訊息處理器 - 合併解析和回應邏輯"""
-    # 先移除日期部分，專注於地點解析
-    _, message_without_date = extract_date_from_message(message)
-    message_lower = message_without_date.lower()
+    """統一的訊息處理器 - 合併解析和回應邏輯（已優化效能）"""
+    # ========== 快速路徑：優先處理簡單訊息（避免不必要的日期解析）==========
+    message_lower = message.lower()
 
-    # 檢查基本意圖
+    # 1. 問候語 - 最常見的簡單訊息
     greetings = ['你好', 'hello', 'hi', '嗨', '哈囉', '早安', '午安', '晚安']
     if any(greeting in message_lower for greeting in greetings):
         return ("您好！我是航班查詢助手 ✈️\n\n"
@@ -1014,52 +1019,54 @@ def unified_message_processor(message):
                "• 桃園到大阪有什麼班機\n\n"
                "輸入「幫助」查看更多範例"), "greeting"
 
+    # 2. 感謝語
     thanks = ['謝謝', '感謝', 'thank', 'thanks', '3q']
     if any(thank in message_lower for thank in thanks):
         return "不客氣！很高興能幫助您 😊\n\n如果還需要查詢其他航班，隨時告訴我！", "thanks"
 
-    # C：查看訂票（文字關鍵字直達列表頁，不需新增路由）
+    # 3. 查看訂票（文字關鍵字直達列表頁，不需新增路由）
     ticket_keywords = ['查看訂票', '我的訂票', '訂票', 'orders', 'order', 'ticket']
     if any(k in message for k in ticket_keywords):
         ticket_url = (WEBSITE_URL + '/ticket') if (WEBSITE_URL and not WEBSITE_URL.startswith('請在')) else '/ticket'
         return f"🧾 我的訂票：{ticket_url}", 'orders'
 
-    # 活動/小貼士（D 區塊 MVP）
-    # tips_keywords = ['小貼士', '活動', 'tips']
-    # if any(k in message for k in tips_keywords):
-    #     # 嘗試解析月份與目的地
-    #     month = tips_service.parse_month_from_text(message)
-    #     locs = extract_locations_from_message(message_without_date)
-    #     destination = locs[0] if locs else ''
-    #     if not destination:
-    #         # 從訊息中抽取可能的地名（簡化處理）
-    #         destination = message_without_date.strip()
-    #     resp = tips_service.render_tips_message(destination, month)
-    #     return resp, "tips"
-
-    # 航班查詢處理
+    # ========== 延遲日期解析：只在需要航班查詢時才執行 ==========
+    # 4. 檢查是否可能是航班查詢（快速預檢）
     flight_keywords = [
         '飛機', '航班', '機票', '班機', '飛', '去', '到', '查', '找', '搜尋',
         'flight', 'fly', 'plane', 'ticket', 'search'
     ]
     has_flight_intent = any(keyword in message_lower for keyword in flight_keywords)
 
-    # 提取地點
-    locations = extract_locations_from_message(message_without_date)
+    # 傳統關鍵字匹配（向後相容）
+    traditional_keywords = ['查詢航班', '航班', '查航班', '找航班', '搜尋航班']
+    has_traditional_keyword = any(keyword in message for keyword in traditional_keywords)
 
-    if has_flight_intent or len(locations) >= 1:
+    # 只有在可能是航班查詢時才執行日期解析和地點提取
+    if has_flight_intent or has_traditional_keyword:
+        # 現在才執行日期解析（較耗時的操作）
+        _, message_without_date = extract_date_from_message(message)
+
+        # 提取地點
+        locations = extract_locations_from_message(message_without_date)
+
+        # 調試日誌
+        print(f"[調試] 訊息: {message}")
+        print(f"[調試] 移除日期後: {message_without_date}")
+        print(f"[調試] 提取到的地點: {locations}")
+        print(f"[調試] 航班意圖: {has_flight_intent}, 傳統關鍵字: {has_traditional_keyword}")
+
         if len(locations) >= 2:
             # 完整航班查詢
             return search_flights_by_message(message), "flight_search"
         elif len(locations) == 1:
             # 部分航班查詢
             return generate_partial_search_response(locations[0]), "flight_search_partial"
+        elif has_traditional_keyword:
+            # 傳統關鍵字但沒有地點
+            return search_flights_by_message(message), "flight_search_traditional"
 
-    # 傳統關鍵字匹配（向後相容）
-    if any(keyword in message for keyword in ['查詢航班', '航班', '查航班', '找航班', '搜尋航班']):
-        return search_flights_by_message(message), "flight_search_traditional"
-
-    # 智能建議
+    # ========== 智能建議（最後的兜底處理）==========
     return generate_smart_suggestion(message), "smart_suggestion"
 
 def generate_smart_suggestion(message):
@@ -1099,7 +1106,6 @@ def handle_text_message(event):
 
     message = event.message.text.strip()
     user_id = event.source.user_id
-    msg_lower = message.lower()
 
     # A. 攔截「查看訂票」關鍵字 → 回傳 Flex
     ticket_keywords = ['查看訂票', '我的訂票', '訂票', 'orders', 'order', 'ticket']
@@ -1348,3 +1354,112 @@ def validate_line_callback_params(code, state, session_state):
         }
 
     return {'valid': True}
+
+
+def insert_ticket_from_liff(data):
+    """
+    LIFF 訂票業務邏輯
+
+    Args:
+        data (dict): 包含訂票資料的字典
+            - line_user_id: LINE User ID
+            - Flight_Id: 航班 ID
+            - Cabin: 艙等
+            - Price: 價格
+            - Holder_Name: 持票人姓名
+            - Holder_Mobile: 持票人電話
+
+    Returns:
+        dict: {"success": bool, "message": str, ...}
+    """
+    from service import ticket_service
+
+    # 1. 取得 LINE User ID
+    line_user_id = data.get('line_user_id')
+    if not line_user_id:
+        return {"success": False, "message": "缺少 LINE User ID"}
+
+    # 2. 從 LINE User ID 取得網站 User ID
+    try:
+        from api.linebot.line_binding_repository import get_user_id_by_line
+        user_id = get_user_id_by_line(line_user_id)
+    except Exception as e:
+        logger.error(f"取得 User ID 失敗: {e}")
+        user_id = None
+
+    if not user_id:
+        return {"success": False, "message": "請先綁定網站帳號"}
+
+    # 3. 接收訂票資料
+    flight_id = data.get("Flight_Id")
+    cabin = data.get("Cabin")
+    price = data.get("Price")
+    holder_name = data.get("Holder_Name", "").strip()
+    holder_mobile = data.get("Holder_Mobile", "").strip()
+
+    # 4. 必填檢查
+    if not holder_name or not holder_mobile:
+        return {"success": False, "message": "持票人姓名與電話為必填"}
+
+    # 5. 呼叫 ticket_service 寫入 Ticket + Wallet
+    result = ticket_service.InsertWallet(
+        flight_id=flight_id,
+        cabin=cabin,
+        price=price,
+        holder_name=holder_name,
+        holder_mobile=holder_mobile,
+        user_id=user_id
+    )
+
+    # 6. 訂票成功後推播旅遊錦囊
+    if result.get("success"):
+        try:
+            _push_travel_kit_after_booking(line_user_id, flight_id)
+        except Exception as e:
+            logger.error(f"推播旅遊錦囊失敗: {e}")
+
+    return result
+
+
+def _push_travel_kit_after_booking(line_user_id: str, flight_id: str):
+    """訂票成功後推播旅遊錦囊"""
+    import pymssql
+    from config.db_config import conn_args
+    from api.linebot.travel_kit import build_travel_kit_flex
+
+    conn = None
+    try:
+        # 查詢航班資訊
+        conn = pymssql.connect(**conn_args)
+        cursor = conn.cursor(as_dict=True)
+
+        cursor.execute("""
+            SELECT
+                F.No AS flight_no,
+                A.City_CH AS destination
+            FROM Flight F
+            JOIN Airport A ON F.A_AirPort_Id = A.Airport_Id
+            WHERE F.Flight_Id = %s
+        """, (flight_id,))
+
+        flight = cursor.fetchone()
+        if not flight:
+            return
+
+        destination = flight.get("destination", "")
+        if not destination:
+            return
+
+        # 建立旅遊錦囊 Flex Message
+        flex_message = build_travel_kit_flex(destination, flight)
+
+        # 推播給用戶
+        api.push_message(line_user_id, flex_message)
+        logger.info(f"已推播旅遊錦囊給 {line_user_id}，目的地 {destination}")
+
+    except Exception as e:
+        logger.error(f"推播旅遊錦囊失敗: {e}")
+
+    finally:
+        if conn:
+            conn.close()
