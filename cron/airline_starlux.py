@@ -76,7 +76,7 @@ def insert_flight_data():
 
     except pymssql.IntegrityError:
         log_info(f"略過（已存在）：{flight_id}，{dep_airport} ➜ {arr_airport}，出發：{d_time}，抵達：{a_time_str}")
-
+        pass
     finally:
         cursor.close()
         conn.close()

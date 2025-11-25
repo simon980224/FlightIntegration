@@ -6,89 +6,207 @@ import time
 import json
 import os
 from difflib import SequenceMatcher
+import pymssql
+import threading
+from queue import Queue
+
+# 導入統一配置和工具
+from api.linebot.constants import (
+    CACHE_TTL_FLIGHT, ERROR_GENERAL, ERROR_NO_FLIGHTS,
+    LOADING_FLIGHTS, DB_CONNECT_TIMEOUT,
+    ERROR_SEARCH_FAILED, ERROR_INVALID_INPUT, ERROR_SYSTEM_ERROR,
+    GUIDE_SEARCH_FORMAT, CACHE_CLEANUP_INTERVAL, LOG_WORKER_SHUTDOWN_TIMEOUT
+)
+from api.linebot.cache_utils import cache_clear_expired
+
+# 初始化 logger
+logger = logging.getLogger(__name__)
+
+# from service import tips_service
+
+# 載入配置文件
+def load_config():
+    """載入配置文件"""
+    config_path = os.path.join('config', 'prodConfig.json')
+    try:
+        with open(config_path, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError, UnicodeDecodeError) as e:
+        print(f"⚠️ 載入配置文件失敗: {e}")
+        return {}
 
 # 機場資料快取
 _airport_cache = None
 _airport_lookup = None  # HashMap 快速查找表
 
+# 異步日誌寫入佇列和工作執行緒
+_log_queue = Queue()
+_log_worker_started = False
+_log_worker_thread = None
+_log_worker_shutdown = False  # 關閉標記
+
 # 航班查詢快取（短期快取，5分鐘）
 _flight_cache = {}
 _flight_cache_timeout = 300  # 5分鐘
+_last_cache_cleanup = time.time()  # 上次清理時間
+_cache_cleanup_interval = 600  # 每 10 分鐘清理一次過期快取
 
-# 台灣機場別名常量
-TAIWAN_AIRPORT_ALIASES = {
-    '台北': 'TSA',  # 台北 → 松山機場
-    '松山': 'TSA',  # 松山 → 松山機場
-    '桃園': 'TPE',  # 桃園 → 桃園機場
-    '高雄': 'KHH',  # 高雄 → 小港機場
-    '台中': 'RMQ',  # 台中 → 清泉崗機場
-    '小港': 'KHH',  # 小港 → 小港機場
-    '清泉崗': 'RMQ',  # 清泉崗 → 清泉崗機場
+# 台灣機場別名（從統一配置載入）
+from api.linebot.airports_config import TaiwanAirports, InternationalCities
+TAIWAN_AIRPORT_ALIASES = TaiwanAirports.get_aliases_dict()
+
+# 網頁連結常量（直接寫死，不從全局配置讀取）
+WEBSITE_URL = "https://anachronously-subumbonal-madie.ngrok-free.dev"
+
+# 寫入 MSSQL dbo.API_Log
+# 連線參數（由使用者提供）
+conn_args = {
+    "server": "140.131.114.241",
+    "user": "adminfid",
+    "password": "Flight_admin123@",
+    "database": "114-FlightIntegration_DB"
 }
+_TABLE_API_LOG = "dbo.API_Log"
 
-# 網頁連結常量
-WEBSITE_URL = "https://d6c8ff7b0ead.ngrok-free.app"
 
-# 設定 API Log
-def setup_api_logger():
-    """設定 API 呼叫記錄器"""
-    # 確保 logs/LineBotApiLog 目錄存在
-    log_dir = 'logs/LineBotApiLog'
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)
+def _safe_text(val, max_len):
+    if val is None:
+        return None
+    s = str(val)
+    return s[:max_len]
 
-    # 取得今天的日期作為檔案名稱
-    today = datetime.now().strftime('%Y%m%d')
-    log_filename = f'{log_dir}/{today}.log'
 
-    # 設定 logger
-    logger = logging.getLogger('linebot_api')
-    logger.setLevel(logging.INFO)
+def _log_worker():
+    """背景執行緒：處理日誌寫入佇列"""
+    global _log_worker_shutdown
+    while not _log_worker_shutdown:
+        try:
+            # 從佇列取出日誌任務（設定 timeout 以便檢查關閉標記）
+            try:
+                log_data = _log_queue.get(timeout=1)
+            except:
+                continue  # Timeout，繼續檢查關閉標記
 
-    # 避免重複添加 handler
-    if not logger.handlers:
-        # 檔案 handler
-        file_handler = logging.FileHandler(log_filename, encoding='utf-8')
-        file_handler.setLevel(logging.INFO)
+            # 如果收到 None，表示要停止工作執行緒
+            if log_data is None:
+                break
 
-        # 格式設定
-        formatter = logging.Formatter(
-            '%(asctime)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            # 執行資料庫寫入
+            _insert_api_log_db_sync(**log_data)
+
+            # 標記任務完成
+            _log_queue.task_done()
+        except Exception as e:
+            print(f"[API_Log] Worker error: {e}")
+
+def _start_log_worker():
+    """啟動日誌工作執行緒（僅啟動一次）"""
+    global _log_worker_started, _log_worker_thread
+
+    if not _log_worker_started:
+        _log_worker_thread = threading.Thread(target=_log_worker, daemon=True, name="LogWorker")
+        _log_worker_thread.start()
+        _log_worker_started = True
+
+
+def shutdown_log_worker():
+    """優雅關閉日誌工作執行緒（確保所有日誌都被寫入）"""
+    global _log_worker_shutdown
+    if _log_worker_started and _log_worker_thread:
+        print("[API_Log] 正在關閉日誌工作執行緒...")
+        _log_worker_shutdown = True
+        _log_queue.put(None)  # 發送停止信號
+        _log_worker_thread.join(timeout=5)  # 等待最多 5 秒
+        print("[API_Log] 日誌工作執行緒已關閉")
+
+
+def _cleanup_expired_cache():
+    """清理過期的航班快取"""
+    global _last_cache_cleanup, _flight_cache
+    current_time = time.time()
+
+    # 檢查是否需要清理
+    if current_time - _last_cache_cleanup < _cache_cleanup_interval:
+        return
+
+    # 清理過期快取
+    expired_keys = []
+    for key, (timestamp, _) in list(_flight_cache.items()):
+        if current_time - timestamp > _flight_cache_timeout:
+            expired_keys.append(key)
+
+    for key in expired_keys:
+        del _flight_cache[key]
+
+    _last_cache_cleanup = current_time
+    if expired_keys:
+        print(f"[Cache] 清理了 {len(expired_keys)} 個過期快取")
+        print("✅ 異步日誌工作執行緒已啟動")
+
+def _insert_api_log_db_sync(line_id: str, req: str, resp: str, err: str, status: str) -> None:
+    """同步寫入資料庫（由背景執行緒呼叫）"""
+    conn = None
+    cur = None
+    try:
+        conn = pymssql.connect(**conn_args)
+        cur = conn.cursor()
+        cur.execute(
+            f"INSERT INTO {_TABLE_API_LOG} (Line_Id, Requests_Message, Response_Message, Error_Message, Status, Create_At) "
+            f"VALUES (%s, %s, %s, %s, %s, GETDATE())",
+            (
+                _safe_text(line_id or "unknown", 50),
+                _safe_text(req, 1000),
+                _safe_text(resp, 1000),
+                _safe_text(err, 1000),
+                _safe_text(status or "success", 10),
+            ),
         )
-        file_handler.setFormatter(formatter)
-        logger.addHandler(file_handler)
-
-    return logger
+        conn.commit()
+    except Exception as e:
+        # 寫入失敗不影響主流程；印出供除錯
+        print(f"[API_Log] DB insert failed: {e}")
+    finally:
+        try:
+            if cur:
+                cur.close()
+        finally:
+            if conn:
+                conn.close()
 
 def log_api_call(user_id, input_message, response_type, execution_time,
                  response_content=None, error=None):
-    """記錄 API 呼叫詳情"""
-    logger = setup_api_logger()
+    """記錄 API 呼叫詳情（異步寫入 dbo.API_Log）
 
-    log_data = {
-        "user_id": user_id or "unknown",
-        "input_message": input_message,
-        "response_type": response_type,  # "success", "error", "help", "flight_search", "default"
-        "execution_time_seconds": round(execution_time, 3),
-        "response_length": len(response_content) if response_content else 0,
-        "error": error
-    }
+    使用背景執行緒處理資料庫寫入，不阻塞主流程
+    """
+    try:
+        # 確保工作執行緒已啟動
+        _start_log_worker()
 
-    # 記錄完整內容（可選）
-    if response_content and len(response_content) < 1000:  # 避免過長的回應
-        if len(response_content) > 200:
-            log_data["response_preview"] = response_content[:200] + "..."
-        else:
-            log_data["response_preview"] = response_content
+        status = (response_type or "success")
+        # 若帶有錯誤，覆寫為 error
+        if error:
+            status = "error"
 
-    logger.info(f"API_CALL: {json.dumps(log_data, ensure_ascii=False)}")
+        # 將日誌任務加入佇列（非阻塞）
+        log_data = {
+            "line_id": user_id or "unknown",
+            "req": input_message or "",
+            "resp": response_content or "",
+            "err": error,
+            "status": status,
+        }
+        _log_queue.put(log_data)
+
+    except Exception as e:
+        # 任何例外都不阻斷主流程
+        print(f"[API_Log] unexpected error: {e}")
 
 def get_cached_airports():
     """取得快取的機場資料，避免重複查詢資料庫"""
     global _airport_cache, _airport_lookup
     if _airport_cache is None:
-        print("🔄 載入機場資料到快取...")
+        print("[機場快取] 載入機場資料到快取")
         d_airports = search_service.get_airport_data('1')  # 國外機場
         a_airports = search_service.get_airport_data('0')  # 國內機場
 
@@ -114,9 +232,14 @@ def get_cached_airports():
                 if airport_name:
                     _airport_lookup[airport_name.upper()] = airport_id
 
-            print(f"✅ 機場資料快取完成，共 {len(_airport_cache)} 個機場，{len(_airport_lookup)} 個查找項目")
+            print(f"[機場快取] 機場資料快取完成，共 {len(_airport_cache)} 個機場，{len(_airport_lookup)} 個查找項目")
         else:
-            print("❌ 機場資料載入失敗")
+            error_msg = []
+            if not d_airports["success"]:
+                error_msg.append(f"國外機場: {d_airports.get('error', 'Unknown error')}")
+            if not a_airports["success"]:
+                error_msg.append(f"國內機場: {a_airports.get('error', 'Unknown error')}")
+            print(f"[機場快取] 機場資料載入失敗 - {'; '.join(error_msg)}")
             _airport_cache = []
             _airport_lookup = {}
 
@@ -259,19 +382,23 @@ def extract_date_from_message(message):
     today = datetime.now()
     default_date = today.strftime('%Y-%m-%d')
 
-    # 日期模式匹配
+    # 日期模式匹配（按優先順序排列，避免「大後天」被「後天」匹配）
     date_patterns = [
         # 8/7, 08/07, 8-7, 08-07
         (r'(\d{1,2})[/-](\d{1,2})',
          lambda m: parse_date_format((int(m.group(1)), int(m.group(2))))),
         # 0807, 0807
         (r'(\d{4})', lambda m: parse_date_format(m.group(1))),
-        # 昨天
-        (r'昨天', lambda _: (today - timedelta(days=1)).strftime('%Y-%m-%d')),
+        # 大後天
+        (r'大後天', lambda _: (today + timedelta(days=3)).strftime('%Y-%m-%d')),
+        # 後天
+        (r'後天', lambda _: (today + timedelta(days=2)).strftime('%Y-%m-%d')),
         # 明天
         (r'明天', lambda _: (today + timedelta(days=1)).strftime('%Y-%m-%d')),
         # 今天
         (r'今天', lambda _: today.strftime('%Y-%m-%d')),
+        # 昨天
+        (r'昨天', lambda _: (today - timedelta(days=1)).strftime('%Y-%m-%d')),
     ]
 
     for pattern, date_func in date_patterns:
@@ -319,6 +446,9 @@ def parse_date_format(date_input):
 def search_flights_by_message(message):
     """根據用戶訊息搜尋航班 - 支援日期解析"""
     try:
+        # 定期清理過期快取
+        _cleanup_expired_cache()
+
         # 解析用戶輸入的查詢格式
         # 支援格式: "查詢航班 桃園 東京" 或 "8/7桃園到東京" 或 "昨天桃園到東京"
         original_message = message.strip()
@@ -345,7 +475,7 @@ def search_flights_by_message(message):
             # 回退到傳統分割方式
             parts = message.split()
             if len(parts) < 2:
-                return "❌ 請使用正確格式：\n查詢航班 [出發地] [目的地]\n例如：查詢航班 桃園 東京\n或：8/7桃園到東京"
+                return "❌ 無法識別查詢格式\n\n💡 正確格式：\n• 查詢航班 [出發地] [目的地]\n• 例如：查詢航班 桃園 東京\n• 或：8/7桃園到東京\n• 或：明天台北到大阪"
 
             from_location = parts[0]
             to_location = parts[1]
@@ -358,9 +488,9 @@ def search_flights_by_message(message):
         to_airport_id = find_best_airport_match(to_location)
 
         if not from_airport_id:
-            return f"❌ 找不到出發地機場：{from_location}"
+            return f"❌ 找不到出發地機場：{from_location}\n\n💡 建議：請使用機場代碼（如 TPE、TSA）或城市名稱（如 桃園、台北）"
         if not to_airport_id:
-            return f"❌ 找不到目的地機場：{to_location}"
+            return f"❌ 找不到目的地機場：{to_location}\n\n💡 建議：請使用機場代碼（如 NRT、HND）或城市名稱（如 東京、大阪）"
 
         # 搜尋航班（使用提取的日期和快取）
         flights_result = get_cached_flight_data(
@@ -388,12 +518,17 @@ def search_flights_by_message(message):
                 response += "\n" + "─" * 16 + "\n"
 
         if len(flights) > 5:
-            response += f"\n... 還有 {len(flights) - 5} 筆航班\n\n💻 想查詢更多航班請至網頁版\n🔗 {WEBSITE_URL}"
+            response += f"\n... 還有 {len(flights) - 5} 筆航班\n\n💻 想查詢更多航班請至網頁版"
+            if WEBSITE_URL and not WEBSITE_URL.startswith('請在'):
+                response += f"\n🔗 {WEBSITE_URL}"
 
         return response
 
+    except ValueError as e:
+        return f"❌ 輸入格式錯誤：{str(e)}\n\n💡 請檢查日期和地點格式是否正確"
     except Exception as e:
-        return f"❌ 搜尋航班時發生錯誤：{str(e)}"
+        logging.error(f"[Search] 搜尋航班錯誤: {e}")
+        return "❌ 系統錯誤，請稍後再試\n\n💡 如果問題持續，請聯繫客服"
 
 
 
@@ -446,23 +581,19 @@ def extract_locations_from_message(message):
 
 def smart_extract_two_locations(message):
     """智能提取兩個地點 - 處理「桃園洛杉磯」這種直接相鄰的格式"""
-    # 預定義地點列表（避免重複查詢資料庫）
-    taiwan_locations = ['桃園', '台北', '松山', '高雄', '台中', '小港', '清泉崗']
-    international_cities = [
-        '東京', '大阪', '京都', '名古屋', '福岡', '沖繩',
-        '首爾', '釜山', '濟州', '曼谷', '清邁', '普吉島',
-        '新加坡', '吉隆坡', '雅加達', '馬尼拉', '胡志明市',
-        '洛杉磯', '紐約', '舊金山', '西雅圖', '芝加哥',
-        '倫敦', '巴黎', '法蘭克福', '阿姆斯特丹',
-        '香港', '澳門'  # 港澳地區
-    ]
+    # 台灣機場關鍵字（使用頂層已導入的類別）
+    taiwan_locations = TaiwanAirports.get_keywords()
 
-    # 常見機場代碼（避免查詢資料庫）
-    common_airport_codes = [
-        'TPE', 'TSA', 'KHH', 'RMQ',  # 台灣
-        'NRT', 'HND', 'KIX', 'ICN', 'GMP', 'BKK', 'SIN', 'HKG',  # 亞洲
-        'LAX', 'JFK', 'SFO', 'LHR', 'CDG', 'FRA'  # 歐美
-    ]
+    # 國際城市名稱和別名
+    international_cities = []
+    for city, data in InternationalCities.CITIES.items():
+        international_cities.append(city)
+        international_cities.extend(data["aliases"])
+
+    # 機場代碼
+    common_airport_codes = []
+    for data in InternationalCities.CITIES.values():
+        common_airport_codes.extend(data["airports"])
 
     all_locations = taiwan_locations + international_cities + common_airport_codes
 
@@ -539,9 +670,8 @@ def smart_location_assignment(loc1, loc2):
         return None, None
 
 def is_taiwan_airport(location):
-    """檢查是否為台灣機場"""
-    taiwan_keywords = ['台北', '桃園', '高雄', '台中', '松山', '小港', '清泉崗', 'TSA', 'TPE', 'KHH', 'RMQ']
-    return any(keyword in location.upper() for keyword in taiwan_keywords)
+    """檢查是否為台灣機場（使用統一配置）"""
+    return TaiwanAirports.is_taiwan_airport(location)
 
 def clean_location_name(location):
     """清理地點名稱，移除不必要的字符"""
@@ -757,7 +887,9 @@ def generate_partial_search_response(destination):
         for _, name in country_airports:
             response += f"• 桃園到{name}\n"
         response += f"\n請輸入您想要的路線，例如：「桃園到{country_airports[0][1]}」\n"
-        response += f"或到網頁查詢更多{destination}城市！\n🔗 {WEBSITE_URL}"
+        response += f"或到網頁查詢更多{destination}城市！"
+        if WEBSITE_URL and not WEBSITE_URL.startswith('請在'):
+            response += f"\n🔗 {WEBSITE_URL}"
     else:
         # 如果是具體機場/城市，直接查詢所有台灣機場到該目的地的航班
         response = search_all_taiwan_to_destination(destination)
@@ -766,12 +898,8 @@ def generate_partial_search_response(destination):
 
 def search_all_taiwan_to_destination(destination):
     """查詢所有台灣機場到指定目的地的航班 - 顯示詳細資訊"""
-    taiwan_airports = [
-        ('桃園', 'TPE'),
-        ('台北', 'TSA'),
-        ('高雄', 'KHH'),
-        ('台中', 'RMQ')
-    ]
+    # 使用統一配置的台灣機場列表
+    taiwan_airports = TaiwanAirports.get_simple_options()
 
     all_flight_details = []
 
@@ -838,10 +966,11 @@ def get_help_message():
 
 💡 小提示：
 • 可使用機場代碼或中文名稱
-• 目前顯示當日航班資訊
+• 目前顯示當日、過去的航班資訊
 • 如有問題請輸入「幫助」
 
-輸入「幫助」查看此訊息"""
+或者點擊選單中的「航班查詢」，獲得更好的查詢體驗!
+    """
 
 def process_line_message(message_text, user_id=None):
     """統一的訊息處理器 - 整合智能解析和回應生成"""
@@ -853,7 +982,7 @@ def process_line_message(message_text, user_id=None):
         # 快速回應處理
         quick_responses = {
             ('幫助', 'help', '說明', '指令'): (get_help_message(), "help"),
-            ('測試', '/測試'): ("Hello! 我是航班查詢助手，現在支援自然語言對話囉！\n\n試試看說：「我想從桃園飛東京」", "test")
+            ('測試', '/測試'): ("Hello! 我是航班查詢助手！\n\n試試看說：「我想從桃園飛東京」", "test")
         }
 
         for keywords, (resp, resp_type) in quick_responses.items():
@@ -867,6 +996,11 @@ def process_line_message(message_text, user_id=None):
 
         # 記錄成功的 API 呼叫
         execution_time = time.time() - start_time
+
+        # 效能監控：記錄慢速回應
+        if execution_time > 0.5:
+            print(f"[效能警告] 訊息處理耗時 {execution_time:.3f}s | 類型: {response_type} | 訊息: {message[:30]}")
+
         log_api_call(user_id, message, response_type, execution_time, response)
 
         return response
@@ -881,12 +1015,11 @@ def process_line_message(message_text, user_id=None):
         raise
 
 def unified_message_processor(message):
-    """統一的訊息處理器 - 合併解析和回應邏輯"""
-    # 先移除日期部分，專注於地點解析
-    _, message_without_date = extract_date_from_message(message)
-    message_lower = message_without_date.lower()
+    """統一的訊息處理器 - 合併解析和回應邏輯（已優化效能）"""
+    # ========== 快速路徑：優先處理簡單訊息（避免不必要的日期解析）==========
+    message_lower = message.lower()
 
-    # 檢查基本意圖
+    # 1. 問候語 - 最常見的簡單訊息
     greetings = ['你好', 'hello', 'hi', '嗨', '哈囉', '早安', '午安', '晚安']
     if any(greeting in message_lower for greeting in greetings):
         return ("您好！我是航班查詢助手 ✈️\n\n"
@@ -895,33 +1028,54 @@ def unified_message_processor(message):
                "• 桃園到大阪有什麼班機\n\n"
                "輸入「幫助」查看更多範例"), "greeting"
 
+    # 2. 感謝語
     thanks = ['謝謝', '感謝', 'thank', 'thanks', '3q']
     if any(thank in message_lower for thank in thanks):
         return "不客氣！很高興能幫助您 😊\n\n如果還需要查詢其他航班，隨時告訴我！", "thanks"
 
-    # 航班查詢處理
+    # 3. 查看訂票（文字關鍵字直達列表頁，不需新增路由）
+    ticket_keywords = ['查看訂票', '我的訂票', '訂票', 'orders', 'order', 'ticket']
+    if any(k in message for k in ticket_keywords):
+        ticket_url = (WEBSITE_URL + '/ticket') if (WEBSITE_URL and not WEBSITE_URL.startswith('請在')) else '/ticket'
+        return f"🧾 我的訂票：{ticket_url}", 'orders'
+
+    # ========== 延遲日期解析：只在需要航班查詢時才執行 ==========
+    # 4. 檢查是否可能是航班查詢（快速預檢）
     flight_keywords = [
         '飛機', '航班', '機票', '班機', '飛', '去', '到', '查', '找', '搜尋',
         'flight', 'fly', 'plane', 'ticket', 'search'
     ]
     has_flight_intent = any(keyword in message_lower for keyword in flight_keywords)
 
-    # 提取地點
-    locations = extract_locations_from_message(message_without_date)
+    # 傳統關鍵字匹配（向後相容）
+    traditional_keywords = ['查詢航班', '航班', '查航班', '找航班', '搜尋航班']
+    has_traditional_keyword = any(keyword in message for keyword in traditional_keywords)
 
-    if has_flight_intent or len(locations) >= 1:
+    # 只有在可能是航班查詢時才執行日期解析和地點提取
+    if has_flight_intent or has_traditional_keyword:
+        # 現在才執行日期解析（較耗時的操作）
+        _, message_without_date = extract_date_from_message(message)
+
+        # 提取地點
+        locations = extract_locations_from_message(message_without_date)
+
+        # 調試日誌
+        print(f"[調試] 訊息: {message}")
+        print(f"[調試] 移除日期後: {message_without_date}")
+        print(f"[調試] 提取到的地點: {locations}")
+        print(f"[調試] 航班意圖: {has_flight_intent}, 傳統關鍵字: {has_traditional_keyword}")
+
         if len(locations) >= 2:
             # 完整航班查詢
             return search_flights_by_message(message), "flight_search"
         elif len(locations) == 1:
             # 部分航班查詢
             return generate_partial_search_response(locations[0]), "flight_search_partial"
+        elif has_traditional_keyword:
+            # 傳統關鍵字但沒有地點
+            return search_flights_by_message(message), "flight_search_traditional"
 
-    # 傳統關鍵字匹配（向後相容）
-    if any(keyword in message for keyword in ['查詢航班', '航班', '查航班', '找航班', '搜尋航班']):
-        return search_flights_by_message(message), "flight_search_traditional"
-
-    # 智能建議
+    # ========== 智能建議（最後的兜底處理）==========
     return generate_smart_suggestion(message), "smart_suggestion"
 
 def generate_smart_suggestion(message):
@@ -948,3 +1102,385 @@ def generate_smart_suggestion(message):
         suggestion += "輸入「幫助」查看更多範例"
 
     return suggestion
+
+# ========== app.py 轉發層介面 ==========
+
+def handle_text_message(event):
+    """統一處理 LINE TextMessage 事件（供 app.py 轉發）
+
+    回傳 LINE SDK 的 Message 物件（TextSendMessage 或 FlexSendMessage）
+    """
+    from linebot.models import TextSendMessage
+    from api.linebot import richmenu_flow
+
+    message = event.message.text.strip()
+    user_id = event.source.user_id
+
+    # A. 攔截「查看訂票」關鍵字 → 回傳 Flex
+    ticket_keywords = ['查看訂票', '我的訂票', '訂票', 'orders', 'order', 'ticket']
+    if any(k in message for k in ticket_keywords):
+        flex_msg = richmenu_flow.orders_from_text(user_id)
+        if flex_msg:
+            return flex_msg
+
+    # B. 檢查用戶是否在互動流程中（優先處理）
+    try:
+        flow_msg = richmenu_flow.handle_text_in_flow(user_id, message)
+        if flow_msg:
+            return flow_msg
+    except Exception:
+        pass
+
+    # C. 嘗試將自然語句解析為航班查詢 → 成功則回 Flex 清單
+    try:
+        flex_msg = richmenu_flow.flex_search_from_text(user_id, message)
+        if flex_msg:
+            return flex_msg
+    except Exception:
+        pass
+
+    # D. 「查詢航班」入口（僅關鍵字）→ 以 QuickReply 啟動互動流程
+    search_triggers = ['查詢航班', '航班', '查航班', '找航班', '搜尋航班']
+    if message in search_triggers:
+        return richmenu_flow._ask_departure(user_id)
+
+    # E. 「活動/小貼士」入口（僅關鍵字）
+    tips_triggers = ['小貼士', '活動', '活動&小貼士', 'tips']
+    if message in tips_triggers:
+        return richmenu_flow._tips_ask_destination(user_id)
+
+    # F. 其他文字訊息 → 使用既有處理器（回文字）
+    response_text = process_line_message(message, user_id)
+    return TextSendMessage(text=response_text)
+
+
+def handle_postback_event(event):
+    """統一處理 LINE PostbackEvent 事件（供 app.py 轉發）
+
+    回傳 LINE SDK 的 Message 物件
+    """
+    from api.linebot import richmenu_flow
+    return richmenu_flow.handle_postback(event)
+
+
+def handle_line_login_callback(line_user_id: str, session_obj: dict) -> dict:
+    """處理 LINE Login 回調後的綁定邏輯
+
+    Args:
+        line_user_id: LINE 用戶 ID
+        session_obj: Flask session 物件
+
+    Returns:
+        dict: {
+            'action': 'bind_success' | 'bind_error' | 'need_login',
+            'message': str (optional)
+        }
+    """
+    # 暫存 LINE user_id 到 session
+    session_obj['line_user_id'] = line_user_id
+    login_user_id = session_obj.get('user_id')
+
+    if login_user_id:
+        # 已登入網站 → 立即綁定
+        try:
+            from api.linebot import line_binding_repository as lbs
+            res = lbs.bind_line_user(login_user_id, line_user_id)
+            if res.get('success'):
+                session_obj.pop('line_user_id', None)  # 綁定成功後清除
+                return {'action': 'bind_success'}
+            else:
+                return {
+                    'action': 'bind_error',
+                    'message': f"綁定失敗：{res.get('error', '未知錯誤')}"
+                }
+        except Exception as e:
+            return {
+                'action': 'bind_error',
+                'message': f'綁定過程錯誤：{e}'
+            }
+    else:
+        # 未登入網站 → 需要先登入
+        return {'action': 'need_login'}
+
+
+def handle_login_line_binding(user_id: str, session_obj: dict) -> dict:
+    """處理登入後的 LINE 綁定邏輯
+
+    Args:
+        user_id: 網站用戶 ID
+        session_obj: Flask session 物件
+
+    Returns:
+        dict: {
+            'success': bool,
+            'message': str
+        }
+    """
+    line_user_id = session_obj.get('line_user_id')
+    if line_user_id:
+        try:
+            from api.linebot import line_binding_repository as lbs
+            res = lbs.bind_line_user(user_id, line_user_id)
+            if res.get('success'):
+                session_obj.pop('line_user_id', None)  # 綁定成功後清除
+                return {'success': True, 'message': '登入成功，LINE 帳號已自動綁定！'}
+
+
+        except Exception:
+            pass  # 綁定失敗不影響登入
+
+    return {'success': True, 'message': '登入成功'}
+
+
+def unbind_line_account(user_id: str) -> dict:
+    """解除 LINE 帳號綁定
+
+    Args:
+        user_id: 網站用戶 ID
+
+    Returns:
+        dict: {
+            'success': bool,
+            'message': str
+        }
+    """
+    try:
+        from api.linebot import line_binding_repository as lbs
+        result = lbs.unbind_by_user(user_id)
+
+        if result.get('success'):
+            return {'success': True, 'message': 'LINE 帳號解除綁定成功'}
+        else:
+            return {'success': False, 'message': result.get('error', '解除綁定失敗')}
+    except Exception as e:
+        logger.error(f"解除 LINE 綁定失敗: {e}")
+        return {'success': False, 'message': f'解除綁定失敗：{str(e)}'}
+
+
+def preload_airport_cache():
+    """預先載入機場快取（避免第一次查詢時阻塞）
+
+    此函數應在 Flask app 啟動時呼叫（僅在子進程中執行）
+    適用於 debug=True 模式，避免父進程重複載入
+    """
+    # 只在子進程（實際運行的進程）中載入，避免 Debug 模式重複載入
+    if os.environ.get('WERKZEUG_RUN_MAIN') == 'true':
+        print("[機場快取] 預先載入機場快取")
+        get_cached_airports()
+        print("[機場快取] 機場快取載入完成")
+    elif os.environ.get('WERKZEUG_RUN_MAIN') is None:
+        # 非 debug 模式（production），直接載入
+        print("[機場快取] 預先載入機場快取")
+        get_cached_airports()
+        print("[機場快取] 機場快取載入完成")
+
+
+# ===== LINE Login OAuth 業務邏輯 =====
+
+def exchange_line_token(code, callback_url, channel_id, channel_secret):
+    """交換 LINE OAuth code 為 access_token
+
+    Args:
+        code: LINE OAuth authorization code
+        callback_url: OAuth callback URL
+        channel_id: LINE Login channel ID
+        channel_secret: LINE Login channel secret
+
+    Returns:
+        str: access_token，失敗返回 None
+    """
+    import urllib.request
+    from urllib.parse import urlencode
+
+    try:
+        data = urlencode({
+            'grant_type': 'authorization_code',
+            'code': code,
+            'redirect_uri': callback_url,
+            'client_id': channel_id,
+            'client_secret': channel_secret,
+        }).encode('utf-8')
+
+        req = urllib.request.Request(
+            'https://api.line.me/oauth2/v2.1/token',
+            data=data,
+            headers={'Content-Type': 'application/x-www-form-urlencoded'}
+        )
+
+        with urllib.request.urlopen(req, timeout=20) as resp:
+            token_payload = json.loads(resp.read().decode('utf-8'))
+
+        return token_payload.get('access_token')
+    except Exception as e:
+        print(f"[LINE Login] 交換 LINE token 失敗: {e}")
+        return None
+
+
+def get_line_user_profile(access_token):
+    """取得 LINE 使用者資料
+
+    Args:
+        access_token: LINE access token
+
+    Returns:
+        str: LINE user_id，失敗返回 None
+    """
+    import urllib.request
+
+    try:
+        prof_req = urllib.request.Request(
+            'https://api.line.me/v2/profile',
+            headers={'Authorization': f'Bearer {access_token}'}
+        )
+
+        with urllib.request.urlopen(prof_req, timeout=20) as resp:
+            user_profile = json.loads(resp.read().decode('utf-8'))
+
+        return user_profile.get('userId')
+    except Exception as e:
+        print(f"[LINE Login] 取得 LINE 使用者資料失敗: {e}")
+        return None
+
+
+def validate_line_callback_params(code, state, session_state):
+    """驗證 LINE Login callback 參數
+
+    Args:
+        code: OAuth authorization code
+        state: OAuth state parameter
+        session_state: Session 中儲存的 state
+
+    Returns:
+        dict: {
+            'valid': bool,
+            'error_message': str (僅在 valid=False 時)
+        }
+    """
+    if not code or not state or state != session_state:
+        return {
+            'valid': False,
+            'error_message': '不合法的授權回調（state 驗證失敗或缺參數）'
+        }
+
+    return {'valid': True}
+
+
+def insert_ticket_from_liff(data):
+    """
+    LIFF 訂票業務邏輯
+
+    Args:
+        data (dict): 包含訂票資料的字典
+            - line_user_id: LINE User ID
+            - Flight_Id: 航班 ID
+            - Cabin: 艙等
+            - Price: 價格
+            - Holder_Name: 持票人姓名
+            - Holder_Mobile: 持票人電話
+
+    Returns:
+        dict: {"success": bool, "message": str, ...}
+    """
+    from service import ticket_service
+
+    # 1. 取得 LINE User ID
+    line_user_id = data.get('line_user_id')
+    logger.info(f"🎫 [LIFF訂票] 收到訂票請求，LINE User ID: {line_user_id}")
+
+    if not line_user_id:
+        logger.error(f"❌ [LIFF訂票] 缺少 LINE User ID")
+        return {"success": False, "message": "缺少 LINE User ID"}
+
+    # 2. 從 LINE User ID 取得網站 User ID
+    try:
+        from api.linebot.line_binding_repository import get_user_id_by_line
+        user_id = get_user_id_by_line(line_user_id)
+        logger.info(f"✅ [LIFF訂票] 找到對應的網站 User ID: {user_id}")
+    except Exception as e:
+        logger.error(f"❌ [LIFF訂票] 取得 User ID 失敗: {e}")
+        user_id = None
+
+    if not user_id:
+        logger.error(f"❌ [LIFF訂票] 用戶未綁定網站帳號")
+        return {"success": False, "message": "請先綁定網站帳號"}
+
+    # 3. 接收訂票資料
+    flight_id = data.get("Flight_Id")
+    cabin = data.get("Cabin")
+    price = data.get("Price")
+    holder_name = data.get("Holder_Name", "").strip()
+    holder_mobile = data.get("Holder_Mobile", "").strip()
+
+    # 4. 必填檢查
+    if not holder_name or not holder_mobile:
+        return {"success": False, "message": "持票人姓名與電話為必填"}
+
+    # 5. 呼叫 ticket_service 寫入 Ticket + Wallet
+    result = ticket_service.InsertWallet(
+        flight_id=flight_id,
+        cabin=cabin,
+        price=price,
+        holder_name=holder_name,
+        holder_mobile=holder_mobile,
+        user_id=user_id
+    )
+
+    # 6. 訂票成功後，詢問用戶是否要規劃行程
+    if result.get("success"):
+        ticket_id = result.get("Ticket_Id")  # ✅ 修正：InsertWallet 回傳的是 Ticket_Id（大寫）
+        flight_id_from_result = result.get("Flight_Id")  # ✅ 修正：InsertWallet 回傳的是 Flight_Id（大寫）
+        if ticket_id and flight_id_from_result:
+            try:
+                _ask_trip_planning(line_user_id, ticket_id, flight_id_from_result)
+            except Exception as e:
+                logger.error(f"詢問行程規劃失敗: {e}")
+
+    return result
+
+
+def _ask_trip_planning(line_user_id: str, ticket_id: int, flight_id: str):
+    """訂票成功後詢問用戶是否要規劃行程"""
+    from linebot import LineBotApi
+    from linebot.models import TextSendMessage, QuickReply, QuickReplyButton, PostbackAction
+
+    logger.info(f"📅 [行程規劃] 準備詢問用戶，LINE User ID: {line_user_id}, Ticket ID: {ticket_id}, Flight ID: {flight_id}")
+
+    # 載入配置並初始化 LINE Bot API
+    config = load_config()
+    line_channel_access_token = config.get('line_bot', {}).get('channel_access_token')
+    if not line_channel_access_token:
+        logger.error("找不到 LINE Bot Channel Access Token")
+        return
+
+    line_api = LineBotApi(line_channel_access_token)
+
+    # 建立 Quick Reply 按鈕
+    items = [
+        QuickReplyButton(action=PostbackAction(
+            label="📅 規劃行程",
+            data=f"act=plan_trip&ticket_id={ticket_id}&flight_id={flight_id}",
+            displayText="我要規劃行程"
+        )),
+        QuickReplyButton(action=PostbackAction(
+            label="❌ 不需要",
+            data=f"act=skip_trip_plan",
+            displayText="不需要規劃行程"
+        ))
+    ]
+
+    text = "🎉 訂票成功！\n\n想要我幫你規劃個人化旅行行程嗎？\n我會根據你的偏好生成每日行程，並在出發前每天推播當日行程給你！"
+
+    logger.info(f"📤 [行程規劃] 準備推播訊息給用戶: {line_user_id}")
+    logger.info(f"📤 [行程規劃] Quick Reply 按鈕數量: {len(items)}")
+
+    try:
+        line_api.push_message(
+            line_user_id,
+            TextSendMessage(text=text, quick_reply=QuickReply(items=items))
+        )
+        logger.info(f"✅ [行程規劃] 訊息推播成功")
+    except Exception as e:
+        logger.error(f"❌ [行程規劃] 訊息推播失敗: {e}")
+        logger.error(f"❌ [行程規劃] LINE User ID: {line_user_id}")
+        logger.error(f"❌ [行程規劃] 訊息內容長度: {len(text)}")
+        raise

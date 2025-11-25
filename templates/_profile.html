@@ -12,7 +12,7 @@
         <div class="modal-body">
           <div class="text-center mb-4">
             <label for="photoUpload" class="profile-photo-container position-relative mx-auto d-block" style="cursor: pointer; width: 120px; height: 120px;">
-              <img src="{{ url_for('static', filename='user_photos/' + (user.User_Img or 'default_user.png')) }}"
+              <img src="{{ url_for('static', filename='img/user_photos/' + (user.User_Img or 'default_user.png')) }}"
                    alt="使用者照片預覽"
                    class="rounded-circle"
                    style="width: 120px; height: 120px; object-fit: cover;"

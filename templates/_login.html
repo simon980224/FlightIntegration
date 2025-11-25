@@ -17,19 +17,53 @@
               <input type="text" class="form-control" id="user_id" name="user_id" placeholder="請輸入您的帳號">
             </div>
           </div>
-          <div class="mb-4">
+          <div class="mb-3">
             <label for="password" class="form-label">密碼</label>
             <div class="input-group">
               <span class="input-group-text bg-light"><i class="fas fa-lock"></i></span>
               <input type="password" class="form-control" id="password" name="password" placeholder="請輸入您的密碼" required>
             </div>
           </div>
+          
+          <!-- 驗證碼 -->
+          <div class="mb-4">
+            <label for="captcha_answer" class="form-label">驗證碼</label>
+            <div class="row g-2">
+              <div class="col-7">
+                <div class="input-group">
+                  <span class="input-group-text bg-light"><i class="fas fa-shield-alt"></i></span>
+                  <input type="text" class="form-control" id="captcha_answer" name="captcha_answer" placeholder="請輸入圖片中的數字" required maxlength="4">
+                </div>
+              </div>
+              <div class="col-5">
+                <div class="d-flex align-items-center h-100">
+                  <img id="captcha_image" src="" alt="驗證碼" class="border rounded me-2" style="height: 40px; cursor: pointer;" title="點擊重新整理">
+                  <button type="button" class="btn btn-outline-secondary btn-sm" id="refresh_captcha" title="重新整理驗證碼">
+                    <i class="fas fa-sync-alt"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <small class="text-muted">請輸入圖片中顯示的 4 位數字</small>
+          </div>
+          
           <div class="d-grid">
             <button type="submit" class="btn btn-primary btn-lg">
               <i class="fas fa-sign-in-alt me-2"></i>登入
             </button>
           </div>
         </form>
+
+        <!-- 忘記密碼連結 -->
+        <div class="text-end mt-3">
+          <a href="#" 
+            class="text-primary text-decoration-none small"
+            data-bs-dismiss="modal"
+            data-bs-toggle="modal"
+            data-bs-target="#forgotPasswordModal">
+            <i class="fas fa-key me-1"></i>忘記密碼？
+          </a>
+        </div>
 
         <hr class="my-4">
         
@@ -47,16 +81,161 @@
     </div>
   </div>
 </div>
+
+<!-- 忘記密碼模態框 -->
+<div class="modal fade" id="forgotPasswordModal" tabindex="-1" aria-labelledby="forgotPasswordModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-body p-4 p-md-5">
+        
+        <h4 class="card-title mb-4 text-primary text-center">
+          <i class="fas fa-key me-2"></i>忘記密碼
+        </h4>
+        
+        <!-- 步驟 1：輸入 Email -->
+        <div id="forgotPasswordStep1">
+          <p class="text-muted text-center mb-4">
+            請輸入您註冊時使用的電子郵件地址，我們將發送驗證碼到您的信箱。
+          </p>
+
+          <form id="forgotPasswordFormElement">
+            <div class="mb-4">
+              <label for="forgot_email" class="form-label">電子郵件</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="fas fa-envelope"></i></span>
+                <input type="email" class="form-control" id="forgot_email" name="email" placeholder="請輸入您的電子郵件" required>
+              </div>
+            </div>
+            
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-paper-plane me-2"></i>發送驗證碼
+              </button>
+              <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                <i class="fas fa-times me-2"></i>取消
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- 步驟 2：輸入驗證碼和新密碼 -->
+        <div id="forgotPasswordStep2" style="display: none;">
+          <div class="alert alert-info mb-4">
+            <i class="fas fa-info-circle me-2"></i>
+            驗證碼已發送至 <strong id="displayEmail"></strong>
+            <br><small class="text-muted">驗證碼有效期限為 10 分鐘</small>
+          </div>
+
+          <form id="resetPasswordFormElement">
+            <div class="mb-3">
+              <label for="reset_verification_code" class="form-label">驗證碼</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="fas fa-shield-alt"></i></span>
+                <input type="text" class="form-control" id="reset_verification_code" name="verification_code" placeholder="請輸入 4 位數驗證碼" required maxlength="4" pattern="[0-9]{4}">
+              </div>
+              <small class="text-muted">請查看您的電子郵件收件匣</small>
+            </div>
+
+            <div class="mb-3">
+              <label for="reset_new_password" class="form-label">新密碼</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="fas fa-lock"></i></span>
+                <input type="password" class="form-control" id="reset_new_password" name="new_password" placeholder="請輸入新密碼" required>
+              </div>
+            </div>
+
+            <div class="mb-4">
+              <label for="reset_confirm_password" class="form-label">確認新密碼</label>
+              <div class="input-group">
+                <span class="input-group-text bg-light"><i class="fas fa-lock"></i></span>
+                <input type="password" class="form-control" id="reset_confirm_password" name="confirm_password" placeholder="請再次輸入新密碼" required>
+              </div>
+            </div>
+            
+            <div class="d-grid gap-2">
+              <button type="submit" class="btn btn-primary">
+                <i class="fas fa-check me-2"></i>重設密碼
+              </button>
+              <button type="button" class="btn btn-outline-secondary" id="backToStep1">
+                <i class="fas fa-arrow-left me-2"></i>返回
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <hr class="my-4">
+        
+        <div class="text-center">
+          <p class="text-muted mb-2">想起密碼了嗎？</p>
+          <a href="#"
+            class="btn btn-outline-primary btn-sm"
+            data-bs-dismiss="modal"
+            data-bs-toggle="modal"
+            data-bs-target="#loginModal">
+            <i class="fas fa-sign-in-alt me-2"></i>回到登入
+          </a>
+        </div>
+      </div>  
+    </div>
+  </div>
+</div>
+
 <script>
+  // 載入驗證碼
+  function loadCaptcha() {
+    fetch("/generate_captcha")
+      .then(response => response.json())
+      .then(data => {
+        if (data.success) {
+          document.getElementById("captcha_image").src = data.image;
+          document.getElementById("captcha_answer").value = ""; // 清空答案欄位
+        }
+      })
+      .catch(error => {
+        console.error("載入驗證碼失敗:", error);
+        document.getElementById("captcha_image").alt = "載入失敗";
+      });
+  }
+
+  // 頁面載入時生成驗證碼
+  document.addEventListener("DOMContentLoaded", function() {
+    loadCaptcha();
+  });
+
+  // 監聽登入模態框開啟事件，重新載入驗證碼
+  const loginModal = document.getElementById('loginModal');
+  if (loginModal) {
+    loginModal.addEventListener('shown.bs.modal', function () {
+      loadCaptcha();
+    });
+  }
+
+  // 重新整理驗證碼按鈕
+  document.getElementById("refresh_captcha").addEventListener("click", function() {
+    loadCaptcha();
+  });
+
+  // 點擊圖片也可以重新整理驗證碼
+  document.getElementById("captcha_image").addEventListener("click", function() {
+    loadCaptcha();
+  });
+
+  // 登入表單處理
   document.getElementById("loginFormElement").addEventListener("submit", function (event) {
     event.preventDefault(); // 阻止默認的表單提交行為
 
     const user_id = document.getElementById("user_id").value.trim();
     const password = document.getElementById("password").value;
+    const captcha_answer = document.getElementById("captcha_answer").value.trim();
 
     if (!user_id || !password) {
       // 欄位不完整
       showToast("提示", "請填寫完整資料", "warning");
+      return;
+    }
+
+    if (!captcha_answer) {
+      showToast("提示", "請輸入驗證碼", "warning");
       return;
     }
 
@@ -67,25 +246,257 @@
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ user_id, password }),
+      body: JSON.stringify({ user_id, password, captcha_answer }),
     })
-      .then((response) => response.json())
+      .then((response) => {
+        // 檢查回應狀態
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        // 檢查回應內容類型
+        const contentType = response.headers.get("content-type");
+        if (!contentType || !contentType.includes("application/json")) {
+          throw new Error("回應不是 JSON 格式");
+        }
+        return response.json();
+      })
       .then((data) => {
         closeLoading();
         if (data.success) {
           showToast("登入成功", "歡迎回來！", "success");
-          // 隱藏登入頁面
           setTimeout(() => {
-            window.location.reload();
+            // 優先順序: 1. 後端返回的 next_url  2. postLoginRedirect  3. 首頁
+            if (data.next_url) {
+              window.location.href = data.next_url;
+            } else if (window.postLoginRedirect) {
+              window.location.href = window.postLoginRedirect;
+            } else {
+              window.location.href = '/';  // 跳轉到首頁(不帶參數)
+            }
           }, 500);
         } else {
-          showToast("登入失敗", data.message || "帳號或密碼錯誤", "error");
+          // 登入失敗時重新載入驗證碼
+          loadCaptcha();
+          
+          if (data.verification_required) {
+            // 帳號存在但未驗證，引導至驗證流程
+            showToast("帳號未驗證", "您的帳號已建立但尚未驗證，請輸入驗證碼完成驗證", "warning");
+            
+            // 儲存使用者ID用於驗證
+            window.pendingVerificationUserId = user_id;
+            
+            // 關閉登入模態框並開啟驗證模態框
+            const loginModal = bootstrap.Modal.getInstance(document.getElementById('loginModal'));
+            if (loginModal) {
+              loginModal.hide();
+            }
+            
+            // 如果存在驗證模態框就開啟
+            const verificationModal = document.getElementById('emailVerificationModal');
+            if (verificationModal) {
+              const modal = new bootstrap.Modal(verificationModal);
+              modal.show();
+              
+              // 更新驗證模態框的內容為登入驗證模式
+              const titleElement = verificationModal.querySelector('.card-title');
+              if (titleElement) {
+                titleElement.innerHTML = '<i class="fas fa-shield-alt me-2"></i>完成帳號驗證';
+              }
+              
+              // 更新說明文字
+              const descElement = verificationModal.querySelector('.text-muted.mb-2');
+              if (descElement) {
+                descElement.textContent = '您的帳號需要驗證才能登入：';
+              }
+              
+              const noteElement = verificationModal.querySelector('.text-muted.small');
+              if (noteElement) {
+                noteElement.innerHTML = '請輸入註冊時取得的驗證碼。<br><strong class="text-primary">完成驗證後即可正常登入。</strong>';
+              }
+              
+              // 設定使用者email顯示
+              const emailElement = document.getElementById("verificationUserEmail");
+              if (emailElement) {
+                emailElement.textContent = data.user_email || "您的信箱";
+              }
+            } else {
+              // 如果沒有驗證模態框，引導至註冊頁面完成驗證
+              showToast("請完成驗證", "請前往註冊頁面完成帳號驗證", "info");
+              setTimeout(() => {
+                const registerModal = new bootstrap.Modal(document.getElementById('registerModal'));
+                registerModal.show();
+              }, 1000);
+            }
+          } else {
+            showToast("登入失敗", data.message || "帳號或密碼錯誤", "error");
+          }
         }
       })
       .catch((error) => {
         closeLoading();
         console.error("登入過程中出錯:", error);
         showToast("發生錯誤", "請稍後再試", "error");
+        // 發生錯誤時也重新載入驗證碼
+        loadCaptcha();
       });
   });
+
+  // 儲存當前的 email（用於步驟2）
+  let currentResetEmail = "";
+
+  // 步驟 1：發送驗證碼表單處理
+  document.getElementById("forgotPasswordFormElement").addEventListener("submit", function (event) {
+    event.preventDefault();
+
+    const email = document.getElementById("forgot_email").value.trim();
+
+    if (!email) {
+      showToast("提示", "請輸入電子郵件地址", "warning");
+      return;
+    }
+
+    // 簡單的電子郵件格式驗證
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      showToast("提示", "請輸入有效的電子郵件格式", "warning");
+      return;
+    }
+
+    showLoading("處理中", "正在發送驗證碼，請稍候...");
+
+    // 呼叫後端 API 發送驗證碼
+    fetch("/forgot_password", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ user_id_or_email: email }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        closeLoading();
+        if (data.success) {
+          // 儲存 email 用於步驟2
+          currentResetEmail = email;
+          
+          showToast("發送成功", 
+            "驗證碼已發送至您的電子郵件，請檢查收件匣（包含垃圾郵件資料夾）。", 
+            "success");
+          
+          // 顯示驗證碼（開發用，正式環境應移除）
+          if (data.verify_code) {
+            console.log("🔑 驗證碼（開發用）:", data.verify_code);
+          }
+          
+          // 切換到步驟 2
+          document.getElementById("forgotPasswordStep1").style.display = "none";
+          document.getElementById("forgotPasswordStep2").style.display = "block";
+          document.getElementById("displayEmail").textContent = email;
+          
+        } else {
+          showToast("發送失敗", data.message || "無法發送驗證碼，請稍後再試", "error");
+        }
+      })
+      .catch((error) => {
+        closeLoading();
+        console.error("發送驗證碼時出錯:", error);
+        showToast("發生錯誤", "請稍後再試", "error");
+      });
+  });
+
+  // 步驟 2：重設密碼表單處理
+  document.getElementById("resetPasswordFormElement").addEventListener("submit", function (event) {
+    event.preventDefault();
+
+    const verificationCode = document.getElementById("reset_verification_code").value.trim();
+    const newPassword = document.getElementById("reset_new_password").value;
+    const confirmPassword = document.getElementById("reset_confirm_password").value;
+
+    if (!verificationCode) {
+      showToast("提示", "請輸入驗證碼", "warning");
+      return;
+    }
+
+    if (verificationCode.length !== 4 || !/^\d{4}$/.test(verificationCode)) {
+      showToast("提示", "驗證碼必須是 4 位數字", "warning");
+      return;
+    }
+
+    if (!newPassword || !confirmPassword) {
+      showToast("提示", "請輸入新密碼和確認密碼", "warning");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      showToast("提示", "兩次輸入的密碼不一致", "warning");
+      return;
+    }
+
+    showLoading("處理中", "正在重設密碼，請稍候...");
+
+    // 呼叫後端 API 重設密碼
+    fetch("/reset_password", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ 
+        user_id: currentResetEmail, 
+        verification_code: verificationCode,
+        new_password: newPassword 
+      }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        closeLoading();
+        if (data.success) {
+          showToast("重設成功", "密碼已成功重設，請使用新密碼登入", "success");
+          
+          // 重設表單並切回步驟 1
+          document.getElementById("forgotPasswordFormElement").reset();
+          document.getElementById("resetPasswordFormElement").reset();
+          document.getElementById("forgotPasswordStep1").style.display = "block";
+          document.getElementById("forgotPasswordStep2").style.display = "none";
+          currentResetEmail = "";
+          
+          // 關閉忘記密碼模態框，開啟登入模態框
+          const forgotModal = bootstrap.Modal.getInstance(document.getElementById('forgotPasswordModal'));
+          if (forgotModal) {
+            forgotModal.hide();
+          }
+          
+          setTimeout(() => {
+            const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
+            loginModal.show();
+          }, 500);
+          
+        } else {
+          showToast("重設失敗", data.message || "無法重設密碼，請檢查驗證碼是否正確", "error");
+        }
+      })
+      .catch((error) => {
+        closeLoading();
+        console.error("重設密碼時出錯:", error);
+        showToast("發生錯誤", "請稍後再試", "error");
+      });
+  });
+
+  // 返回步驟 1 按鈕
+  document.getElementById("backToStep1").addEventListener("click", function() {
+    document.getElementById("forgotPasswordStep1").style.display = "block";
+    document.getElementById("forgotPasswordStep2").style.display = "none";
+    document.getElementById("resetPasswordFormElement").reset();
+  });
+
+  // 當忘記密碼模態框關閉時，重設狀態
+  const forgotPasswordModal = document.getElementById('forgotPasswordModal');
+  if (forgotPasswordModal) {
+    forgotPasswordModal.addEventListener('hidden.bs.modal', function () {
+      document.getElementById("forgotPasswordStep1").style.display = "block";
+      document.getElementById("forgotPasswordStep2").style.display = "none";
+      document.getElementById("forgotPasswordFormElement").reset();
+      document.getElementById("resetPasswordFormElement").reset();
+      currentResetEmail = "";
+    });
+  }
 </script> 

@@ -73,61 +73,508 @@
   </div>
 </div>
 
-<script>
-  document.getElementById("registerFormElement").addEventListener("submit", function (event) {
-    event.preventDefault(); // 阻止表單預設提交
 
-    const user_id = document.getElementById("reg_user_id").value.trim();
-    const user_name = document.getElementById("user_name").value.trim();
-    const password = document.getElementById("reg_password").value;
-    const confirmPassword = document.getElementById("confirmPassword").value;
-    const user_email = document.getElementById("user_email").value.trim();
+<!-- Email 驗證模態框 -->
+<div class="modal fade" id="emailVerificationModal" tabindex="-1" aria-labelledby="emailVerificationModalLabel" aria-hidden="true" data-bs-backdrop="static" data-bs-keyboard="false">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content border-0 shadow-lg">
+      <div class="modal-body p-4 p-md-5 text-center">
+        <div class="mb-4">
+          <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex align-items-center justify-content-center" style="width: 80px; height: 80px;">
+            <i class="fas fa-envelope-open text-primary" style="font-size: 2rem;"></i>
+          </div>
+        </div>
+
+        <h4 class="card-title mb-3 text-primary">
+          <i class="fas fa-check-circle me-2"></i>驗證您的電子郵件
+        </h4>
+
+        <div class="mb-4">
+          <p class="text-muted mb-2">帳號已建立，請輸入驗證碼完成驗證：</p>
+          <p class="fw-bold text-dark mb-3" id="verificationUserEmail">your@email.com</p>
+          <p class="text-muted small">您的資料已寫入資料庫，驗證碼已產生。<br>
+          <strong class="text-primary">必須完成驗證才能正常登入帳號。</strong></p>
+        </div>
+
+        <form id="verificationFormElement">
+          <div class="mb-4">
+            <label for="verificationCode" class="form-label">驗證碼</label>
+            <div class="input-group">
+              <span class="input-group-text bg-light"><i class="fas fa-key"></i></span>
+              <input type="text" class="form-control text-center" id="verificationCode" name="verificationCode" placeholder="請輸入 4 位英數驗證碼" maxlength="4" required>
+            </div>
+            <div class="form-text">驗證碼為 4 位英數字元，請注意大小寫</div>
+          </div>
+
+          <div class="d-grid gap-2 mb-3">
+            <button type="submit" class="btn btn-primary btn-lg">
+              <i class="fas fa-check me-2"></i>確認驗證
+            </button>
+            <button type="button" class="btn btn-outline-secondary" id="resendVerificationBtn">
+              <i class="fas fa-redo me-2"></i>重新發送驗證碼
+            </button>
+          </div>
+        </form>
+
+        <div class="text-center">
+          <p class="text-muted small mb-2">帳號已建立，驗證後即可使用</p>
+          <button type="button" class="btn btn-link text-decoration-none text-muted" data-bs-dismiss="modal">
+            <i class="fas fa-arrow-left me-1"></i>稍後驗證
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  'use strict';
+
+  // ================================
+  // 全域變數
+  // ================================
+  window.pendingRegistrationData = null;
+
+  // ================================
+  // 工具函數
+  // ================================
+  
+  /**
+   * 清除所有 Modal 背景遮罩和相關樣式
+   */
+  function clearAllBackdrops() {
+    const backdrops = document.querySelectorAll('.modal-backdrop');
+    backdrops.forEach(backdrop => backdrop.remove());
+    document.body.classList.remove('modal-open');
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+  }
+  
+  /**
+   * 隱藏指定的 Modal
+   * @param {string} modalId - Modal 的 ID
+   */
+  function hideModal(modalId) {
+    const modalEl = document.getElementById(modalId);
+    const modal = bootstrap.Modal.getInstance(modalEl);
+    if (modal) {
+      modal.hide();
+    }
+    // 確保清除所有殘留的 backdrop
+    setTimeout(() => {
+      clearAllBackdrops();
+    }, 300);
+  }
+
+  /**
+   * 顯示指定的 Modal
+   * @param {string} modalId - Modal 的 ID
+   */
+  function showModal(modalId) {
+    const modal = new bootstrap.Modal(document.getElementById(modalId));
+    modal.show();
+  }
+
+  /**
+   * 重置驗證模態框內容為預設狀態
+   */
+  function resetVerificationModalContent() {
+    const verificationModal = document.getElementById('emailVerificationModal');
+    if (!verificationModal) return;
+    
+    // 重置標題
+    const titleElement = verificationModal.querySelector('.card-title');
+    if (titleElement) {
+      titleElement.innerHTML = '<i class="fas fa-check-circle me-2"></i>驗證您的電子郵件';
+    }
+    
+    // 重置說明文字
+    const descElement = verificationModal.querySelector('.text-muted.mb-2');
+    if (descElement) {
+      descElement.textContent = '帳號已建立，請輸入驗證碼完成驗證：';
+    }
+    
+    const noteElement = verificationModal.querySelector('.text-muted.small');
+    if (noteElement) {
+      noteElement.innerHTML = '您的資料已寫入資料庫，驗證碼已產生。<br><strong class="text-primary">必須完成驗證才能正常登入帳號。</strong>';
+    }
+  }
+
+
+  /**
+   * 處理註冊成功
+   */
+  function handleRegistrationSuccess() {
+    // 清除暫存的註冊資料
+    window.pendingRegistrationData = null;
+    
+    showToast("註冊成功！", "您的帳號已成功建立，歡迎加入我們", "success").then(() => {
+      hideModal("emailVerificationModal");
+      
+      // 重置驗證模態框內容為預設狀態
+      resetVerificationModalContent();
+      
+      showModal("loginModal");
+    });
+  }
+
+  /**
+   * 處理登入驗證成功
+   */
+  function handleLoginVerificationSuccess() {
+    // 清除暫存的驗證資料
+    const verifiedUserId = window.pendingVerificationUserId;
+    window.pendingVerificationUserId = null;
+    
+    showToast("驗證成功！", "帳號驗證完成，已自動登入", "success").then(() => {
+      hideModal("emailVerificationModal");
+      
+      // 重置驗證模態框內容為預設狀態
+      resetVerificationModalContent();
+      
+      // 直接重新載入頁面或跳轉，不再顯示登入表單
+      setTimeout(() => {
+        if (window.postLoginRedirect) {
+          window.location.href = window.postLoginRedirect;
+        } else {
+          window.location.reload();
+        }
+      }, 500);
+    });
+  }
+
+  /**
+   * 處理註冊錯誤
+   * @param {string} errorMessage - 錯誤訊息
+   */
+  function handleRegistrationError(errorMessage) {
+    closeLoading(); // 確保關閉載入中遮罩
+    
+    // 等待 SweetAlert2 完全關閉後再清理 Bootstrap backdrop
+    setTimeout(() => {
+      clearAllBackdrops(); // 清除所有可能殘留的 backdrop
+      
+      showToast("註冊失敗", errorMessage, "error");
+      
+      // 先關閉驗證模態框
+      hideModal("emailVerificationModal");
+      
+      // 延遲後再開啟註冊模態框，確保前一個模態框完全關閉
+      setTimeout(() => {
+        showModal("registerModal");
+      }, 500);
+    }, 300);
+  }
+
+  /**
+   * 驗證表單資料
+   * @param {Object} formData - 表單資料
+   * @returns {Object} - 驗證結果
+   */
+  function validateRegistrationForm(formData) {
+    const { user_id, user_name, password, confirmPassword, user_email } = formData;
 
     // 基本欄位檢查
     if (!user_id || !user_name || !password || !confirmPassword || !user_email) {
-      showToast("提示", "請填寫完整資料", "warning");
-      return;
+      return { isValid: false, message: "請填寫完整資料" };
     }
 
     // 密碼比對
     if (password !== confirmPassword) {
-      showToast("提示", "密碼與確認密碼不符", "warning");
+      return { isValid: false, message: "密碼與確認密碼不符" };
+    }
+
+    return { isValid: true };
+  }
+
+  /**
+   * 驗證驗證碼
+   * @param {string} verificationCode - 驗證碼
+   * @returns {Object} - 驗證結果
+   */
+  function validateVerificationCode(verificationCode) {
+    if (!verificationCode) {
+      return { isValid: false, message: "請輸入驗證碼" };
+    }
+
+    if (verificationCode.length !== 4) {
+      return { isValid: false, message: "驗證碼必須為 4 位英數字元" };
+    }
+
+    return { isValid: true };
+  }
+
+  // ================================
+  // 註冊相關功能
+  // ================================
+
+  /**
+   * 處理註冊表單提交
+   */
+  function handleRegistrationSubmit(event) {
+    event.preventDefault();
+
+    // 取得表單資料
+    const formData = {
+      user_id: document.getElementById("reg_user_id").value.trim(),
+      user_name: document.getElementById("user_name").value.trim(),
+      password: document.getElementById("reg_password").value,
+      confirmPassword: document.getElementById("confirmPassword").value,
+      user_email: document.getElementById("user_email").value.trim()
+    };
+
+    // 驗證表單資料
+    const validation = validateRegistrationForm(formData);
+    if (!validation.isValid) {
+      showToast("提示", validation.message, "warning");
       return;
     }
 
-    showLoading("註冊中", "正在建立您的帳號，請稍候...");
-
-    const payload = { user_id, user_name, password, confirmPassword, user_email };
-
+    // 先註冊到資料庫取得驗證碼
+    showLoading("註冊中", "正在建立您的帳號...");
+    
     fetch("/register", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify(formData),
     })
-      .then((response) => response.json())
-      .then((data) => {
-        closeLoading();
-        if (data.success) {
-          showToast("註冊成功！", "歡迎加入我們的會員", "success").then(() => {
-            // 隱藏註冊 Modal
-            const regModalEl = document.getElementById("registerModal");
-            const regModal = bootstrap.Modal.getInstance(regModalEl) || new bootstrap.Modal(regModalEl);
-            regModal.hide();
+    .then((response) => {
+      // 檢查回應狀態
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      // 檢查回應內容類型
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("回應不是 JSON 格式");
+      }
+      return response.json();
+    })
+    .then((data) => {
+      closeLoading();
+      if (data.success) {
+        // 註冊成功，資料已寫入資料庫，顯示驗證碼並要求驗證
+        window.pendingRegistrationData = {
+          user_id: formData.user_id,
+          user_email: formData.user_email
+        };
+        
+        hideModal("registerModal");
+        showModal("emailVerificationModal");
+        
+        // 設定用戶 email 到驗證視窗
+        document.getElementById("verificationUserEmail").textContent = formData.user_email;
+        
+        // 提示使用者註冊成功但需要驗證才能登入
+        showToast("註冊成功", data.message || "驗證碼已寄到您的 Email（有效 10 分鐘），請完成驗證後登入", "info");
+      } else {
+        handleRegistrationError(data.message || "註冊失敗");
+      }
+    })
+    .catch((error) => {
+      closeLoading();
+      console.error("註冊過程中出錯:", error);
+      
+      // 等待 SweetAlert2 完全關閉後再清理 Bootstrap backdrop
+      setTimeout(() => {
+        clearAllBackdrops(); // 清除所有可能殘留的 backdrop
+        
+        // 顯示錯誤訊息
+        showToast("註冊失敗", "發生錯誤，請稍後再試", "error");
+        
+        // 先關閉驗證模態框
+        hideModal("emailVerificationModal");
+        
+        // 延遲後再開啟註冊模態框
+        setTimeout(() => {
+          showModal("registerModal");
+        }, 500);
+      }, 300);
+    });
+  }
 
-            // 顯示登入 Modal
-            const loginModal = new bootstrap.Modal(document.getElementById("loginModal"));
-            loginModal.show();
-          });
+  // ================================
+  // Email 驗證相關功能
+  // ================================
+
+  /**
+   * 處理驗證碼提交
+   */
+  function handleVerificationSubmit(event) {
+    event.preventDefault();
+
+    const verificationCode = document.getElementById("verificationCode").value.trim();
+
+    // 驗證驗證碼
+    const validation = validateVerificationCode(verificationCode);
+    if (!validation.isValid) {
+      showToast("提示", validation.message, "warning");
+      return;
+    }
+
+    // 檢查是否為註冊流程或登入未驗證流程
+    const isRegistrationFlow = window.pendingRegistrationData && window.pendingRegistrationData.user_id;
+    const isLoginVerificationFlow = window.pendingVerificationUserId;
+    
+    if (!isRegistrationFlow && !isLoginVerificationFlow) {
+      showToast("錯誤", "驗證資料遺失，請重新操作", "error");
+      hideModal("emailVerificationModal");
+      showModal("registerModal");
+      return;
+    }
+    
+    const userIdForVerification = isRegistrationFlow ? 
+      window.pendingRegistrationData.user_id : 
+      window.pendingVerificationUserId;
+
+    showLoading("驗證中", "正在確認您的驗證碼...");
+
+    // 呼叫驗證 API
+    fetch("/verify_code", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        user_id: userIdForVerification,
+        verification_code: verificationCode
+      }),
+    })
+    .then((response) => {
+      // 檢查回應狀態
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      // 檢查回應內容類型
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        throw new Error("回應不是 JSON 格式");
+      }
+      return response.json();
+    })
+    .then((data) => {
+      closeLoading();
+      if (data.success) {
+        // 清空驗證碼輸入框
+        document.getElementById("verificationCode").value = '';
+        
+        if (isRegistrationFlow) {
+          handleRegistrationSuccess();
+        } else if (data.auto_login) {
+          // 如果是登入流程且已自動登入，直接跳轉
+          handleLoginVerificationSuccess();
         } else {
-          showToast("註冊失敗", data.message || "請檢查輸入", "error");
+          // 一般驗證成功但未自動登入的情況
+          handleLoginVerificationSuccess();
         }
-      })
-      .catch((error) => {
-        closeLoading();
-        console.error("註冊過程中出錯:", error);
-        showToast("發生錯誤", "請稍後再試", "error");
-      });
+      } else {
+        showToast("驗證失敗", data.message || "驗證碼錯誤", "error");
+        // 清空輸入框讓使用者重新輸入
+        document.getElementById("verificationCode").value = '';
+        document.getElementById("verificationCode").focus();
+      }
+    })
+    .catch((error) => {
+      closeLoading();
+      console.error("驗證過程中出錯:", error);
+      
+      // 等待 SweetAlert2 完全關閉後再清理 Bootstrap backdrop
+      setTimeout(() => {
+        clearAllBackdrops(); // 清除所有可能殘留的 backdrop
+        showToast("驗證失敗", "發生錯誤，請稍後再試", "error");
+      }, 300);
+    });
+  }
+
+  /**
+   * 處理重新發送驗證碼
+   */
+  function handleResendVerification() {
+    showLoading("發送中", "正在重新發送驗證碼...");
+
+    // 模擬重新發送過程
+    setTimeout(() => {
+      closeLoading();
+      showToast("已重新發送", "新的驗證碼已發送到您的信箱", "info");
+    }, 1000);
+  }
+
+  /**
+   * 處理稍後驗證（帳號已建立，只是暫時關閉驗證視窗）
+   */
+  function handleLaterVerification() {
+    // 帳號已經建立，只是暫時關閉驗證視窗
+    // 使用者可以透過登入頁面重新進入驗證流程
+    hideModal("emailVerificationModal");
+    showToast("提醒", "帳號已建立，但需要驗證才能登入。您可以稍後透過登入頁面完成驗證", "info");
+  }
+
+  /**
+   * 當驗證視窗顯示時的處理
+   */
+  function handleVerificationModalShown() {
+    document.getElementById("verificationCode").focus();
+  }
+
+  /**
+   * 驗證碼輸入框格式化
+   */
+  function handleVerificationCodeInput(event) {
+    // 只允許英數字元，保持原始大小寫
+    event.target.value = event.target.value.replace(/[^A-Za-z0-9]/g, '');
+  }
+
+  // ================================
+  // 事件監聽器初始化
+  // ================================
+
+  /**
+   * 初始化所有事件監聽器
+   */
+  function initEventListeners() {
+    // 註冊表單提交
+    document.getElementById("registerFormElement")
+      .addEventListener("submit", handleRegistrationSubmit);
+
+    // 驗證表單提交
+    document.getElementById("verificationFormElement")
+      .addEventListener("submit", handleVerificationSubmit);
+
+    // 重新發送驗證碼
+    document.getElementById("resendVerificationBtn")
+      .addEventListener("click", handleResendVerification);
+
+    // 由於已移除 skipVerificationBtn，這個事件監聽器不再需要
+    // 使用 modal 的關閉按鈕來處理稍後驗證
+
+    // 驗證視窗顯示時自動聚焦
+    document.getElementById("emailVerificationModal")
+      .addEventListener('shown.bs.modal', handleVerificationModalShown);
+
+    // 驗證碼輸入框格式化
+    document.getElementById("verificationCode")
+      .addEventListener("input", handleVerificationCodeInput);
+  }
+
+  // ================================
+  // 初始化
+  // ================================
+
+  // DOM 載入完成後初始化
+  document.addEventListener('DOMContentLoaded', function() {
+    initEventListeners();
   });
+
+  // 如果 DOM 已經載入完成，立即初始化
+  if (document.readyState === 'loading') {
+    // DOM 仍在載入中，等待 DOMContentLoaded 事件
+  } else {
+    // DOM 已經載入完成，立即初始化
+    initEventListeners();
+  }
+
+})();
 </script>

@@ -63,46 +63,25 @@
               </h5>
             </div>
             <div class="card-body">
+              <h6 class="fw-bold text-primary mb-3">
+                <i class="fas fa-plane-departure me-2"></i>即將起飛
+              </h6>
               <div class="row">
                 <div class="col-md-6">
-                  <h6 class="fw-bold text-primary mb-3">
-                    <i class="fas fa-plane-departure me-2"></i>即將起飛
-                  </h6>
-                  <div class="list-group list-group-flush">
-                    <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                      <div>
-                        <strong>BR123</strong> - 台北 → 東京
-                        <br><small class="text-muted">起飛時間: 14:30</small>
+                  <div class="list-group list-group-flush" id="departure-flights-left">
+                    <div class="list-group-item d-flex justify-content-center align-items-center border-0 px-0">
+                      <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">載入中...</span>
                       </div>
-                      <span class="badge bg-success">準時</span>
-                    </div>
-                    <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                      <div>
-                        <strong>CI567</strong> - 台北 → 香港
-                        <br><small class="text-muted">起飛時間: 15:45</small>
-                      </div>
-                      <span class="badge bg-warning text-dark">延誤</span>
                     </div>
                   </div>
                 </div>
                 <div class="col-md-6">
-                  <h6 class="fw-bold text-success mb-3">
-                    <i class="fas fa-plane-arrival me-2"></i>即將抵達
-                  </h6>
-                  <div class="list-group list-group-flush">
-                    <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                      <div>
-                        <strong>NH789</strong> - 東京 → 台北
-                        <br><small class="text-muted">抵達時間: 16:20</small>
+                  <div class="list-group list-group-flush" id="departure-flights-right">
+                    <div class="list-group-item d-flex justify-content-center align-items-center border-0 px-0">
+                      <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">載入中...</span>
                       </div>
-                      <span class="badge bg-success">準時</span>
-                    </div>
-                    <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
-                      <div>
-                        <strong>CX456</strong> - 香港 → 台北
-                        <br><small class="text-muted">抵達時間: 17:15</small>
-                      </div>
-                      <span class="badge bg-success">準時</span>
                     </div>
                   </div>
                 </div>
@@ -156,8 +135,138 @@
 document.addEventListener('DOMContentLoaded', function() {
     const profileLink = document.getElementById('profile-link-unauthenticated');
     if (profileLink) {
-        profileLink.addEventListener('click', showLoginModal);
+        profileLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            // 設置登入後要前往會員中心
+            window.postLoginRedirect = '/profile';
+            showLoginModal();
+        });
     }
+    
+    // 載入最新航班資訊
+    loadLatestFlights();
 });
+
+// 載入最新航班資訊
+function loadLatestFlights() {
+    // 獲取今天的日期
+    const today = new Date();
+    const dateString = today.getFullYear() + '-' + 
+                      String(today.getMonth() + 1).padStart(2, '0') + '-' + 
+                      String(today.getDate()).padStart(2, '0');
+    
+    // 調用查詢 API 獲取今天的所有航班
+    fetch("/flight/search", {
+        method: "POST",
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            from_airport: "",
+            to_airport: "",
+            departure_date: dateString,
+            airline_ids: []
+        }),
+    })
+    .then(response => response.json())
+    .then(json => {
+        if (json.success && json.data.length > 0) {
+            const now = new Date();
+            
+            // 只顯示即將起飛的航班
+            const departureFlights = json.data.filter(flight => {
+                const dTime = new Date(flight.D_Time);
+                // 尚未起飛的航班
+                return dTime > now;
+            }).slice(0, 4); // 取前4筆
+            
+            // 分成左右兩邊顯示
+            const leftFlights = departureFlights.slice(0, 2); // 前2筆顯示在左邊
+            const rightFlights = departureFlights.slice(2, 4); // 後2筆顯示在右邊
+            
+            // 渲染左邊的航班
+            renderFlights(leftFlights, 'departure-flights-left', 'departure');
+            
+            // 渲染右邊的航班
+            renderFlights(rightFlights, 'departure-flights-right', 'departure');
+        } else {
+            // 沒有航班資料
+            showNoFlights('departure-flights-left');
+            showNoFlights('departure-flights-right');
+        }
+    })
+    .catch(error => {
+        console.error('載入航班資訊失敗:', error);
+        showError('departure-flights-left');
+        showError('departure-flights-right');
+    });
+}
+
+// 渲染航班列表
+function renderFlights(flights, containerId, type) {
+    const container = document.getElementById(containerId);
+    
+    if (flights.length === 0) {
+        container.innerHTML = `
+            <div class="list-group-item d-flex justify-content-center align-items-center border-0 px-0 text-muted">
+                <small>暫無航班資訊</small>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = '';
+    
+    flights.forEach(flight => {
+        const timeInfo = type === 'departure' 
+            ? { time: new Date(flight.D_Time), label: '起飛時間' }
+            : { time: new Date(flight.A_Time), label: '抵達時間' };
+        
+        const hours = timeInfo.time.getHours();
+        const minutes = String(timeInfo.time.getMinutes()).padStart(2, '0');
+        const timeString = `${hours}:${minutes}`;
+        
+        // 判斷狀態（這裡簡化為都顯示準時，可以根據實際需求調整）
+        const statusBadge = flight.ticket_status === 1 
+            ? '<span class="badge bg-success">準時</span>'
+            : '<span class="badge bg-secondary">已起飛</span>';
+        
+        const route = type === 'departure'
+            ? `${flight.From_Airport} → ${flight.To_Airport}`
+            : `${flight.From_Airport} → ${flight.To_Airport}`;
+        
+        const flightItem = `
+            <div class="list-group-item d-flex justify-content-between align-items-center border-0 px-0">
+                <div>
+                    <strong>${flight.No}</strong> - ${route}
+                    <br><small class="text-muted">${timeInfo.label}: ${timeString}</small>
+                </div>
+                ${statusBadge}
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', flightItem);
+    });
+}
+
+// 顯示無航班資訊
+function showNoFlights(containerId) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = `
+        <div class="list-group-item d-flex justify-content-center align-items-center border-0 px-0 text-muted">
+            <small>今日暫無航班</small>
+        </div>
+    `;
+}
+
+// 顯示錯誤訊息
+function showError(containerId) {
+    const container = document.getElementById(containerId);
+    container.innerHTML = `
+        <div class="list-group-item d-flex justify-content-center align-items-center border-0 px-0 text-danger">
+            <small>載入失敗，請稍後再試</small>
+        </div>
+    `;
+}
 </script>
 {% endblock %}

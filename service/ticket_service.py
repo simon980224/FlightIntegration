@@ -2,6 +2,7 @@
 import pymssql
 from datetime import datetime, timedelta
 from flask import session
+import time
 
 # ===== 價格設定（可之後改成從 DB 或設定檔讀）=====
 FARE = 10000
@@ -33,7 +34,7 @@ def get_booking_imf(flight_id):
         conn = pymssql.connect(**conn_args)
         cursor = conn.cursor(as_dict=True)
         flight_sql = """
-        SELECT 
+        SELECT
             F.Flight_Id,
             F.No,
             F.Airline_Id,
@@ -59,12 +60,18 @@ def get_booking_imf(flight_id):
             return {"success": False, "message": "查無此航班"}
 
         # 2) 從 session 取得目前登入的 user_id，去 User 表撈 User_Name
-        user_id = session.get("user_id")
+        # 使用 try-except 處理沒有 request context 的情況（例如背景執行）
+        user_id = None
         user_name = None
-        if user_id:
-            cursor.execute("SELECT User_Name FROM [User] WHERE User_Id = %s", (user_id,))
-            u = cursor.fetchone()
-            user_name = u["User_Name"] if u else None
+        try:
+            user_id = session.get("user_id")
+            if user_id:
+                cursor.execute("SELECT User_Name FROM [User] WHERE User_Id = %s", (user_id,))
+                u = cursor.fetchone()
+                user_name = u["User_Name"] if u else None
+        except RuntimeError:
+            # Working outside of request context - 背景執行時會發生
+            pass
 
         # 3) 計算飛行時間
         d_time = row.get("D_Time")
@@ -98,6 +105,130 @@ def get_booking_imf(flight_id):
             if cursor: cursor.close()
         finally:
             if conn: conn.close()
+
+def InsertWallet(flight_id, cabin, price, holder_name, holder_mobile, user_id):
+    conn = None
+    try:
+        conn = pymssql.connect(**conn_args)
+        cursor = conn.cursor()
+
+        # 除錯用：確認 DB
+        cursor.execute("SELECT DB_NAME()")
+        print("👉 DB =", cursor.fetchone()[0])
+
+        ticket_id = f"ORDER_{int(time.time()*1000)}"
+        now = datetime.now()
+        status = '1'  # 狀態: 1 = 已付款 (依你需求)
+
+        # ✅ 1️⃣ 先插入 Ticket 資料
+        cursor.execute("""
+            INSERT INTO [dbo].[Ticket]
+                (Ticket_Id, Flight_Id, Price, Cabin, Checked_Baggage, Cabin_Baggage)
+            VALUES (%s, %s, %s, %s, %s, %s)
+        """, (ticket_id, flight_id, price, cabin, 20, 7))  # 可改固定托運/手提行李值
+
+        # ✅ 2️⃣ 再插入 Wallet 資料
+        cursor.execute("""
+            INSERT INTO [dbo].[Wallet]
+                (Ticket_Id, User_Id, Holder_Name, Holder_Mobile, Status, Create_At, Modify_At)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+        """, (ticket_id, user_id, holder_name, holder_mobile, status, now, now))
+
+        conn.commit()
+        print(f"✅ 新增訂票成功：{ticket_id}")
+        return {"success": True, "Ticket_Id": ticket_id, "Flight_Id": flight_id}
+
+    except Exception as e:
+        if conn:
+            conn.rollback()
+        print("❌ InsertWallet Error:", e)
+        return {"success": False, "message": str(e)}
+
+    finally:
+        if conn:
+            conn.close()
+
+
+def getWallet(user_id):
+    conn = None
+    try:
+        conn = pymssql.connect(**conn_args)
+        cursor = conn.cursor(as_dict=True)
+
+        cursor.execute("""
+            SELECT
+                W.Ticket_Id,
+                W.User_Id,
+                W.Holder_Name,
+                W.Holder_Mobile,
+                W.Status,
+                W.Create_At,
+                W.Modify_At,
+                T.Flight_Id,
+                T.Price,
+                T.Cabin,
+                T.Checked_Baggage,
+                T.Cabin_Baggage
+            FROM Wallet AS W
+            JOIN Ticket AS T ON W.Ticket_Id = T.Ticket_Id
+            WHERE W.User_Id = %s
+            ORDER BY W.Create_At DESC
+        """, (user_id,))
+
+        data = cursor.fetchall()
+        return {"success": True, "data": data}
+
+    except Exception as e:
+        print("❌ getWallet Error:", e)
+        return {"success": False, "message": str(e)}
+
+    finally:
+        if conn:
+            conn.close()
+
+
+# def InsertTicket(flight_id, cabin, price):
+#     """
+#     新增一筆票券資料到 Ticket 資料表
+#     """
+#     try:
+#         conn = conn_args()
+#         cursor = conn.cursor()
+
+#         # 行李重量規則
+#         baggage_rules = {
+#             "economy": {"Checked_Baggage": 20, "Cabin_Baggage": 7},
+#             "business": {"Checked_Baggage": 40, "Cabin_Baggage": 7},
+#             "first": {"Checked_Baggage": 60, "Cabin_Baggage": 10}
+#         }
+#         rule = baggage_rules.get(cabin, {"Checked_Baggage": None, "Cabin_Baggage": None})
+
+#         # 產生訂單編號（Ticket_Id）
+#         ticket_id = f"ORDER_{int(datetime.now().timestamp())}"
+
+#         # 寫入 Ticket
+#         cursor.execute("""
+#             INSERT INTO Ticket (Ticket_Id, Flight_Id, Price, Cabin, Checked_Baggage, Cabin_Baggage)
+#             VALUES (%s, %s, %s, %s, %s, %s)
+#         """, (
+#             ticket_id,
+#             flight_id,
+#             price,
+#             cabin,
+#             rule["Checked_Baggage"],
+#             rule["Cabin_Baggage"]
+#         ))
+
+#         conn.commit()
+#         return {"success": True, "Ticket_Id": ticket_id}
+
+#     except Exception as e:
+#         print("❌ InsertTicket Error:", e)
+#         return {"success": False, "message": str(e)}
+
+#     finally:
+#         if conn:
+#             conn.close()
 
 if __name__ == "__main__":
     # 僅供本檔單獨執行測試時參考；實際在 Flask route 中呼叫即可

@@ -22,7 +22,7 @@
   </div>
 
   <div class="row justify-content-center">
-    <div class="col-lg-10">
+    <div class="col-12 col-lg-10 col-xl-9">
       <div class="card shadow-lg border-0">
         <div class="card-body p-4 p-md-5">
           <h4 class="card-title mb-4 text-primary">
@@ -60,7 +60,7 @@
                 </label>
                 <div class="input-group">
                   <span class="input-group-text bg-light"><i class="fas fa-calendar-alt"></i></span>
-                   <input type="text" class="form-control" id="departure_date" name="departure_date" placeholder="請選擇出發日期" required />
+                   <input type="text" class="form-control" id="departure_date" name="departure_date" placeholder="請選擇出發日期" autocomplete="off" required />
                 </div>
               </div>
               <div class="col-12">
@@ -92,6 +92,11 @@
         </div>
       </div>
       <div id="flight-results" class="mt-5"></div> <!-- 結果顯示區 -->
+      
+      <!-- 分頁控制 -->
+      <nav id="pagination-container" class="mt-4" style="display: none;">
+        <ul class="pagination justify-content-center" id="pagination"></ul>
+      </nav>
     </div>
   </div>
 </div>
@@ -110,6 +115,8 @@
     const isLoggedIn = document.body.getAttribute('data-logged-in') === 'true';
     
     if (!isLoggedIn) {
+      // 設置登入後要前往的訂票頁面
+      window.postLoginRedirect = `/booking/${flightId}`;
       showToast('提示', '請先登入才能訂票', 'info');
       const loginModal = new bootstrap.Modal(document.getElementById('loginModal'));
       loginModal.show();
@@ -170,6 +177,13 @@
   // 將 DOM 元素變數移至此處，讓所有函式都能共用
   let fromAirportInput, toAirportInput, unlimitedCheckbox, airlineCheckboxes,
     departureDateInput, resultsContainer;
+  
+  // 分頁相關變數
+  let allFlights = []; // 存儲所有航班數據
+  let filteredFlights = []; // 存儲篩選後的航班數據
+  let currentPage = 1;
+  const itemsPerPage = 10; // 每頁顯示10筆航班
+  let showOnlyAvailable = false; // 是否只顯示未起飛的航班
 
   function init() {
     // 先抓元素
@@ -222,8 +236,41 @@
     toAirportInput.value = '';
     departureDateInput.value = '';
 
-    // 清空查詢結果
+    // 清空查詢結果和分頁
     resultsContainer.innerHTML = "";
+    allFlights = [];
+    filteredFlights = [];
+    currentPage = 1;
+    showOnlyAvailable = false;
+    document.getElementById('pagination-container').style.display = 'none';
+  }
+
+  // 切換未起飛航班篩選
+  function toggleAvailableFilter() {
+    showOnlyAvailable = !showOnlyAvailable;
+    
+    // 根據篩選狀態更新 filteredFlights
+    if (showOnlyAvailable) {
+      filteredFlights = allFlights.filter(flight => flight.ticket_status === 1);
+    } else {
+      filteredFlights = [...allFlights];
+    }
+    
+    // 重置到第一頁
+    currentPage = 1;
+    
+    // 重新渲染
+    renderFlights();
+    renderPagination();
+    
+    // 顯示提示
+    if (showOnlyAvailable) {
+      if (filteredFlights.length === 0) {
+        showToast('篩選結果', '沒有未起飛的航班', 'info');
+      } else {
+        showToast('篩選完成', `找到 ${filteredFlights.length} 筆未起飛的航班`, 'success');
+      }
+    }
   }
 
   function getData(event) {
@@ -259,78 +306,27 @@
         closeLoading();
         // 先清空舊結果
         resultsContainer.innerHTML = "";
-        // 成功且有航班資料：逐筆渲染成卡片
+        // 成功且有航班資料
         if (json.success && json.data.length) {
-          json.data.forEach(flight => {
-            const depDate = new Date(flight.D_Time);
-            // 再取出月、日、時、分（分鐘補零對齊）
-            const month   = depDate.getMonth() + 1;
-            const day     = depDate.getDate();
-            const hour    = depDate.getHours();
-            const minute  = String(depDate.getMinutes()).padStart(2, '0');
-            const formattedDep = `${month}月${day}日 ${hour}:${minute}`;
-            const arrDate = new Date(flight.A_Time);
-            const formattedArr = `${arrDate.getMonth()+1}月${arrDate.getDate()}日 ${arrDate.getHours()}:${String(arrDate.getMinutes()).padStart(2,'0')}`;
-
-            // 建立航班卡片
-            const flightCard = `
-              <div class="card mb-3 shadow-sm flight-result-card">
-                <div class="card-body p-4">
-                  <div class="row align-items-center">
-                    <div class="col-lg-3 d-flex align-items-center mb-3 mb-lg-0">
-                      <img src="/static/img/${flight.Airline_Id}.jpg" class="me-3" style="width: 50px; border-radius: 8px;">
-                      <div class="flex-grow-1">
-                        <div class="fw-bold h6 mb-0">${flight.Airline_Name_ZH}</div>
-                        <div class="small text-muted">航班 ${flight.No}</div>                        
-                      </div>
-                      <div>
-                        ${flight.ticket_status === 1 ? `
-                        <button 
-                          class="btn btn-success booking-btn" style="width: 100px;"
-                          data-flight-id="${flight.Flight_Id}"
-                          data-flight-no="${flight.No}"
-                          data-airline="${flight.Airline_Id}"
-                          onclick="handleBookingClick('${flight.Flight_Id}')"
-                        ><i class="fa-solid fa-ticket"></i> 訂票</button>
-                        ` : `
-                        <button class="btn btn-secondary" style="width: 100px;" disabled>
-                          <i class="fa-solid fa-plane-departure"></i> 已起飛
-                        </button>
-                        `}
-                      </div>
-                    </div>
-                    <div class="col-lg-9">
-                      <div class="d-flex justify-content-between align-items-center">
-                        <div class="text-start">
-                          <div class="fs-5 fw-bold">${formattedDep}</div>
-                          <div class="fs-6 text-muted">${flight.From_Airport}</div>
-                        </div>
-                        <div class="flex-grow-1 px-3 d-none d-md-block">
-                          <div class="d-flex align-items-center">
-                            <hr class="w-100">
-                            <i class="fas fa-plane mx-2 text-muted"></i>
-                            <hr class="w-100">
-                          </div>
-                        </div>
-                        <div class="text-end">
-                          <div class="fs-5 fw-bold">${formattedArr}</div>
-                          <div class="fs-6 text-muted">${flight.To_Airport}</div>
-                        </div>
-                      </div>
-                      
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>`;
-            
-              resultsContainer.insertAdjacentHTML('beforeend', flightCard);
-          });
+          // 存儲所有航班數據
+          allFlights = json.data;
+          filteredFlights = [...allFlights]; // 初始時篩選結果等於全部結果
+          currentPage = 1;
+          showOnlyAvailable = false; // 重置篩選狀態
           
-          // 訂票按鈕點擊事件已經在按鈕的onclick屬性中處理
+          // 渲染第一頁
+          renderFlights();
+          renderPagination();
+          
         } else if (json.success) { // 成功但沒資料
+          allFlights = [];
+          filteredFlights = [];
+          document.getElementById('pagination-container').style.display = 'none';
           showToast('提示', '找不到符合條件的航班。', 'info');
         } else {  // 失敗：顯示後端回傳的錯誤訊息
+          allFlights = [];
+          filteredFlights = [];
+          document.getElementById('pagination-container').style.display = 'none';
           showToast('查詢失敗', json.error, 'error');
         }
       })
@@ -340,6 +336,221 @@
         showToast('連線錯誤', '無法連線至伺服器，請稍後再試。', 'error');
         console.error(error);
       });
+  }
+
+  // 渲染當前頁的航班
+  function renderFlights() {
+    // 清空結果容器
+    resultsContainer.innerHTML = "";
+    
+    // 計算當前頁的起始和結束索引
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = Math.min(startIndex + itemsPerPage, filteredFlights.length);
+    
+    // 渲染當前頁的航班
+    const currentFlights = filteredFlights.slice(startIndex, endIndex);
+    
+    currentFlights.forEach(flight => {
+      const depDate = new Date(flight.D_Time);
+      const month   = depDate.getMonth() + 1;
+      const day     = depDate.getDate();
+      const hour    = depDate.getHours();
+      const minute  = String(depDate.getMinutes()).padStart(2, '0');
+      const formattedDep = `${month}月${day}日 ${hour}:${minute}`;
+      const arrDate = new Date(flight.A_Time);
+      const formattedArr = `${arrDate.getMonth()+1}月${arrDate.getDate()}日 ${arrDate.getHours()}:${String(arrDate.getMinutes()).padStart(2,'0')}`;
+
+      const flightCard = `
+        <div class="card mb-3 shadow-sm flight-result-card">
+          <div class="card-body p-3 p-md-4">
+            <div class="row g-3">
+              <!-- 航空公司資訊與訂票按鈕 -->
+              <div class="col-12 col-lg-3">
+                <div class="d-flex flex-row flex-lg-column justify-content-between align-items-center h-100 gap-3">
+                  <div class="d-flex align-items-center gap-2 flex-grow-1">
+                    <img src="/static/img/airline_icon/${flight.Airline_Id}.jpg" class="flex-shrink-0" style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px;">
+                    <div class="flex-grow-1" style="min-width: 0;">
+                      <div class="fw-bold h6 mb-0">${flight.Airline_Name_ZH}</div>
+                      <div class="small text-muted">航班 ${flight.No}</div>                        
+                    </div>
+                  </div>
+                  <div class="flex-shrink-0">
+                    ${flight.ticket_status === 1 ? `
+                    <button 
+                      class="btn btn-success booking-btn w-100" style="min-width: 100px;"
+                      data-flight-id="${flight.Flight_Id}"
+                      data-flight-no="${flight.No}"
+                      data-airline="${flight.Airline_Id}"
+                      onclick="handleBookingClick('${flight.Flight_Id}')"
+                    ><i class="fa-solid fa-ticket"></i> 訂票</button>
+                    ` : `
+                    <button class="btn btn-secondary w-100" style="min-width: 100px;" disabled>
+                      <i class="fa-solid fa-plane-departure"></i> 已起飛
+                    </button>
+                    `}
+                  </div>
+                </div>
+              </div>
+              
+              <!-- 航班時間資訊 -->
+              <div class="col-12 col-lg-9">
+                <div class="d-flex flex-column flex-sm-row justify-content-between align-items-center h-100 gap-3">
+                  <div class="text-center text-sm-start flex-shrink-0">
+                    <div class="fs-5 fw-bold">${formattedDep}</div>
+                    <div class="fs-6 text-muted">${flight.From_Airport}</div>
+                  </div>
+                  <div class="flex-grow-1 px-3 d-none d-sm-block">
+                    <div class="d-flex align-items-center">
+                      <hr class="w-100 m-0">
+                      <i class="fas fa-plane mx-2 text-muted flex-shrink-0"></i>
+                      <hr class="w-100 m-0">
+                    </div>
+                  </div>
+                  <div class="d-sm-none">
+                    <i class="fas fa-plane-departure text-muted"></i>
+                  </div>
+                  <div class="text-center text-sm-end flex-shrink-0">
+                    <div class="fs-5 fw-bold">${formattedArr}</div>
+                    <div class="fs-6 text-muted">${flight.To_Airport}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      
+      resultsContainer.insertAdjacentHTML('beforeend', flightCard);
+    });
+    
+    // 顯示結果統計
+    const resultInfo = `
+      <div class="alert alert-info mb-3">
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
+          <div class="flex-grow-1">
+            <i class="fas fa-info-circle me-2"></i>
+            共找到 <strong>${allFlights.length}</strong> 筆航班${filteredFlights.length < allFlights.length ? `，篩選後剩餘 <strong>${filteredFlights.length}</strong> 筆` : ''}，目前顯示第 <strong>${startIndex + 1}</strong> - <strong>${endIndex}</strong> 筆
+          </div>
+          <div class="form-check mb-0 flex-shrink-0">
+            <input class="form-check-input" type="checkbox" id="filter-available" ${showOnlyAvailable ? 'checked' : ''} onchange="toggleAvailableFilter()">
+            <label class="form-check-label" for="filter-available">
+              僅顯示未起飛
+            </label>
+          </div>
+        </div>
+      </div>
+    `;
+    resultsContainer.insertAdjacentHTML('afterbegin', resultInfo);
+  }
+
+  // 渲染分頁按鈕
+  function renderPagination() {
+    const totalPages = Math.ceil(filteredFlights.length / itemsPerPage);
+    const paginationContainer = document.getElementById('pagination');
+    paginationContainer.innerHTML = '';
+    
+    // 如果只有一頁或沒有數據，隱藏分頁
+    if (totalPages <= 1) {
+      document.getElementById('pagination-container').style.display = 'none';
+      return;
+    }
+    
+    document.getElementById('pagination-container').style.display = 'block';
+    
+    // 上一頁按鈕
+    const prevLi = document.createElement('li');
+    prevLi.className = `page-item ${currentPage === 1 ? 'disabled' : ''}`;
+    prevLi.innerHTML = `
+      <a class="page-link" href="#" aria-label="上一頁">
+        <span aria-hidden="true">&laquo;</span>
+      </a>
+    `;
+    if (currentPage > 1) {
+      prevLi.addEventListener('click', (e) => {
+        e.preventDefault();
+        goToPage(currentPage - 1);
+      });
+    }
+    paginationContainer.appendChild(prevLi);
+    
+    // 頁碼按鈕
+    const maxVisiblePages = 5; // 最多顯示5個頁碼
+    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+    
+    // 調整起始頁，確保顯示足夠的頁碼
+    if (endPage - startPage < maxVisiblePages - 1) {
+      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+    }
+    
+    // 如果起始頁不是第1頁，顯示第1頁和省略號
+    if (startPage > 1) {
+      addPageButton(1);
+      if (startPage > 2) {
+        const ellipsisLi = document.createElement('li');
+        ellipsisLi.className = 'page-item disabled';
+        ellipsisLi.innerHTML = '<a class="page-link">...</a>';
+        paginationContainer.appendChild(ellipsisLi);
+      }
+    }
+    
+    // 顯示頁碼
+    for (let i = startPage; i <= endPage; i++) {
+      addPageButton(i);
+    }
+    
+    // 如果結束頁不是最後一頁，顯示省略號和最後一頁
+    if (endPage < totalPages) {
+      if (endPage < totalPages - 1) {
+        const ellipsisLi = document.createElement('li');
+        ellipsisLi.className = 'page-item disabled';
+        ellipsisLi.innerHTML = '<a class="page-link">...</a>';
+        paginationContainer.appendChild(ellipsisLi);
+      }
+      addPageButton(totalPages);
+    }
+    
+    // 下一頁按鈕
+    const nextLi = document.createElement('li');
+    nextLi.className = `page-item ${currentPage === totalPages ? 'disabled' : ''}`;
+    nextLi.innerHTML = `
+      <a class="page-link" href="#" aria-label="下一頁">
+        <span aria-hidden="true">&raquo;</span>
+      </a>
+    `;
+    if (currentPage < totalPages) {
+      nextLi.addEventListener('click', (e) => {
+        e.preventDefault();
+        goToPage(currentPage + 1);
+      });
+    }
+    paginationContainer.appendChild(nextLi);
+  }
+
+  // 添加頁碼按鈕的輔助函數
+  function addPageButton(pageNum) {
+    const paginationContainer = document.getElementById('pagination');
+    const li = document.createElement('li');
+    li.className = `page-item ${currentPage === pageNum ? 'active' : ''}`;
+    li.innerHTML = `<a class="page-link" href="#">${pageNum}</a>`;
+    
+    if (currentPage !== pageNum) {
+      li.addEventListener('click', (e) => {
+        e.preventDefault();
+        goToPage(pageNum);
+      });
+    }
+    
+    paginationContainer.appendChild(li);
+  }
+
+  // 跳轉到指定頁面
+  function goToPage(page) {
+    currentPage = page;
+    renderFlights();
+    renderPagination();
+    
+    // 滾動到結果頂部
+    resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   // 初始化回到頂部按鈕功能
