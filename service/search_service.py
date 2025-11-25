@@ -13,6 +13,8 @@ conn_args = {
 
 # 取得所有機場資料
 def get_airport_data(domestic):
+    conn = None
+    cursor = None
     try:
         conn = pymssql.connect(**conn_args)
         cursor = conn.cursor(as_dict=True)
@@ -35,6 +37,8 @@ WHERE Domestic = %s
 
 # 取得所有航空公司資料
 def get_airline_data():
+    conn = None
+    cursor = None
     try:
         conn = pymssql.connect(**conn_args)
         cursor = conn.cursor(as_dict=True)
@@ -54,6 +58,8 @@ FROM Airline
 
 # 查詢航班資料（支援多條件查詢）
 def get_flight_data(from_id=None, to_id=None, dep_time=None, airline_ids=None):
+    conn = None
+    cursor = None
     try:
         conn = pymssql.connect(**conn_args)
         cursor = conn.cursor(as_dict=True)

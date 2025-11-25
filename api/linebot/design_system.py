@@ -131,9 +131,9 @@ class FlightBotEmojis:
 def create_header_box(title: str, subtitle: str = None, emoji: str = None):
     """創建統一風格的標題區塊（帶品牌色背景）"""
     from linebot.models import BoxComponent, TextComponent
-    
+
     contents = []
-    
+
     # 主標題
     title_text = f"{emoji} {title}" if emoji else title
     contents.append(TextComponent(
@@ -143,7 +143,7 @@ def create_header_box(title: str, subtitle: str = None, emoji: str = None):
         color=FlightBotColors.WHITE,
         wrap=True
     ))
-    
+
     # 副標題（如果有）
     if subtitle:
         contents.append(TextComponent(
@@ -153,7 +153,7 @@ def create_header_box(title: str, subtitle: str = None, emoji: str = None):
             wrap=True,
             margin=FlightBotStyles.SPACING_XS
         ))
-    
+
     return BoxComponent(
         layout="vertical",
         contents=contents,
@@ -161,4 +161,153 @@ def create_header_box(title: str, subtitle: str = None, emoji: str = None):
         paddingAll=FlightBotStyles.SPACING_MD,
         spacing=FlightBotStyles.SPACING_NONE
     )
+
+
+# ============================================================================
+# Flex Message 共用元素構建函數（字典格式）
+# ============================================================================
+
+def create_colored_header(title: str, subtitle: str = None, bg_color: str = None) -> dict:
+    """
+    創建彩色標題區塊（字典格式）
+
+    參數:
+    - title: 主標題文字
+    - subtitle: 副標題文字（可選）
+    - bg_color: 背景顏色（預設使用 PRIMARY）
+
+    返回: 字典格式的 box 元素
+    """
+    contents = [
+        {
+            "type": "text",
+            "text": title,
+            "weight": "bold",
+            "size": "lg",
+            "color": FlightBotColors.WHITE,
+            "wrap": True
+        }
+    ]
+
+    if subtitle:
+        contents.append({
+            "type": "text",
+            "text": subtitle,
+            "size": "xs",
+            "color": FlightBotColors.WHITE,
+            "margin": "xs"
+        })
+
+    return {
+        "type": "box",
+        "layout": "vertical",
+        "contents": contents,
+        "backgroundColor": bg_color or FlightBotColors.PRIMARY,
+        "paddingAll": "md",
+        "margin": "none"
+    }
+
+
+def create_text_row(label: str, value: str, label_color: str = None, value_color: str = None) -> dict:
+    """
+    創建標籤-值文字行（字典格式）
+
+    參數:
+    - label: 標籤文字（例如「料理類型」）
+    - value: 值文字（例如「日本料理」）
+    - label_color: 標籤顏色（預設 TEXT_SECONDARY）
+    - value_color: 值顏色（預設 TEXT_PRIMARY）
+
+    返回: 字典格式的 box 元素
+    """
+    return {
+        "type": "box",
+        "layout": "baseline",
+        "contents": [
+            {
+                "type": "text",
+                "text": label,
+                "size": "xs",
+                "color": label_color or FlightBotColors.TEXT_SECONDARY,
+                "flex": 0,
+                "wrap": False
+            },
+            {
+                "type": "text",
+                "text": value,
+                "size": "sm",
+                "color": value_color or FlightBotColors.TEXT_PRIMARY,
+                "flex": 1,
+                "wrap": True,
+                "margin": "sm"
+            }
+        ],
+        "spacing": "sm"
+    }
+
+
+def create_section_header(text: str, color: str = None) -> dict:
+    """
+    創建區塊標題（字典格式）
+
+    參數:
+    - text: 標題文字
+    - color: 文字顏色（預設 PRIMARY_DARK）
+
+    返回: 字典格式的 text 元素
+    """
+    return {
+        "type": "text",
+        "text": text,
+        "weight": "bold",
+        "size": "sm",
+        "color": color or FlightBotColors.PRIMARY_DARK,
+        "margin": "md"
+    }
+
+
+def create_primary_button(label: str, uri: str, color: str = None) -> dict:
+    """
+    創建主要按鈕（字典格式）
+
+    參數:
+    - label: 按鈕文字
+    - uri: 連結 URL
+    - color: 按鈕顏色（預設 PRIMARY）
+
+    返回: 字典格式的 button 元素
+    """
+    return {
+        "type": "button",
+        "action": {
+            "type": "uri",
+            "label": label,
+            "uri": uri
+        },
+        "style": "primary",
+        "height": "sm",
+        "color": color or FlightBotColors.PRIMARY
+    }
+
+
+def create_info_text(text: str, size: str = "xs", color: str = None, margin: str = "sm") -> dict:
+    """
+    創建資訊文字（字典格式）
+
+    參數:
+    - text: 文字內容
+    - size: 字體大小（預設 xs）
+    - color: 文字顏色（預設 TEXT_PRIMARY）
+    - margin: 上邊距（預設 sm）
+
+    返回: 字典格式的 text 元素
+    """
+    return {
+        "type": "text",
+        "text": text,
+        "size": size,
+        "color": color or FlightBotColors.TEXT_PRIMARY,
+        "margin": margin,
+        "wrap": True
+    }
 

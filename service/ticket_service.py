@@ -60,12 +60,18 @@ def get_booking_imf(flight_id):
             return {"success": False, "message": "查無此航班"}
 
         # 2) 從 session 取得目前登入的 user_id，去 User 表撈 User_Name
-        user_id = session.get("user_id")
+        # 使用 try-except 處理沒有 request context 的情況（例如背景執行）
+        user_id = None
         user_name = None
-        if user_id:
-            cursor.execute("SELECT User_Name FROM [User] WHERE User_Id = %s", (user_id,))
-            u = cursor.fetchone()
-            user_name = u["User_Name"] if u else None
+        try:
+            user_id = session.get("user_id")
+            if user_id:
+                cursor.execute("SELECT User_Name FROM [User] WHERE User_Id = %s", (user_id,))
+                u = cursor.fetchone()
+                user_name = u["User_Name"] if u else None
+        except RuntimeError:
+            # Working outside of request context - 背景執行時會發生
+            pass
 
         # 3) 計算飛行時間
         d_time = row.get("D_Time")
@@ -130,7 +136,7 @@ def InsertWallet(flight_id, cabin, price, holder_name, holder_mobile, user_id):
 
         conn.commit()
         print(f"✅ 新增訂票成功：{ticket_id}")
-        return {"success": True, "Ticket_Id": ticket_id}
+        return {"success": True, "Ticket_Id": ticket_id, "Flight_Id": flight_id}
 
     except Exception as e:
         if conn:

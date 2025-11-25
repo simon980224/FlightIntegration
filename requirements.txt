@@ -18,3 +18,4 @@ hashlib
 uuid
 random
 string
+google-generativeai

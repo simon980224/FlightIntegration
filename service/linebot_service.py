@@ -56,7 +56,7 @@ from api.linebot.airports_config import TaiwanAirports, InternationalCities
 TAIWAN_AIRPORT_ALIASES = TaiwanAirports.get_aliases_dict()
 
 # 網頁連結常量（直接寫死，不從全局配置讀取）
-WEBSITE_URL = "https://1ac00ad0d40b.ngrok-free.app"
+WEBSITE_URL = "https://anachronously-subumbonal-madie.ngrok-free.dev"
 
 # 寫入 MSSQL dbo.API_Log
 # 連線參數（由使用者提供）
@@ -234,7 +234,12 @@ def get_cached_airports():
 
             print(f"[機場快取] 機場資料快取完成，共 {len(_airport_cache)} 個機場，{len(_airport_lookup)} 個查找項目")
         else:
-            print("[機場快取] 機場資料載入失敗")
+            error_msg = []
+            if not d_airports["success"]:
+                error_msg.append(f"國外機場: {d_airports.get('error', 'Unknown error')}")
+            if not a_airports["success"]:
+                error_msg.append(f"國內機場: {a_airports.get('error', 'Unknown error')}")
+            print(f"[機場快取] 機場資料載入失敗 - {'; '.join(error_msg)}")
             _airport_cache = []
             _airport_lookup = {}
 
@@ -377,19 +382,23 @@ def extract_date_from_message(message):
     today = datetime.now()
     default_date = today.strftime('%Y-%m-%d')
 
-    # 日期模式匹配
+    # 日期模式匹配（按優先順序排列，避免「大後天」被「後天」匹配）
     date_patterns = [
         # 8/7, 08/07, 8-7, 08-07
         (r'(\d{1,2})[/-](\d{1,2})',
          lambda m: parse_date_format((int(m.group(1)), int(m.group(2))))),
         # 0807, 0807
         (r'(\d{4})', lambda m: parse_date_format(m.group(1))),
-        # 昨天
-        (r'昨天', lambda _: (today - timedelta(days=1)).strftime('%Y-%m-%d')),
+        # 大後天
+        (r'大後天', lambda _: (today + timedelta(days=3)).strftime('%Y-%m-%d')),
+        # 後天
+        (r'後天', lambda _: (today + timedelta(days=2)).strftime('%Y-%m-%d')),
         # 明天
         (r'明天', lambda _: (today + timedelta(days=1)).strftime('%Y-%m-%d')),
         # 今天
         (r'今天', lambda _: today.strftime('%Y-%m-%d')),
+        # 昨天
+        (r'昨天', lambda _: (today - timedelta(days=1)).strftime('%Y-%m-%d')),
     ]
 
     for pattern, date_func in date_patterns:
@@ -1376,18 +1385,23 @@ def insert_ticket_from_liff(data):
 
     # 1. 取得 LINE User ID
     line_user_id = data.get('line_user_id')
+    logger.info(f"🎫 [LIFF訂票] 收到訂票請求，LINE User ID: {line_user_id}")
+
     if not line_user_id:
+        logger.error(f"❌ [LIFF訂票] 缺少 LINE User ID")
         return {"success": False, "message": "缺少 LINE User ID"}
 
     # 2. 從 LINE User ID 取得網站 User ID
     try:
         from api.linebot.line_binding_repository import get_user_id_by_line
         user_id = get_user_id_by_line(line_user_id)
+        logger.info(f"✅ [LIFF訂票] 找到對應的網站 User ID: {user_id}")
     except Exception as e:
-        logger.error(f"取得 User ID 失敗: {e}")
+        logger.error(f"❌ [LIFF訂票] 取得 User ID 失敗: {e}")
         user_id = None
 
     if not user_id:
+        logger.error(f"❌ [LIFF訂票] 用戶未綁定網站帳號")
         return {"success": False, "message": "請先綁定網站帳號"}
 
     # 3. 接收訂票資料
@@ -1411,55 +1425,62 @@ def insert_ticket_from_liff(data):
         user_id=user_id
     )
 
-    # 6. 訂票成功後推播旅遊錦囊
+    # 6. 訂票成功後，詢問用戶是否要規劃行程
     if result.get("success"):
-        try:
-            _push_travel_kit_after_booking(line_user_id, flight_id)
-        except Exception as e:
-            logger.error(f"推播旅遊錦囊失敗: {e}")
+        ticket_id = result.get("Ticket_Id")  # ✅ 修正：InsertWallet 回傳的是 Ticket_Id（大寫）
+        flight_id_from_result = result.get("Flight_Id")  # ✅ 修正：InsertWallet 回傳的是 Flight_Id（大寫）
+        if ticket_id and flight_id_from_result:
+            try:
+                _ask_trip_planning(line_user_id, ticket_id, flight_id_from_result)
+            except Exception as e:
+                logger.error(f"詢問行程規劃失敗: {e}")
 
     return result
 
 
-def _push_travel_kit_after_booking(line_user_id: str, flight_id: str):
-    """訂票成功後推播旅遊錦囊"""
-    import pymssql
-    from config.db_config import conn_args
-    from api.linebot.travel_kit import build_travel_kit_flex
+def _ask_trip_planning(line_user_id: str, ticket_id: int, flight_id: str):
+    """訂票成功後詢問用戶是否要規劃行程"""
+    from linebot import LineBotApi
+    from linebot.models import TextSendMessage, QuickReply, QuickReplyButton, PostbackAction
 
-    conn = None
+    logger.info(f"📅 [行程規劃] 準備詢問用戶，LINE User ID: {line_user_id}, Ticket ID: {ticket_id}, Flight ID: {flight_id}")
+
+    # 載入配置並初始化 LINE Bot API
+    config = load_config()
+    line_channel_access_token = config.get('line_bot', {}).get('channel_access_token')
+    if not line_channel_access_token:
+        logger.error("找不到 LINE Bot Channel Access Token")
+        return
+
+    line_api = LineBotApi(line_channel_access_token)
+
+    # 建立 Quick Reply 按鈕
+    items = [
+        QuickReplyButton(action=PostbackAction(
+            label="📅 規劃行程",
+            data=f"act=plan_trip&ticket_id={ticket_id}&flight_id={flight_id}",
+            displayText="我要規劃行程"
+        )),
+        QuickReplyButton(action=PostbackAction(
+            label="❌ 不需要",
+            data=f"act=skip_trip_plan",
+            displayText="不需要規劃行程"
+        ))
+    ]
+
+    text = "🎉 訂票成功！\n\n想要我幫你規劃個人化旅行行程嗎？\n我會根據你的偏好生成每日行程，並在出發前每天推播當日行程給你！"
+
+    logger.info(f"📤 [行程規劃] 準備推播訊息給用戶: {line_user_id}")
+    logger.info(f"📤 [行程規劃] Quick Reply 按鈕數量: {len(items)}")
+
     try:
-        # 查詢航班資訊
-        conn = pymssql.connect(**conn_args)
-        cursor = conn.cursor(as_dict=True)
-
-        cursor.execute("""
-            SELECT
-                F.No AS flight_no,
-                A.City_CH AS destination
-            FROM Flight F
-            JOIN Airport A ON F.A_AirPort_Id = A.Airport_Id
-            WHERE F.Flight_Id = %s
-        """, (flight_id,))
-
-        flight = cursor.fetchone()
-        if not flight:
-            return
-
-        destination = flight.get("destination", "")
-        if not destination:
-            return
-
-        # 建立旅遊錦囊 Flex Message
-        flex_message = build_travel_kit_flex(destination, flight)
-
-        # 推播給用戶
-        api.push_message(line_user_id, flex_message)
-        logger.info(f"已推播旅遊錦囊給 {line_user_id}，目的地 {destination}")
-
+        line_api.push_message(
+            line_user_id,
+            TextSendMessage(text=text, quick_reply=QuickReply(items=items))
+        )
+        logger.info(f"✅ [行程規劃] 訊息推播成功")
     except Exception as e:
-        logger.error(f"推播旅遊錦囊失敗: {e}")
-
-    finally:
-        if conn:
-            conn.close()
+        logger.error(f"❌ [行程規劃] 訊息推播失敗: {e}")
+        logger.error(f"❌ [行程規劃] LINE User ID: {line_user_id}")
+        logger.error(f"❌ [行程規劃] 訊息內容長度: {len(text)}")
+        raise

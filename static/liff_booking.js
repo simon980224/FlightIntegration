@@ -24,27 +24,39 @@ const cabinPrices = {
 // ===== LIFF 初始化 =====
 async function initializeLIFF() {
     try {
+        console.log('🚀 [LIFF] 開始初始化...');
+
         // 從後端取得 LIFF ID
+        console.log('📡 [LIFF] 正在取得 LIFF 配置...');
         const configResponse = await fetch('/api/liff/config');
+        console.log('📡 [LIFF] 配置回應狀態:', configResponse.status);
+
         const config = await configResponse.json();
         liffId = config.liff_id;
+        console.log('✅ [LIFF] LIFF ID:', liffId);
 
         if (!liffId || liffId.includes('請在')) {
+            console.error('❌ [LIFF] LIFF ID 未設定');
             alert('LIFF 尚未設定，請聯絡管理員');
             return;
         }
 
         // 初始化 LIFF
+        console.log('🔧 [LIFF] 正在初始化 LIFF SDK...');
         await liff.init({ liffId: liffId });
+        console.log('✅ [LIFF] LIFF SDK 初始化成功');
 
         if (!liff.isLoggedIn()) {
+            console.log('🔐 [LIFF] 用戶未登入，跳轉到登入頁面');
             liff.login();
             return;
         }
 
         // 取得 LINE 使用者資訊
+        console.log('👤 [LIFF] 正在取得用戶資訊...');
         const profile = await liff.getProfile();
         lineUserId = profile.userId;
+        console.log('✅ [LIFF] 用戶 ID:', lineUserId);
 
         // 從 URL 參數取得 flight_id（LIFF 會把參數包在 liff.state 裡）
         let flightId = null;
@@ -64,50 +76,70 @@ async function initializeLIFF() {
             flightId = urlParams.get('flight_id');
         }
 
-        console.log('[DEBUG] liffState:', liffState);
-        console.log('[DEBUG] flightId:', flightId);
+        console.log('🔍 [LIFF] liffState:', liffState);
+        console.log('🔍 [LIFF] flightId:', flightId);
 
         if (!flightId) {
+            console.error('❌ [LIFF] 缺少航班 ID');
             alert('缺少航班資訊');
             return;
         }
 
         // 載入航班資訊
+        console.log('✈️ [LIFF] 正在載入航班資訊...');
         await loadFlightData(flightId);
+        console.log('✅ [LIFF] 航班資訊載入完成');
 
         // 隱藏 loading，顯示主內容
+        console.log('🎨 [LIFF] 顯示主內容');
         document.getElementById('loading').style.display = 'none';
         document.getElementById('main-content').style.display = 'block';
 
         // 初始化艙等選項
+        console.log('🎫 [LIFF] 初始化艙等選項');
         initializeCabinOptions();
+        console.log('✅ [LIFF] 初始化完成！');
 
     } catch (error) {
-        console.error('LIFF 初始化失敗:', error);
-        alert('載入失敗，請稍後再試');
+        console.error('❌ [LIFF] 初始化失敗:', error);
+        console.error('❌ [LIFF] 錯誤堆疊:', error.stack);
+        alert('載入失敗：' + error.message + '\n請稍後再試');
     }
 }
 
 // ===== 載入航班資訊 =====
 async function loadFlightData(flightId) {
     try {
-        console.log('[DEBUG] 載入航班資訊，flight_id:', flightId);
-        const response = await fetch(`/api/flight/${flightId}`);
-        const result = await response.json();
+        console.log('📡 [API] 正在載入航班資訊，flight_id:', flightId);
+        const apiUrl = `/api/flight/${flightId}`;
+        console.log('📡 [API] 請求 URL:', apiUrl);
 
-        console.log('[DEBUG] API 回應:', result);
+        const response = await fetch(apiUrl);
+        console.log('📡 [API] 回應狀態:', response.status);
+
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        console.log('📡 [API] API 回應:', result);
 
         if (!result.success) {
             throw new Error(result.message || '載入航班資訊失敗');
         }
 
         flightData = result.data;
-        console.log('[DEBUG] 航班資料:', flightData);
+        console.log('✅ [API] 航班資料:', flightData);
+
+        console.log('🎨 [UI] 正在顯示航班資訊...');
         displayFlightInfo();
+        console.log('✅ [UI] 航班資訊顯示完成');
 
     } catch (error) {
-        console.error('載入航班資訊失敗:', error);
+        console.error('❌ [API] 載入航班資訊失敗:', error);
+        console.error('❌ [API] 錯誤堆疊:', error.stack);
         alert('載入航班資訊失敗: ' + error.message);
+        throw error;
     }
 }
 
@@ -526,29 +558,39 @@ async function confirmBooking() {
         line_user_id: lineUserId
     };
 
-    console.log('[DEBUG] 訂票資料:', bookingData);
+    console.log('🎫 [訂票] 訂票資料:', bookingData);
+    console.log('🎫 [訂票] LINE User ID:', lineUserId);
+    console.log('🎫 [訂票] LINE User ID 類型:', typeof lineUserId);
+    console.log('🎫 [訂票] LINE User ID 長度:', lineUserId ? lineUserId.length : 0);
 
     try {
         // 顯示處理中訊息
         if (confirm(`確認付款並訂購 ${flightData.No} 航班？\n總金額：NT$ ${totalAmount.toLocaleString()}\n\n信用卡：${cardNumber}\n持卡人：${cardHolder}`)) {
+            console.log('📡 [訂票] 正在發送訂票請求...');
+
             const response = await fetch('/api/ticket/insert_liff', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(bookingData)
             });
 
+            console.log('📡 [訂票] 回應狀態:', response.status);
             const result = await response.json();
+            console.log('📡 [訂票] 回應結果:', result);
 
             if (result.success) {
+                console.log('✅ [訂票] 訂票成功！');
                 alert('✅ 付款成功！訂票完成！');
                 // 關閉 LIFF 視窗
                 liff.closeWindow();
             } else {
+                console.error('❌ [訂票] 訂票失敗:', result.message);
                 alert(`❌ 訂票失敗：${result.message || '未知錯誤'}`);
             }
         }
     } catch (error) {
-        console.error('訂票失敗:', error);
+        console.error('❌ [訂票] 訂票異常:', error);
+        console.error('❌ [訂票] 錯誤堆疊:', error.stack);
         alert('❌ 訂票失敗，請稍後再試');
     }
 }
