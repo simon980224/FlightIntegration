@@ -171,31 +171,29 @@ def _push_flight_results(user_id: str, from_id: str, to_id: str, date_value: str
         print(f"[richmenu_flow] push flight results failed: {e}")
 
 
-def _push_tips_results(user_id: str, dest: str, month: int | None):
-    """背景產生小貼士並推送 Flex（失敗則降級為純文字）。"""
+def _push_tips_results(user_id: str, dest: str, month: int | None, flight_date: str | None = None):
+    """背景產生小貼士並推送 Flex Carousel。
+
+    參數：
+    - user_id: LINE 用戶 ID
+    - dest: 目的地城市名稱
+    - month: 月份（舊版參數，保留向後兼容）
+    - flight_date: 航班日期（格式：YYYY-MM-DD），用於天氣預報起始日期
+    """
     try:
         api = _get_line_bot_api()
         if api is None:
             return
-        # 優先使用 Flex 版（含 Google 地圖 / Wikipedia 連結）
-        try:
-            from linebot.models import FlexSendMessage
-            payload = getattr(tips, 'build_tips_flex_payload', None)
-            if callable(payload):
-                alt_text, contents = payload(dest, month)
-                api.push_message(user_id, FlexSendMessage(alt_text=alt_text, contents=contents))
-                return
-        except Exception as e:
-            # 記錄 Flex 版本失敗的原因
-            print(f"[richmenu_flow] Flex tips failed for {dest} {month}: {e}")
-            import traceback
-            traceback.print_exc()
-        # 降級：純文字版
-        from linebot.models import TextSendMessage
-        txt = tips.render_tips_message(dest, month)
-        api.push_message(user_id, TextSendMessage(text=txt))
+
+        from linebot.models import FlexSendMessage
+        payload = getattr(tips, 'build_tips_flex_payload', None)
+        if callable(payload):
+            alt_text, contents = payload(dest, month, flight_date)
+            api.push_message(user_id, FlexSendMessage(alt_text=alt_text, contents=contents))
     except Exception as e:
         print(f"[richmenu_flow] push tips failed: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 def _push_tips_inquiry_after_text_search(user_id: str, to_id: str, date_value: str):
@@ -228,7 +226,8 @@ def _push_tips_inquiry_after_text_search(user_id: str, to_id: str, date_value: s
 
         # 先設定狀態，讓用戶點擊後可以直接產生小貼士
         # 使用城市名稱而不是機場代碼，確保 Wikipedia/Overpass API 可以查詢
-        _set_state(user_id, stage="tips_confirm", tips_dest=city_name, tips_month=_m)
+        # 同時保存航班日期，用於天氣預報
+        _set_state(user_id, stage="tips_confirm", tips_dest=city_name, tips_month=_m, tips_date=date_value)
 
         items = [
             QuickReplyButton(action=PostbackAction(
@@ -306,21 +305,45 @@ def handle_postback(event):
     val = q.get("val", [""])[0]
 
     # 任意時刻允許使用者直接輸入文字：交由既有訊息處理（由 MessageEvent route）
-    # 這裡處理 act=search、act=select_flight、act=share_itinerary 與 act=tips 的互動
+    # 這裡處理 act=search、act=select_flight、act=plan_trip 與 act=tips 的互動
 
-    if act == "share_itinerary":
-        # 處理分享行程
+    if act == "plan_trip":
+        # 處理行程規劃請求
         ticket_id = q.get("ticket_id", [""])[0]
-        if ticket_id:
-            from api.linebot.share_itinerary import get_booking_info_for_share, build_share_itinerary_flex
-            booking_info = get_booking_info_for_share(ticket_id)
-            if booking_info:
-                flex_message = build_share_itinerary_flex(booking_info)
-                return flex_message
-            else:
-                return TextSendMessage(text="❌ 無法取得訂票資訊")
-        else:
-            return TextSendMessage(text="❌ 訂票資訊錯誤")
+        flight_id = q.get("flight_id", [""])[0]
+
+        if not ticket_id or not flight_id:
+            return TextSendMessage(text="❌ 缺少必要參數")
+
+        # 儲存狀態，等待用戶輸入旅行天數
+        _set_state(user_id,
+            action="waiting_trip_days",
+            ticket_id=ticket_id,
+            flight_id=flight_id
+        )
+
+        return TextSendMessage(text="太好了！請告訴我你的旅行天數：\n\n例如：3天、5天、7天")
+
+    if act == "skip_trip_plan":
+        # 用戶不需要規劃行程
+        return TextSendMessage(text="好的，祝你旅途愉快！✈️")
+
+    elif act == "trip_type":
+        # 處理行程類型選擇
+        trip_type = q.get("type", [""])[0]
+        if not trip_type:
+            return TextSendMessage(text="❌ 請選擇行程類型")
+
+        # 取得狀態
+        state = _get_state(user_id)
+        if not state or state.get("action") != "waiting_trip_type":
+            return TextSendMessage(text="❌ 請先選擇旅行天數")
+
+        # 開始生成行程（推播時間固定為早上 8:00）
+        _push_in_background(_generate_and_push_trip_plan, user_id, state, trip_type)
+        return TextSendMessage(text="🎨 正在為你生成個人化行程，請稍候...\n\n這可能需要 10-20 秒")
+
+
 
     elif act == "select_flight":
         # 處理航班選擇（記錄到 state，然後提示用戶點擊「立即訂票」）
@@ -376,9 +399,10 @@ def handle_postback(event):
                 st = _get_state(user_id)
                 dest = st.get("tips_dest")
                 month = st.get("tips_month")
+                flight_date = st.get("tips_date")  # 獲取航班日期
                 if dest:
                     _set_state(user_id, stage="tips_done")
-                    _push_in_background(_push_tips_results, user_id, dest, month)
+                    _push_in_background(_push_tips_results, user_id, dest, month, flight_date)
                     return TextSendMessage(text="🔎 產生小貼士中，請稍候...")
             elif val == "cancel":
                 # 用戶選擇「不要」，取消查看小貼士
@@ -547,12 +571,21 @@ def flex_search_from_text(user_id: str, message_text: str):
     嘗試將使用者的自然語句解析為航班查詢或小貼士查詢，成功則：
     - 航班查詢：設置使用者狀態（from/to/date），回傳清單式 Flex（可分頁）
     - 小貼士查詢：直接生成小貼士 Flex Message
+    - 行程規劃：處理旅行天數和類型輸入
     若判斷不是航班查詢或小貼士查詢，回傳 None 讓上層沿用原邏輯。
     """
     try:
         original = (message_text or '').strip()
         if not original:
             return None
+
+        # 0. 檢查是否在行程規劃流程中
+        state = _get_state(user_id)
+        if state and state.get("action") == "waiting_trip_days":
+            return _handle_trip_days_input(user_id, original, state)
+
+        if state and state.get("action") == "waiting_trip_type":
+            return _handle_trip_type_input(user_id, original, state)
 
         # 1. 優先檢查是否為小貼士查詢
         city_name = detect_tips_query(original)
@@ -679,9 +712,42 @@ def _on_date_selected(user_id: str, date_value: str):
 
     _set_state(user_id, stage="done", date=date_value)
 
-    # 立即回覆「查詢中，請稍候...」，並在背景查詢完成後 push 結果
-    _push_in_background(_push_flight_results, user_id, st["from_airport"], st["to_airport"], date_value)
-    return TextSendMessage(text="🔎 查詢中，請稍候...")
+    # ✅ 改為同步查詢並直接回覆（不消耗推播額度）
+    flights_result = linebot_service.get_cached_flight_data(
+        from_id=st["from_airport"],
+        to_id=st["to_airport"],
+        dep_time=date_value
+    )
+
+    if not flights_result.get('success'):
+        return TextSendMessage(text=f"❌ 搜尋航班時發生錯誤：{flights_result.get('error', '未知錯誤')}")
+
+    flights = flights_result.get('data', [])
+    if not flights:
+        return TextSendMessage(text="❌ 查無航班資料")
+
+    # 取得機場標籤（從第一筆航班資料中取得）
+    from_label = flights[0].get('From_Airport', st["from_airport"])
+    to_label = flights[0].get('To_Airport', st["to_airport"])
+    date_display = linebot_service.format_date_display(date_value)
+
+    # 建立航班列表 Flex Message
+    flight_flex = _build_flight_list_flex(
+        flights=flights,
+        from_label=from_label,
+        to_label=to_label,
+        date_display=date_display,
+        offset=0
+    )
+
+    # 推播航班列表
+    from linebot import LineBotApi
+    api = _get_line_bot_api()
+    if api:
+        api.push_message(user_id, flight_flex)
+
+    # 詢問是否查看小貼士
+    return _tips_ask_destination(user_id)
 
 
 def _render_results_by_state(user_id: str, offset: int = 0):
@@ -707,10 +773,6 @@ def _render_results_by_state(user_id: str, offset: int = 0):
     from_label = flights[0].get("From_Airport", st["from_airport"])
     to_label = flights[0].get("To_Airport", st["to_airport"])
     date_display = linebot_service.format_date_display(st["date"]) if st.get("date") else ""
-
-    # DEBUG: 檢查標題資訊
-    print(f"[DEBUG] 卡片標題資訊 - from_label: {from_label}, to_label: {to_label}, date_display: {date_display}")
-    print(f"[DEBUG] 第一個航班資料: {flights[0]}")
 
     return _build_flight_list_flex(
         flights=flights,
@@ -757,37 +819,49 @@ def _build_flight_list_flex(*, flights, from_label: str, to_label: str, date_dis
         end_idx = min(start_idx + page_size, total)
         page_flights = flights[start_idx:end_idx]
 
-        # 🎨 卡片內容（將標題移到 body 裡面）
+        # 🎨 標題區塊（放在 bubble.header，直接貼齊卡片頂部）
+        header_box = {
+            "type": "box",
+            "layout": "vertical",
+            "contents": [
+                {
+                    "type": "text",
+                    "text": f"{FlightBotEmojis.AIRPLANE} {from_label} → {to_label}",
+                    "weight": "bold",
+                    "size": "lg",
+                    "color": FlightBotColors.WHITE,
+                    "wrap": True
+                },
+                {
+                    "type": "text",
+                    "text": date_display,
+                    "size": "xs",
+                    "color": FlightBotColors.WHITE,
+                    "margin": "xs"
+                }
+            ],
+            "backgroundColor": "#5BA3D0",
+            "paddingAll": "md"
+        }
+
+        # 🎨 卡片內容（body）
         body_contents = []
 
-        # 添加標題（放在 body 最上方）- 統一使用藍色大標題
-        body_contents.append(TextComponent(
-            text=f"{from_label} → {to_label}",
-            weight="bold",
-            size="xl",  # 大標題
-            color=FlightBotColors.PRIMARY,  # 藍色
-            wrap=True
-        ))
-        body_contents.append(TextComponent(
-            text=date_display,
-            size="sm",
-            color="#666666",  # 灰色
-            margin="xs"
-        ))
-
         # 添加提示文字（告訴用戶如何選擇航班）
-        body_contents.append(TextComponent(
-            text="💡 點擊航班來選擇訂票",
-            size="xs",
-            color="#999999",  # 淺灰色
-            margin="sm",
-            align="center"
-        ))
+        body_contents.append({
+            "type": "text",
+            "text": "💡 點擊航班來選擇訂票",
+            "size": "xs",
+            "color": FlightBotColors.TEXT_SECONDARY,
+            "margin": "md",
+            "align": "center"
+        })
 
-        body_contents.append(SeparatorComponent(
-            margin="md",
-            color=FlightBotColors.DIVIDER
-        ))
+        body_contents.append({
+            "type": "separator",
+            "margin": "sm",
+            "color": FlightBotColors.DIVIDER
+        })
 
         # 添加該頁的所有航班（未起飛可點擊，已起飛顯示為灰色）
         for idx, f in enumerate(page_flights):
@@ -809,48 +883,53 @@ def _build_flight_list_flex(*, flights, from_label: str, to_label: str, date_dis
             if is_departed:
                 flight_info_text += " 🚫 已起飛"
 
-            flight_box_contents.append(TextComponent(
-                text=flight_info_text,
-                size="md",
-                weight="bold",
-                color="#999999" if is_departed else FlightBotColors.PRIMARY_DARK,
-                wrap=True
-            ))
+            flight_box_contents.append({
+                "type": "text",
+                "text": flight_info_text,
+                "size": "md",
+                "weight": "bold",
+                "color": "#999999" if is_departed else FlightBotColors.PRIMARY_DARK,
+                "wrap": True
+            })
 
             # 時間資訊（已起飛=淺灰色，未起飛=灰色）
-            flight_box_contents.append(TextComponent(
-                text=f"{d_time} - {a_time}",
-                size="sm",
-                color="#CCCCCC" if is_departed else FlightBotColors.TEXT_SECONDARY,
-                margin="xs"
-            ))
+            flight_box_contents.append({
+                "type": "text",
+                "text": f"{d_time} - {a_time}",
+                "size": "sm",
+                "color": "#CCCCCC" if is_departed else FlightBotColors.TEXT_SECONDARY,
+                "margin": "xs"
+            })
 
             # 🎨 根據狀態決定是否可點擊
             if flight_id and not is_departed:
                 # 可點擊選擇的航班 Box（使用 Postback 記錄選擇）
-                flight_box = BoxComponent(
-                    layout="vertical",
-                    contents=flight_box_contents,
-                    paddingAll="md",
-                    backgroundColor="#F5F5F5",  # 淺灰色背景，表示可點擊
-                    cornerRadius="md",
-                    margin="md" if idx > 0 else "none",
-                    action=PostbackAction(
-                        label=f"選擇 {no}",
-                        data=f"act=select_flight&flight_id={flight_id}",
-                        displayText=f"✓ 已選擇 {no} · {airline}"
-                    )
-                )
+                flight_box = {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": flight_box_contents,
+                    "paddingAll": "md",
+                    "backgroundColor": "#F5F5F5",  # 淺灰色背景，表示可點擊
+                    "cornerRadius": "md",
+                    "margin": "md" if idx > 0 else "none",
+                    "action": {
+                        "type": "postback",
+                        "label": f"選擇 {no}",
+                        "data": f"act=select_flight&flight_id={flight_id}",
+                        "displayText": f"✓ 已選擇 {no} · {airline}"
+                    }
+                }
             else:
                 # 不可點擊的航班 Box（已起飛或沒有 flight_id）
-                flight_box = BoxComponent(
-                    layout="vertical",
-                    contents=flight_box_contents,
-                    paddingAll="md",
-                    backgroundColor="#FAFAFA" if is_departed else "#FFFFFF",  # 已起飛用更淺的背景
-                    cornerRadius="md",
-                    margin="md" if idx > 0 else "none"
-                )
+                flight_box = {
+                    "type": "box",
+                    "layout": "vertical",
+                    "contents": flight_box_contents,
+                    "paddingAll": "md",
+                    "backgroundColor": "#FAFAFA" if is_departed else "#FFFFFF",  # 已起飛用更淺的背景
+                    "cornerRadius": "md",
+                    "margin": "md" if idx > 0 else "none"
+                }
 
             body_contents.append(flight_box)
 
@@ -873,34 +952,57 @@ def _build_flight_list_flex(*, flights, from_label: str, to_label: str, date_dis
 
             if website_url:
                 footer_buttons.append(ButtonComponent(
-                    style="primary",  # 改為實心藍色按鈕
+                    style="primary",
                     height="sm",
-                    color=FlightBotColors.PRIMARY,
+                    color="#5BA3D0",  # 柔和的藍色（與旅遊小貼士一致）
                     action=URIAction(
                         label="官網查詢更多",
                         uri=website_url
                     )
                 ))
 
-        # 創建卡片（移除 header，標題已放在 body 裡面）
-        print(f"[DEBUG] page_idx={page_idx}, footer_buttons 數量={len(footer_buttons)}, is_last_card={is_last_card}")  # DEBUG
+        # 創建卡片（標題放在 header，直接貼齊卡片頂部）- 使用字典格式
         if footer_buttons:
-            bubble = BubbleContainer(
-                body=BoxComponent(layout="vertical", spacing="sm", contents=body_contents),
-                footer=BoxComponent(layout="vertical", spacing="sm", contents=footer_buttons)
-            )
+            bubble = {
+                "type": "bubble",
+                "header": header_box,  # ✅ 標題放在 header，直接貼齊卡片頂部
+                "body": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "spacing": "sm",
+                    "contents": body_contents,
+                    "paddingTop": "md"  # body 上方留一點間距
+                },
+                "footer": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "spacing": "sm",
+                    "contents": footer_buttons
+                }
+            }
             print(f"[DEBUG] 卡片已創建（有 footer）")  # DEBUG
         else:
             # 非最後一張卡片：沒有 footer
-            bubble = BubbleContainer(
-                body=BoxComponent(layout="vertical", spacing="sm", contents=body_contents)
-            )
+            bubble = {
+                "type": "bubble",
+                "header": header_box,  # ✅ 標題放在 header，直接貼齊卡片頂部
+                "body": {
+                    "type": "box",
+                    "layout": "vertical",
+                    "spacing": "sm",
+                    "contents": body_contents,
+                    "paddingTop": "md"  # body 上方留一點間距
+                }
+            }
             print(f"[DEBUG] 卡片已創建（無 footer）")  # DEBUG
 
         bubbles.append(bubble)
 
-    # 創建 Carousel
-    carousel = CarouselContainer(contents=bubbles)
+    # 創建 Carousel - 使用字典格式
+    carousel = {
+        "type": "carousel",
+        "contents": bubbles
+    }
     return FlexSendMessage(
         alt_text=f"{from_label}→{to_label} 航班（{date_display}）共 {total} 個",
         contents=carousel
@@ -1130,7 +1232,7 @@ SELECT
     W.Create_At,
     T.Flight_Id,
     T.Price,
-    F.No             AS Flight_No,
+    F.Flight_Id      AS Flight_No,
     DAP.Airport_Name_ZH AS From_Airport_ZH,
     AAP.Airport_Name_ZH AS To_Airport_ZH,
     F.D_Time,
@@ -1180,11 +1282,15 @@ ORDER BY W.Create_At DESC
 
 def _build_bookings_flex(bookings, base_url: str | None = None, ticket_url: str | None = None):
     # 🎨 導入品牌色
-    from api.linebot.design_system import FlightBotColors
+    from api.linebot.design_system import FlightBotColors, FlightBotEmojis
 
     bubbles = []
     for b in bookings[:10]:  # Flex Carousel 最多 10 個 bubble
-        title = f"{b.get('no','')} {b.get('from','')}→{b.get('to','')}".strip()
+        # 標題：只顯示機場中文名稱（與航班查詢卡片一致）
+        from_airport = b.get('from', '')
+        to_airport = b.get('to', '')
+        title = f"{from_airport} → {to_airport}".strip() if from_airport and to_airport else "我的訂票"
+
         subtitle = f"{b.get('date','')} {b.get('dep','')} - {b.get('arr','')}".strip()
         price = b.get('price')
         ticket_id = b.get('ticket_id')
@@ -1201,35 +1307,89 @@ def _build_bookings_flex(bookings, base_url: str | None = None, ticket_url: str 
         # 連結到所有訂票列表頁面
         all_tickets_link = ticket_url or (f"{base_url}/ticket" if base_url else "/ticket")
 
-        body_contents = [
-            TextComponent(text=title or "我的訂票", weight="bold", size="xl", color=FlightBotColors.PRIMARY, wrap=True),
+        # 🎨 使用彩色標題背景（與旅遊小貼士一致）- 使用字典格式
+        header_contents = [
+            {
+                "type": "text",
+                "text": f"{FlightBotEmojis.AIRPLANE} {title or '我的訂票'}",
+                "weight": "bold",
+                "size": "lg",
+                "color": FlightBotColors.WHITE,
+                "wrap": True
+            }
         ]
         if subtitle:
-            body_contents.append(TextComponent(text=subtitle, size="sm", color="#666666", wrap=True))
-        if holder_name:
-            body_contents.append(TextComponent(text=f"持票人：{holder_name}", size="xs", color="#999999", wrap=True))
-        if price:
-            body_contents.append(TextComponent(text=f"NT$ {price}", size="sm", color="#1B5E20", weight="bold"))
-        # 顯示訂票狀態
-        body_contents.append(TextComponent(text=status_text, size="xs", color=status_color, weight="bold"))
+            header_contents.append({
+                "type": "text",
+                "text": subtitle,
+                "size": "xs",
+                "color": FlightBotColors.WHITE,
+                "margin": "xs"
+            })
 
-        # 分享行程按鈕（使用 Postback 觸發）
+        header_box = {
+            "type": "box",
+            "layout": "vertical",
+            "contents": header_contents,
+            "backgroundColor": "#9C7BB3",  # 柔和的紫色（與旅遊小貼士景點卡片一致）
+            "paddingAll": "md"
+        }
+
+        # 內容區塊
+        content_items = []
+        if holder_name:
+            content_items.append(TextComponent(
+                text=f"持票人：{holder_name}",
+                size="sm",
+                color=FlightBotColors.TEXT_PRIMARY,
+                wrap=True
+            ))
+        if price:
+            content_items.append(TextComponent(
+                text=f"NT$ {price}",
+                size="md",
+                color="#1B5E20",
+                weight="bold",
+                margin="sm"
+            ))
+        # 顯示訂票狀態
+        content_items.append(TextComponent(
+            text=status_text,
+            size="sm",
+            color=status_color,
+            weight="bold",
+            margin="sm"
+        ))
+
+        # Body 內容（不包含 header）
+        body_contents = []
+        if content_items:
+            content_box = BoxComponent(
+                layout="vertical",
+                contents=content_items,
+                paddingAll="md",
+                spacing="sm"
+            )
+            body_contents.append(content_box)
+
+        # 規劃行程按鈕（使用 Postback 觸發）
         from linebot.models import PostbackAction
 
         bubble = BubbleContainer(
-            body=BoxComponent(layout="vertical", spacing="sm", contents=body_contents),
+            header=header_box,  # 使用 header 參數
+            body=BoxComponent(layout="vertical", spacing="none", contents=body_contents) if body_contents else None,
             footer=BoxComponent(layout="vertical", spacing="sm", contents=[
                 ButtonComponent(
                     style="primary",
-                    color=FlightBotColors.PRIMARY,
+                    color="#9C7BB3",  # 柔和的紫色（與標題一致）
                     action=URIAction(label="查看詳情", uri=detail_link)
                 ),
                 ButtonComponent(
                     style="link",
                     action=PostbackAction(
-                        label="分享行程",
-                        data=f"act=share_itinerary&ticket_id={ticket_id}",
-                        displayText="分享行程"
+                        label="規劃行程",
+                        data=f"act=plan_trip&ticket_id={ticket_id}&flight_id={b.get('flight_id')}",
+                        displayText="規劃行程"
                     )
                 ),
                 ButtonComponent(
@@ -1258,7 +1418,11 @@ def _build_no_bookings_flex(ticket_url: str, base_url: str | None = None):
     hint = TextComponent(text="開始您的旅程，查詢並預訂航班！", size="sm", color="#666666", wrap=True)
     body = BoxComponent(layout="vertical", spacing="sm", contents=[title, hint])
 
-    btn_search = ButtonComponent(style="primary", action=URIAction(label="🔍 查詢航班", uri=flight_url))
+    btn_search = ButtonComponent(
+        style="primary",
+        color="#5BA3D0",  # 柔和的藍色（與旅遊小貼士一致）
+        action=URIAction(label="🔍 查詢航班", uri=flight_url)
+    )
     btn_ticket = ButtonComponent(style="link", action=URIAction(label="📋 我的訂票", uri=ticket_url))
     footer = BoxComponent(layout="vertical", spacing="sm", contents=[btn_search, btn_ticket])
 
@@ -1272,7 +1436,6 @@ def _build_bind_prompt_flex(bind_url: str, ticket_url: str):
     修改：「我的訂票」按鈕改為跳轉到首頁（會自動彈出登入 Modal）
     """
     from linebot.models import FlexSendMessage, BubbleContainer, BoxComponent, TextComponent, ButtonComponent, URIAction
-    from api.linebot.design_system import FlightBotColors
 
     # 取得網站基底 URL
     base_url = None
@@ -1291,8 +1454,186 @@ def _build_bind_prompt_flex(bind_url: str, ticket_url: str):
     title = TextComponent(text="尚未綁定網站帳號", weight="bold", size="md", wrap=True)
     hint = TextComponent(text="請先登入網站並點「綁定 LINE」以查看訂票", size="sm", color="#666666", wrap=True)
     body = BoxComponent(layout="vertical", spacing="sm", contents=[title, hint])
-    btn_bind = ButtonComponent(style="primary", color=FlightBotColors.PRIMARY, action=URIAction(label="綁定 LINE", uri=bind_url))
+    btn_bind = ButtonComponent(
+        style="primary",
+        color="#5BA3D0",  # 柔和的藍色（與旅遊小貼士一致）
+        action=URIAction(label="綁定 LINE", uri=bind_url)
+    )
     btn_ticket = ButtonComponent(style="link", action=URIAction(label="我的訂票", uri=home_url))
     footer = BoxComponent(layout="vertical", spacing="sm", contents=[btn_bind, btn_ticket])
     bubble = BubbleContainer(body=body, footer=footer)
     return FlexSendMessage(alt_text="綁定 LINE 以查看訂票", contents=bubble)
+
+
+# ---------- 行程規劃流程 ----------
+
+def _handle_trip_days_input(user_id: str, message_text: str, state: dict):
+    """處理旅行天數輸入"""
+    import re
+
+    # 解析天數
+    match = re.search(r'(\d+)', message_text)
+    if not match:
+        return TextSendMessage(text="❌ 請輸入有效的天數，例如：3天、5天、7天")
+
+    days = int(match.group(1))
+    if days < 1 or days > 14:
+        return TextSendMessage(text="❌ 旅行天數請在 1-14 天之間")
+
+    # 更新狀態（使用 **kwargs 方式）
+    _set_state(user_id,
+        action="waiting_trip_type",
+        days=days,
+        ticket_id=state.get("ticket_id"),
+        flight_id=state.get("flight_id")
+    )
+
+    # 詢問行程類型
+    items = [
+        QuickReplyButton(action=PostbackAction(
+            label="🍜 美食之旅",
+            data=f"act=trip_type&type=food",
+            displayText="美食之旅"
+        )),
+        QuickReplyButton(action=PostbackAction(
+            label="🏛️ 文化古蹟",
+            data=f"act=trip_type&type=culture",
+            displayText="文化古蹟"
+        )),
+        QuickReplyButton(action=PostbackAction(
+            label="🛍️ 購物血拼",
+            data=f"act=trip_type&type=shopping",
+            displayText="購物血拼"
+        )),
+        QuickReplyButton(action=PostbackAction(
+            label="🌸 自然風光",
+            data=f"act=trip_type&type=nature",
+            displayText="自然風光"
+        )),
+        QuickReplyButton(action=PostbackAction(
+            label="🎨 綜合行程",
+            data=f"act=trip_type&type=mixed",
+            displayText="綜合行程"
+        ))
+    ]
+
+    return TextSendMessage(
+        text=f"好的！{days} 天的旅行。\n\n你對什麼類型的行程感興趣？",
+        quick_reply=QuickReply(items=items)
+    )
+
+
+def _handle_trip_type_input(user_id: str, message_text: str, state: dict):
+    """處理行程類型輸入（文字輸入的備用方案）"""
+    # 這個函數主要是備用，正常流程會通過 postback 處理
+    return TextSendMessage(text="請使用下方按鈕選擇行程類型")
+
+
+def _generate_and_push_trip_plan(user_id: str, state: dict, trip_type: str):
+    """生成行程並推播給用戶（背景執行）"""
+    from linebot import LineBotApi
+    from linebot.models import TextSendMessage, FlexSendMessage
+    from api.linebot.trip_planner import generate_trip_plan, save_trip_plan, build_daily_trip_flex
+    from api.linebot.tips import get_multi_day_weather
+
+    try:
+        # 載入配置
+        from service.linebot_service import load_config
+        config = load_config()
+        line_api = LineBotApi(config['line_bot']['channel_access_token'])
+
+        # 取得航班資訊
+        ticket_id = state.get("ticket_id")
+        flight_id = state.get("flight_id")
+        days = state.get("days")
+
+        # 查詢航班資訊（取得目的地和出發日期）
+        from service import ticket_service
+        flight_result = ticket_service.get_booking_imf(flight_id)
+
+        if not flight_result.get("success"):
+            line_api.push_message(user_id, TextSendMessage(text="❌ 找不到航班資訊"))
+            return
+
+        flight_data = flight_result.get("data", {})
+        destination = flight_data.get("A_Airport_Name_ZH", "").replace("國際機場", "").replace("機場", "").strip()
+        departure_date = flight_data.get("D_Time")
+
+        if not destination or not departure_date:
+            line_api.push_message(user_id, TextSendMessage(text="❌ 航班資訊不完整"))
+            return
+
+        # 轉換日期格式
+        if hasattr(departure_date, 'date'):
+            departure_date = departure_date.date().isoformat()
+        else:
+            departure_date = str(departure_date).split()[0]  # 取日期部分
+
+        # 取得天氣資料
+        weather_data = get_multi_day_weather(destination, days=days)
+
+        # 生成行程
+        trip_plan = generate_trip_plan(
+            destination=destination,
+            days=days,
+            trip_type=trip_type,
+            departure_date=departure_date,
+            weather_data=weather_data
+        )
+
+        # 推播時間固定為早上 8:00
+        push_time = "08:00"
+
+        # 儲存行程（包含推播時間）
+        trip_plan_id = save_trip_plan(user_id, ticket_id, trip_plan, push_time)
+
+        # 建立 Flex Message（顯示所有天數，最多 10 天，因為 LINE Carousel 限制最多 10 張卡片）
+        bubbles = []
+        daily_plans = trip_plan.get("daily_plans", [])
+        max_cards = min(len(daily_plans), 10)  # LINE Carousel 最多 10 張卡片
+
+        for i in range(max_cards):
+            day_plan = daily_plans[i]
+
+            # 準備當日天氣
+            weather_today = None
+            if weather_data and i < len(weather_data.get("time", [])):
+                weather_today = {
+                    "max_temp": weather_data["temperature_2m_max"][i],
+                    "min_temp": weather_data["temperature_2m_min"][i],
+                    "rain_prob": weather_data["precipitation_probability_max"][i],
+                    "emoji": "🌤️"
+                }
+
+            bubble = build_daily_trip_flex(day_plan, weather_today)
+            bubbles.append(bubble)
+
+        # 推播行程
+        if bubbles:
+            carousel = {"type": "carousel", "contents": bubbles}
+            line_api.push_message(
+                user_id,
+                FlexSendMessage(alt_text=f"{destination} {days}天行程", contents=carousel)
+            )
+
+            # 推播成功訊息（包含推播時間）
+            line_api.push_message(
+                user_id,
+                TextSendMessage(text=f"✅ 行程已生成！\n\n我會在出發前每天 {push_time} 推播當日行程給你！\n\n行程 ID：{trip_plan_id}")
+            )
+
+        # 清除狀態
+        _set_state(user_id, action=None, stage=None)
+
+    except Exception as e:
+        import traceback
+        print(f"生成行程失敗: {e}")
+        traceback.print_exc()
+
+        try:
+            line_api.push_message(
+                user_id,
+                TextSendMessage(text=f"❌ 生成行程失敗：{str(e)}\n\n請稍後再試")
+            )
+        except:
+            pass

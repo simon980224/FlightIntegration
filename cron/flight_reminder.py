@@ -4,11 +4,21 @@
 """
 import sys
 import os
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import json
+
+# 確保專案根目錄在 Python 路徑中
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(script_dir)
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# 切換工作目錄到專案根目錄
+os.chdir(project_root)
 
 import pymssql
 from datetime import datetime, timedelta
 import logging
+from linebot import LineBotApi
 from linebot.models import FlexSendMessage, BubbleContainer, BoxComponent, TextComponent, SeparatorComponent
 
 # 設定 logging
@@ -18,18 +28,29 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# 資料庫連線
-from config.db_config import conn_args
+# 載入配置
+config_path = os.path.join(project_root, 'config', 'stagingConfig.json')
+with open(config_path, 'r', encoding='utf-8') as f:
+    config = json.load(f)
+
+# 資料庫連線參數
+DB_CONFIG = config['database']
 
 # LINE Bot API
-from service.linebot_service import api as line_api
+LINE_CHANNEL_ACCESS_TOKEN = config['line_bot']['channel_access_token']
+line_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
 
 
 def get_upcoming_flights():
     """取得 3 小時後起飛的航班"""
     conn = None
     try:
-        conn = pymssql.connect(**conn_args)
+        conn = pymssql.connect(
+            server=DB_CONFIG['server'],
+            user=DB_CONFIG['user'],
+            password=DB_CONFIG['password'],
+            database=DB_CONFIG['database']
+        )
         cursor = conn.cursor(as_dict=True)
         
         # 查詢 3 小時後起飛的航班（±30 分鐘容錯）
@@ -39,21 +60,21 @@ def get_upcoming_flights():
         end_time = target_time + timedelta(minutes=30)
         
         query = """
-        SELECT 
+        SELECT
             W.User_Id,
             U.User_LineId,
             F.No AS flight_no,
             F.D_Time AS departure_time,
-            A1.Name_CH AS from_airport,
-            A2.Name_CH AS to_airport,
-            A2.City_CH AS destination_city,
-            AL.Name_CH AS airline_name
+            A1.Airport_Name_ZH AS from_airport,
+            A2.Airport_Name_ZH AS to_airport,
+            A2.Airport_Id AS destination_airport_id,
+            AL.Airline_Name_ZH AS airline_name
         FROM Wallet W
         JOIN [User] U ON W.User_Id = U.User_Id
         JOIN Ticket T ON W.Ticket_Id = T.Ticket_Id
         JOIN Flight F ON T.Flight_Id = F.Flight_Id
-        JOIN Airport A1 ON F.D_AirPort_Id = A1.Airport_Id
-        JOIN Airport A2 ON F.A_AirPort_Id = A2.Airport_Id
+        JOIN Airport A1 ON F.D_Airport_Id = A1.Airport_Id
+        JOIN Airport A2 ON F.A_Airport_Id = A2.Airport_Id
         JOIN Airline AL ON F.Airline_Id = AL.Airline_Id
         WHERE F.D_Time BETWEEN %s AND %s
           AND W.Status = '1'
@@ -74,30 +95,40 @@ def get_upcoming_flights():
             conn.close()
 
 
-def get_destination_weather(city_name: str) -> str:
+def get_city_name_from_airport(airport_name_zh: str) -> str:
+    """從機場中文名稱提取城市名稱"""
+    # 移除常見的機場後綴
+    city = airport_name_zh.replace("國際機場", "").replace("機場", "").strip()
+    return city
+
+
+def get_destination_weather(airport_name_zh: str) -> str:
     """取得目的地當天天氣"""
     try:
-        from api.linebot.travel_kit import get_multi_day_weather, weather_code_to_emoji
-        
+        from api.linebot.tips import get_multi_day_weather, weather_code_to_emoji
+
+        # 從機場名稱提取城市名稱
+        city_name = get_city_name_from_airport(airport_name_zh)
+
         weather_data = get_multi_day_weather(city_name, days=1)
         if not weather_data:
             return "天氣資訊暫時無法取得"
-        
+
         max_temps = weather_data.get("temperature_2m_max", [])
         min_temps = weather_data.get("temperature_2m_min", [])
         rain_probs = weather_data.get("precipitation_probability_max", [])
         weather_codes = weather_data.get("weather_code", [])
-        
+
         if not max_temps:
             return "天氣資訊暫時無法取得"
-        
+
         emoji = weather_code_to_emoji(weather_codes[0]) if weather_codes else "🌤️"
         min_t = int(min_temps[0]) if min_temps else 0
         max_t = int(max_temps[0]) if max_temps else 0
         rain = int(rain_probs[0]) if rain_probs else 0
-        
+
         return f"{emoji} {min_t}-{max_t}°C 降雨 {rain}%"
-    
+
     except Exception as e:
         logger.error(f"取得天氣失敗: {e}")
         return "天氣資訊暫時無法取得"
@@ -180,8 +211,9 @@ def send_reminders():
             if not line_user_id:
                 continue
 
-            destination = flight.get("destination_city", "")
-            weather = get_destination_weather(destination)
+            # 使用機場中文名稱取得天氣
+            destination_airport = flight.get("to_airport", "")
+            weather = get_destination_weather(destination_airport)
 
             flex_message = build_reminder_flex(flight, weather)
             line_api.push_message(line_user_id, flex_message)

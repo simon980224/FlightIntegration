@@ -46,6 +46,12 @@ handler = WebhookHandler(line_channel_secret)
 app = Flask(__name__)
 app.secret_key = 'your-development-secret-key'
 
+# 添加 Ngrok 跳過警告頁面的 header
+@app.after_request
+def add_ngrok_header(response):
+    response.headers['ngrok-skip-browser-warning'] = 'true'
+    return response
+
 # 將 user_id 注入到所有模板
 @app.context_processor
 def inject_user():
@@ -426,14 +432,25 @@ def liff_booking():
 def liff_config():
     """取得 LIFF 設定"""
     liff_id = config.get('liff', {}).get('booking_liff_id', '')
+    print(f"📡 [API] LIFF 配置請求，LIFF ID: {liff_id}")
     return jsonify({'liff_id': liff_id})
 
 
 @app.route('/api/flight/<flight_id>')
 def get_flight_info(flight_id):
     """取得航班資訊（供 LIFF 使用）"""
-    result = ticket_service.get_booking_imf(flight_id)
-    return jsonify(result)
+    print(f"📡 [API] 收到航班資訊請求，flight_id: {flight_id}")
+    try:
+        result = ticket_service.get_booking_imf(flight_id)
+        print(f"✅ [API] 航班資訊查詢成功: {result.get('success', False)}")
+        if not result.get('success'):
+            print(f"⚠️ [API] 查詢失敗原因: {result.get('message', '未知')}")
+        return jsonify(result)
+    except Exception as e:
+        print(f"❌ [API] 航班資訊查詢異常: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({"success": False, "message": str(e)}), 500
 
 
 @app.route('/api/ticket/insert_liff', methods=['POST'])
