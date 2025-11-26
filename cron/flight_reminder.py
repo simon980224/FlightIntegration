@@ -1,48 +1,36 @@
 """
-智能登機提醒 - 起飛前 3 小時推播
-每天執行一次（或每小時執行一次）
+登機提醒 - 起飛前 3 小時推播
 """
 import sys
 import os
 import json
 
-# 確保專案根目錄在 Python 路徑中
 script_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(script_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-
-# 切換工作目錄到專案根目錄
 os.chdir(project_root)
 
 import pymssql
+import requests
 from datetime import datetime, timedelta
 import logging
 from linebot import LineBotApi
 from linebot.models import FlexSendMessage, BubbleContainer, BoxComponent, TextComponent, SeparatorComponent
 
-# 設定 logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# 載入配置
 config_path = os.path.join(project_root, 'config', 'stagingConfig.json')
 with open(config_path, 'r', encoding='utf-8') as f:
     config = json.load(f)
 
-# 資料庫連線參數
 DB_CONFIG = config['database']
-
-# LINE Bot API
-LINE_CHANNEL_ACCESS_TOKEN = config['line_bot']['channel_access_token']
-line_api = LineBotApi(LINE_CHANNEL_ACCESS_TOKEN)
+line_api = LineBotApi(config['line_bot']['channel_access_token'])
 
 
 def get_upcoming_flights():
-    """取得 3 小時後起飛的航班"""
+    """撈 3 小時後要起飛的航班（±30 分鐘容錯）"""
     conn = None
     try:
         conn = pymssql.connect(
@@ -53,7 +41,6 @@ def get_upcoming_flights():
         )
         cursor = conn.cursor(as_dict=True)
         
-        # 查詢 3 小時後起飛的航班（±30 分鐘容錯）
         now = datetime.now()
         target_time = now + timedelta(hours=3)
         start_time = target_time - timedelta(minutes=30)
@@ -86,24 +73,20 @@ def get_upcoming_flights():
         
         return flights
     
-    except Exception as e:
-        logger.error(f"查詢航班失敗: {e}")
+    except pymssql.DatabaseError as e:
+        logger.error(f"DB 錯誤: {e}")
         return []
-    
     finally:
         if conn:
             conn.close()
 
 
 def get_city_name_from_airport(airport_name_zh: str) -> str:
-    """從機場中文名稱提取城市名稱"""
-    # 移除常見的機場後綴
-    city = airport_name_zh.replace("國際機場", "").replace("機場", "").strip()
-    return city
+    """東京成田國際機場 -> 東京成田"""
+    return airport_name_zh.replace("國際機場", "").replace("機場", "").strip()
 
 
 def get_destination_weather(airport_name_zh: str) -> str:
-    """取得目的地當天天氣"""
     try:
         from api.linebot.tips import get_multi_day_weather, weather_code_to_emoji
 
@@ -129,13 +112,16 @@ def get_destination_weather(airport_name_zh: str) -> str:
 
         return f"{emoji} {min_t}-{max_t}°C 降雨 {rain}%"
 
-    except Exception as e:
-        logger.error(f"取得天氣失敗: {e}")
+    except requests.RequestException as e:
+        # 天氣 API 有時會掛，不影響主流程
+        logger.warning(f"天氣 API 失敗: {e}")
+        return "天氣資訊暫時無法取得"
+    except KeyError as e:
+        logger.warning(f"天氣資料格式變了: {e}")
         return "天氣資訊暫時無法取得"
 
 
 def build_reminder_flex(flight_info: dict, weather: str) -> FlexSendMessage:
-    """建立登機提醒 Flex Message"""
     from api.linebot.design_system import FlightBotColors
     
     flight_no = flight_info.get("flight_no", "")
@@ -196,37 +182,29 @@ def build_reminder_flex(flight_info: dict, weather: str) -> FlexSendMessage:
 
 
 def send_reminders():
-    """發送登機提醒"""
     flights = get_upcoming_flights()
-
     if not flights:
-        logger.info("沒有需要提醒的航班")
+        logger.info("今天沒人要提醒")
         return
 
-    logger.info(f"找到 {len(flights)} 個航班需要提醒")
+    logger.info(f"要提醒 {len(flights)} 班")
 
     for flight in flights:
+        line_user_id = flight.get("User_LineId")
+        if not line_user_id:
+            continue
         try:
-            line_user_id = flight.get("User_LineId")
-            if not line_user_id:
-                continue
-
-            # 使用機場中文名稱取得天氣
-            destination_airport = flight.get("to_airport", "")
-            weather = get_destination_weather(destination_airport)
-
+            weather = get_destination_weather(flight.get("to_airport", ""))
             flex_message = build_reminder_flex(flight, weather)
             line_api.push_message(line_user_id, flex_message)
-
-            logger.info(f"✅ 已發送提醒給用戶，航班 {flight.get('flight_no')}")
-
+            logger.info(f"✅ {flight.get('flight_no')}")
         except Exception as e:
-            logger.error(f"發送提醒失敗: {e}")
-            continue
+            # 單筆失敗不影響其他
+            logger.error(f"推播失敗 {flight.get('flight_no')}: {e}")
 
 
 if __name__ == "__main__":
-    logger.info("=== 開始執行登機提醒任務 ===")
+    logger.info("--- 登機提醒開始 ---")
     send_reminders()
-    logger.info("=== 登機提醒任務完成 ===")
+    logger.info("--- 登機提醒結束 ---")
 

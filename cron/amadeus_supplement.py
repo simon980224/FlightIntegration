@@ -1,6 +1,5 @@
 """
-Amadeus API 補票價共用模組
-供四個航空爬蟲呼叫，針對單一航班補充票價到 Ticket 表
+補票價模組 - 給航空爬蟲用的
 """
 import time
 import requests
@@ -8,35 +7,27 @@ from datetime import datetime
 from typing import Optional
 import pymssql
 
-# =============================
-# 設定
-# =============================
-# Amadeus API 金鑰配置
-# Test 環境（優先使用，有免費配額）
+# --- Amadeus API 金鑰（Test 有免費配額）---
 TEST_API_KEY = "IwAslE0Nh2uYsBLkxNiRI1iHKxjnmVSA"
 TEST_API_SECRET = "wHH3pXiyBtfGMF27"
 TEST_BASE_URL = "https://test.api.amadeus.com"
 
-# Production 環境（Test 配額用完時自動切換）
 PROD_API_KEY = "60jRPEzjfzgAr9YlNFTE4FwANJjaqYnp"
 PROD_API_SECRET = "c1zwv9rgcbQlihGa"
 PROD_BASE_URL = "https://api.amadeus.com"
 
-# 當前使用的環境（初始為 Test）
-CURRENT_ENV = "TEST"  # "TEST" or "PROD"
+CURRENT_ENV = "TEST"
 CURRENT_API_KEY = TEST_API_KEY
 CURRENT_API_SECRET = TEST_API_SECRET
 BASE_URL = TEST_BASE_URL
 
 TIMEOUT = 30
-API_MIN_INTERVAL = 0.1  # 100ms 節流
+API_MIN_INTERVAL = 0.1
 _LAST_CALL_TS = 0.0
-
-# 查詢艙等
 TRAVEL_CLASSES = ["ECONOMY", "PREMIUM_ECONOMY", "BUSINESS", "FIRST"]
 
+
 def _throttle():
-    """確保 API 請求間隔"""
     global _LAST_CALL_TS
     try:
         now = time.monotonic()
@@ -49,7 +40,6 @@ def _throttle():
 
 
 def switch_to_production():
-    """切換到 Production 環境（當 Test 配額用完時）"""
     global CURRENT_ENV, CURRENT_API_KEY, CURRENT_API_SECRET, BASE_URL
     if CURRENT_ENV == "TEST":
         CURRENT_ENV = "PROD"
@@ -62,7 +52,6 @@ def switch_to_production():
 
 
 def is_quota_exceeded_429(response) -> bool:
-    """判斷是否為配額超限的 429 錯誤（code 38195）"""
     try:
         if response.status_code == 429:
             data = response.json()
@@ -76,16 +65,7 @@ def is_quota_exceeded_429(response) -> bool:
     return False
 
 
-# =============================
-# Amadeus API 函數
-# =============================
-
-
 def get_access_token() -> str:
-    """
-    取得 Amadeus access token
-    使用當前環境的 API 金鑰（CURRENT_API_KEY, CURRENT_API_SECRET）
-    """
     global CURRENT_API_KEY, CURRENT_API_SECRET, BASE_URL
 
     _throttle()
@@ -109,7 +89,6 @@ def get_flight_offers(
     travel_class: str = "ECONOMY",
     max_offers: int = 5
 ) -> dict:
-    """查詢航班 offers，支援自動環境切換"""
     _throttle()
     url = f"{BASE_URL}/v2/shopping/flight-offers"
     headers = {"Authorization": f"Bearer {access_token}"}
@@ -150,11 +129,7 @@ def get_flight_offers(
         return resp.json()
 
 
-# =============================
-# 資料庫函數
-# =============================
 def connect_db():
-    """連線資料庫"""
     return pymssql.connect(
         server='140.131.114.241',
         user='adminfid',
@@ -164,7 +139,6 @@ def connect_db():
 
 
 def insert_ticket(cursor, conn, ticket_id: str, flight_id: str, price: int, cabin: str, checked_bags: int):
-    """寫入 Ticket 表"""
     sql = """
     INSERT INTO dbo.Ticket (Ticket_Id, Flight_Id, Price, Cabin, Checked_Baggage)
     VALUES (%s, %s, %s, %s, %s)
@@ -181,11 +155,7 @@ def insert_ticket(cursor, conn, ticket_id: str, flight_id: str, price: int, cabi
         return False
 
 
-# =============================
-# 補價核心函數
-# =============================
 def parse_price_int(offer: dict) -> int:
-    """解析票價"""
     try:
         price_str = offer.get("price", {}).get("total", "0")
         return int(float(price_str))
@@ -194,7 +164,6 @@ def parse_price_int(offer: dict) -> int:
 
 
 def extract_cabin_and_bags(offer: dict, segment: dict) -> tuple:
-    """提取艙等和行李資訊"""
     cabin = "ECONOMY"
     checked_bags = 0
     
@@ -217,7 +186,6 @@ def extract_cabin_and_bags(offer: dict, segment: dict) -> tuple:
 
 
 def make_ticket_id(offer_id: str, seg_id: str, flight_id: str, cabin: str) -> str:
-    """生成 Ticket ID"""
     return f"{flight_id}_{cabin}_{offer_id[:8] if offer_id else 'UNKNOWN'}"
 
 
@@ -230,21 +198,7 @@ def supplement_price_for_flight(
     dep_time: str,
     access_token: Optional[str] = None
 ) -> int:
-    """
-    針對單一航班補充票價
-    
-    Args:
-        flight_id: Flight_Id (例如: CHINAAIR_20250430_CI123_TPE_HKG)
-        flight_no: 航班號 (例如: CI123)
-        carrier_code: 航空公司代碼 (例如: CI)
-        dep_airport: 出發機場 (例如: TPE)
-        arr_airport: 抵達機場 (例如: HKG)
-        dep_time: 出發時間 (例如: 2025-04-30 08:00:00.000)
-        access_token: Amadeus access token (可選，若無則自動取得)
-    
-    Returns:
-        成功寫入的 Ticket 數量
-    """
+    """針對單一航班補票價，回傳寫入幾筆"""
     try:
         # 解析出發日期
         dep_date = datetime.strptime(dep_time[:10], "%Y-%m-%d").strftime("%Y-%m-%d")

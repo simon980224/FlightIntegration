@@ -1,9 +1,6 @@
 """
-每日行程推播 Cron Job
-用途：每天早上推播當日行程給用戶
-執行時間：每天早上 8:00
+每天早上 8:00 推今日行程給用戶
 """
-
 import json
 import os
 import sys
@@ -11,7 +8,6 @@ from datetime import datetime, timedelta
 from linebot import LineBotApi
 from linebot.models import FlexSendMessage
 
-# 確保專案根目錄在 Python 路徑中
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from api.linebot.trip_planner import get_trip_plan, build_daily_trip_flex
@@ -20,7 +16,6 @@ from service.linebot_service import load_config
 
 
 def get_today_trip_plans():
-    """取得今天需要推播的行程"""
     trip_plans_file = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "data",
@@ -52,7 +47,6 @@ def get_today_trip_plans():
 
 
 def push_daily_trip(line_api: LineBotApi, plan_info: dict):
-    """推播當日行程給用戶"""
     try:
         user_id = plan_info["line_user_id"]
         day_plan = plan_info["day_plan"]
@@ -95,44 +89,29 @@ def push_daily_trip(line_api: LineBotApi, plan_info: dict):
 
 
 def main():
-    """主函數"""
-    print(f"\n{'='*70}")
-    print(f"每日行程推播 - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-    print(f"{'='*70}\n")
+    print(f"\n--- 每日行程推播 {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} ---\n")
     
-    # 載入配置
     config = load_config()
     line_api = LineBotApi(config['line_bot']['channel_access_token'])
     
-    # 取得今天的行程
     today_plans = get_today_trip_plans()
-    print(f"找到 {len(today_plans)} 個今日行程需要推播\n")
+    print(f"找到 {len(today_plans)} 個行程")
     
     if not today_plans:
-        print("沒有需要推播的行程")
+        print("今天沒人要推")
         return
     
-    # 推播行程
     results = []
     for plan_info in today_plans:
-        print(f"推播給用戶 {plan_info['line_user_id']} - 第 {plan_info['day_plan']['day']} 天：{plan_info['day_plan']['theme']}")
+        print(f"推給 {plan_info['line_user_id']} Day{plan_info['day_plan']['day']}")
         result = push_daily_trip(line_api, plan_info)
         results.append(result)
-        
-        if result["success"]:
-            print(f"  ✅ 推播成功")
-        else:
-            print(f"  ❌ 推播失敗：{result['error']}")
+        print("  ✅" if result["success"] else f"  ❌ {result.get('error', '')}")
     
-    # 統計結果
     success_count = sum(1 for r in results if r["success"])
-    fail_count = len(results) - success_count
+    print(f"\n成功 {success_count}/{len(results)}\n")
     
-    print(f"\n{'='*70}")
-    print(f"推播完成：成功 {success_count} 個，失敗 {fail_count} 個")
-    print(f"{'='*70}\n")
-    
-    # 記錄日誌
+    # 寫 log
     log_file = os.path.join(
         os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
         "logs",

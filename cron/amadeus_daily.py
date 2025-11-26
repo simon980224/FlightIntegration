@@ -8,48 +8,39 @@ import requests
 import pymssql
 
 
-# =============================
-# 設定
-# =============================
+# --- 出發機場設定 ---
 ORIGINS = ["TPE", "TSA", "KHH", "RMQ"]
 
-# Amadeus API 金鑰配置
-# Test 環境（優先使用，有免費配額）
+# Amadeus API 金鑰（Test 環境有免費配額，用完自動切 Prod）
 TEST_API_KEY = "IwAslE0Nh2uYsBLkxNiRI1iHKxjnmVSA"
 TEST_API_SECRET = "wHH3pXiyBtfGMF27"
 TEST_BASE_URL = "https://test.api.amadeus.com"
 
-# Production 環境（Test 配額用完時自動切換）
 PROD_API_KEY = "60jRPEzjfzgAr9YlNFTE4FwANJjaqYnp"
 PROD_API_SECRET = "c1zwv9rgcbQlihGa"
 PROD_BASE_URL = "https://api.amadeus.com"
 
-# 當前使用的環境（初始為 Test）
-CURRENT_ENV = "TEST"  # "TEST" or "PROD"
+# 初始用 Test 環境
+CURRENT_ENV = "TEST"
 CURRENT_API_KEY = TEST_API_KEY
 CURRENT_API_SECRET = TEST_API_SECRET
 BASE_URL = TEST_BASE_URL
 
-TIMEOUT = 45  # 逾時秒數（由 30 調至 45）
-MAX_OFFERS = 10  # 每次出發-目的查詢最多回傳的 offers 筆數（由 20 降為 10）
+# 2025-04: timeout 從 30 調到 45，因為 Amadeus 在尖峰時段很慢
+TIMEOUT = 45
+MAX_OFFERS = 10  # 之前是 20，但查太多會撞 rate limit
 LOG_DIR = os.path.join("logs", "CronLog")
 
-# 全域 API 節流：兩次 Amadeus API 呼叫的最小間隔秒數（可由環境變數覆寫）
-# Test Rate Limit: 10 req/s = 每 100ms 一次
-# Production Rate Limit: 40 req/s = 每 25ms 一次
-# 統一設定 0.1s (100ms) 保守安全
+# FIXME: 這個 interval 是保守估計，實際上 Prod 可以更快
 API_MIN_INTERVAL = float(os.getenv("AMADEUS_MIN_INTERVAL_SEC", "0.1"))
 _LAST_CALL_TS = 0.0
 
-# 查詢艙等（只抓 ECONOMY + BUSINESS，節省 API 用量）
-# PREMIUM_ECONOMY 少數航班有，FIRST 幾乎為 0
+# 只抓這兩種艙等，FIRST 幾乎沒航班
 TRAVEL_CLASSES = ["ECONOMY", "BUSINESS"]
-
-# 查詢未來幾天的航班（建議 7-14 天）
 DAYS_AHEAD = 14
 
 def _throttle():
-    """在每次呼叫 Amadeus API 前呼叫，確保請求間隔，降低 429 機率。"""
+    """避免被 Amadeus 429，每次 call 前等一下"""
     global _LAST_CALL_TS
     try:
         now = time.monotonic()
@@ -62,7 +53,7 @@ def _throttle():
 
 
 def switch_to_production():
-    """切換到 Production 環境（當 Test 配額用完時）"""
+    """Test 配額用完就換 Prod"""
     global CURRENT_ENV, CURRENT_API_KEY, CURRENT_API_SECRET, BASE_URL
     if CURRENT_ENV == "TEST":
         CURRENT_ENV = "PROD"
@@ -75,7 +66,7 @@ def switch_to_production():
 
 
 def is_quota_exceeded_429(response) -> bool:
-    """判斷是否為配額超限的 429 錯誤（code 38195）"""
+    """code 38195 = 配額用完，要換環境"""
     try:
         if response.status_code == 429:
             data = response.json()
@@ -89,10 +80,10 @@ def is_quota_exceeded_429(response) -> bool:
     return False
 
 
-# 僅保留這四家航空公司的資料（CI=華航, BR=長榮, JX=星宇, IT=虎航）
+# 只抓這四家台籍航空
 ALLOWED_CARRIERS = {"CI", "BR", "JX", "IT"}
 
-# Brand prefix mapping for Flight_Id（僅保留需要的四家）
+# Flight_Id 前綴對照表
 AIRLINE_PREFIX = {
     "BR": "EVA",
     "CI": "CHINA_AIR",
@@ -100,10 +91,7 @@ AIRLINE_PREFIX = {
     "IT": "TIGERAIR",
 }
 
-
-# =============================
-# 紀錄與日誌
-# =============================
+# --- 日誌設定 ---
 _today = date.today()
 os.makedirs(LOG_DIR, exist_ok=True)
 LOG_PATH = os.path.join(LOG_DIR, f"{_today.strftime('%Y%m%d')}_amadeus.log")
@@ -117,42 +105,30 @@ logging.basicConfig(
 )
 
 def log_info(msg: str):
+    # Windows console 有時 encoding 會爆，加個 fallback
     try:
         print(msg)
     except Exception:
         try:
-            # Fallback: strip non-ASCII to avoid console encoding errors
             print(str(msg).encode('ascii', 'ignore').decode('ascii', 'ignore'))
         except Exception:
             pass
     logging.info(msg)
 
 
-# =============================
-# HTTP 連線（Session）與重試/退避機制
-# =============================
+# --- HTTP Session（重用連線比較快）---
 SESSION = None
 
 def get_session():
-    """取得共用 requests.Session，並設定重試/退避策略（連線重用、降低逾時率）。"""
     global SESSION
     if SESSION is None:
-        sess = requests.Session()
-        # Use a plain Session (no built-in status-code retries) and handle 429/backoff ourselves
+        # TODO: 之後可以加 retry adapter
         SESSION = requests.Session()
     return SESSION
 
-# =============================
-# 資料庫（MSSQL）連線
-# =============================
 
 def connect_db():
-    """
-    連線到 MSSQL 資料庫，連線字串與其他排程腳本一致。
-    回傳：pymssql.Connection 物件。
-    """
-
-    # Keep same connection style as existing cron scripts
+    """連 MSSQL，跟其他 cron 腳本用一樣的連線參數"""
     return pymssql.connect(
         server='140.131.114.241',
         user='adminfid',
@@ -160,16 +136,9 @@ def connect_db():
         database='114-FlightIntegration_DB'
     )
 
-# =============================
-# 授權流程
-# =============================
 
 def get_access_token() -> str:
-    """
-    使用 Client Credentials 流程向 Amadeus 取得 OAuth2 access_token。
-    使用當前環境的 API 金鑰（CURRENT_API_KEY, CURRENT_API_SECRET）。
-    失敗時擲出 RuntimeError 以便上層捕捉。
-    """
+    """OAuth2 Client Credentials，拿 Amadeus token"""
     global CURRENT_API_KEY, CURRENT_API_SECRET, BASE_URL
 
     url = f"{BASE_URL}/v1/security/oauth2/token"
@@ -187,23 +156,11 @@ def get_access_token() -> str:
 
 
 def make_headers(access_token: str) -> Dict[str, str]:
-    """
-    依 access_token 回傳 Authorization 標頭。
-    """
-
     return {"Authorization": f"Bearer {access_token}"}
 
-# =============================
-# Amadeus API 呼叫
-# =============================
 
 def get_direct_destinations(access_token: str, origin: str) -> List[Dict]:
-    """
-    查詢指定起點機場的直飛目的地列表。
-    - 內建一次 ReadTimeout 的補試；另有全域 Retry/backoff 提供額外保護。
-    回傳：JSON 的 data 陣列。
-    """
-
+    """查直飛目的地，timeout 會自動重試一次"""
     url = f"{BASE_URL}/v1/airport/direct-destinations"
     params = {"departureAirportCode": origin, "max": 200}
     sess = get_session()
@@ -241,12 +198,7 @@ def get_direct_destinations(access_token: str, origin: str) -> List[Dict]:
 
 
 def get_flight_offers(access_token: str, origin: str, destination: str, dep_date: str, travel_class: Optional[str] = None) -> Dict:
-    """
-    查詢出發/到達/日期對應的航班 offers。
-    - 使用 MAX_OFFERS 限制回傳筆數；內建一次 ReadTimeout 的補試。
-    回傳：API 回傳的完整 JSON。
-    """
-
+    """查航班報價，自動處理 429 和 timeout"""
     url = f"{BASE_URL}/v2/shopping/flight-offers"
     params = {
         "originLocationCode": origin,
@@ -295,17 +247,11 @@ def get_flight_offers(access_token: str, origin: str, destination: str, dep_date
         resp.raise_for_status()
         return resp.json()
 
-# =============================
-# 輔助函式
-# =============================
+
+# --- 輔助函式 ---
 
 def to_datetime_min(iso_str: str) -> str:
-    """
-    將 ISO 格式的日期時間字串轉為 'YYYY-MM-DD HH:MM' 的短格式；
-    若解析失敗則原樣回傳，避免因資料品質造成中斷。
-    """
-
-    # ISO 例如 2025-10-19T12:10:00 轉為 'YYYY-MM-DD HH:MM'
+    """ISO 轉短格式：2025-10-19T12:10:00 -> 2025-10-19 12:10"""
     try:
         return iso_str.replace('T', ' ')[:16]
     except Exception:
@@ -313,36 +259,21 @@ def to_datetime_min(iso_str: str) -> str:
 
 
 def get_airline_prefix(iata: str) -> str:
-    """
-    依 IATA 航空公司代碼回傳品牌前綴（用於 Flight_Id）；
-    若無對應則回傳原代碼以保留識別性。
-    """
-
     return AIRLINE_PREFIX.get(iata, iata)
 
 
 def build_flight_id(prefix: str, carrier: str, number: str, dep_iso: str, frm: str, to: str) -> str:
-    """
-    依規則產生唯一 Flight_Id：
-    <品牌>_<出發日期YYYYMMDD>_<航班號>_<出發機場>_<抵達機場>
-    """
-
+    """組 Flight_Id，格式：EVA_20250713_BR123_TPE_NRT"""
     date_str = dep_iso[:10].replace('-', '')
     no = f"{carrier}{number}"
     return f"{prefix}_{date_str}_{no}_{frm}_{to}"
 
-# =============================
-# 寫入資料庫邏輯
-# =============================
+
+# --- DB 寫入 ---
 
 def insert_flight(cursor, conn, flight_id: str, airline_id: str, d_airport: str, a_airport: str,
                   d_time: str, a_time: str, no: str):
-    """
-    將一筆航班資料寫入 Flight 資料表；
-    - 若主鍵已存在（IntegrityError）則記錄「略過」並繼續
-    - 其他例外則記錄錯誤訊息
-    """
-
+    """寫入 Flight 表，PK 重複就跳過"""
     try:
         cursor.execute(
             """
@@ -359,13 +290,8 @@ def insert_flight(cursor, conn, flight_id: str, airline_id: str, d_airport: str,
         log_info(f"❌ 寫入失敗 {flight_id}：{e}")
 
 
-# 票價與艙等寫入 Ticket 的輔助函式
-
 def parse_price_int(offer: Dict) -> int:
-    """
-    從 offer.price 取金額（優先 grandTotal），轉為 int（TWD）。
-    取得失敗時回傳 0。
-    """
+    """從 offer 抓價格，優先 grandTotal"""
     try:
         p = offer.get("price") or {}
         gt = p.get("grandTotal") or p.get("total") or "0"
@@ -375,13 +301,7 @@ def parse_price_int(offer: Dict) -> int:
 
 
 def extract_cabin_and_bags(offer: Dict, segment: Dict):
-    """
-    從 travelerPricings.fareDetailsBySegment 比對 segmentId，取回：
-    - cabin（字串，如 ECONOMY, PREMIUM_ECONOMY, BUSINESS, FIRST）
-    - checked_bags（件數，如 quantity；若僅有重量，粗略視為 1 件）
-    - cabin_bags（手提件數，若有）
-    若找不到則回傳 ("ECONOMY", None, None)。
-    """
+    """從 offer 抓艙等和行李資訊，找不到就給預設值"""
     seg_id = segment.get("id")
     cabin = None
     checked = None
@@ -413,12 +333,7 @@ def extract_cabin_and_bags(offer: Dict, segment: Dict):
 
 
 def make_ticket_id(offer_id: str, segment_id: str, flight_id: str, cabin: str) -> str:
-    """
-    統一 Ticket_Id 規則：TKT_{Flight_Id}{Cabin}{YYYYMMDD}
-    - 不再依賴 offer/segment 的臨時索引，避免出現 TKT_4_12 等格式
-    - 保留歷史：每天排程（YYYYMMDD）不同即產生不同 Ticket_Id
-    - 長度截斷至 50 以符合目前欄位限制
-    """
+    """組 Ticket_Id，截斷到 50 字（DB 欄位限制）"""
     date_str = date.today().strftime("%Y%m%d")
     cab = (cabin or "").upper()
     base = f"TKT_{flight_id}{cab}{date_str}"
@@ -441,21 +356,10 @@ def insert_ticket(cursor, conn, ticket_id: str, flight_id: str, price: int, cabi
     except Exception as e:
         log_info(f"❌ 寫入 Ticket 失敗 {ticket_id}：{e}")
 
-# =============================
-# 主流程
-# =============================
+# --- 主程式 ---
 
 def main():
-    """
-    Amadeus 每日爬蟲主流程：
-    1) 取得 access_token（優先使用 Test 環境，配額用完自動切換到 Production）
-    2) 連線資料庫
-    3) 查詢指定起點的直飛目的地
-    4) 查詢今日航班 offers 並解析航段
-    5) 檢查航班是否已存在，只寫入爬蟲沒有的航班和票價
-    6) 關閉連線並寫入日誌
-    """
-
+    """每日跑一次，補 Amadeus 爬蟲沒抓到的航班和票價"""
     log_info("=== Amadeus Daily Cron 開始 ===")
     log_info(f"API_MIN_INTERVAL={API_MIN_INTERVAL}s")
     log_info(f"查詢未來 {DAYS_AHEAD} 天的航班")
@@ -484,8 +388,8 @@ def main():
         log_info(f"❌ 連線資料庫失敗：{e}")
         return
     
-    seen: Set[str] = set()  # 去重用（單次排程內）
-    log_info("開始查詢 Amadeus API 補充爬蟲沒有的航班和票價")
+    seen: Set[str] = set()  # 同一次跑的去重
+    log_info("開始查 Amadeus API")
 
     for origin in ORIGINS:
         # 第一步：取得直飛目的地列表
@@ -585,7 +489,6 @@ def main():
                             if op_carrier not in ALLOWED_CARRIERS:
                                 continue
 
-                            # 本次排程執行內去重用的鍵（避免重複寫入）
                             seg_key = f"{op_carrier}{number}|{dep_at_iso}|{dep_code}|{arr_code}"
                             if seg_key in seen:
                                 continue
@@ -598,7 +501,7 @@ def main():
                             d_time = to_datetime_min(dep_at_iso)
                             a_time = to_datetime_min(arr_at_iso)
 
-                            # ===== 檢查航班是否已存在（爬蟲可能已寫入）=====
+                            # 檢查 Flight 表有沒有這筆
                             flight_exists = False
                             try:
                                 cursor.execute("SELECT TOP 1 1 FROM Flight WHERE Flight_Id=%s", (flight_id,))
@@ -607,21 +510,19 @@ def main():
                             except Exception:
                                 pass
 
-                            # 只寫入爬蟲沒有的航班
                             if not flight_exists:
                                 insert_flight(cursor, conn, flight_id, op_carrier, dep_code, arr_code, d_time, a_time, no)
                                 log_info(f"✅ 新增航班：{flight_id}")
 
-                            # 票價與艙等寫入 Ticket（無論航班是否已存在，都補充票價）
+                            # 補票價
                             try:
                                 price_int = parse_price_int(offer)
                                 cabin, checked_bags, _ = extract_cabin_and_bags(offer, seg)
 
-                                # 檢查票價是否已存在
                                 try:
                                     cursor.execute("SELECT TOP 1 1 FROM Ticket WHERE Flight_Id=%s AND Cabin=%s", (flight_id, cabin))
                                     if cursor.fetchone():
-                                        continue  # 票價已存在，跳過
+                                        continue  # 已有這艙等票價
                                 except Exception:
                                     pass
 
@@ -631,8 +532,7 @@ def main():
                             except Exception as e:
                                 log_info(f"⚠️ Ticket 寫入略過（{flight_id}）：{e}")
 
-                # 兩次呼叫之間稍作等待，避免過度頻繁請求
-                time.sleep(0.2)
+                time.sleep(0.2)  # 別太快，怕被 ban
 
     try:
         cursor.close()

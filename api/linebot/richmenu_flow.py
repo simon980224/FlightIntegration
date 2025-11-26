@@ -9,21 +9,18 @@ from linebot.models import (
     SeparatorComponent, ButtonComponent, URIAction
 )
 
-# 依賴現有的核心能力
 from service import linebot_service, search_service
 from . import line_binding_repository, tips
 
-# 狀態儲存（MVP: 記憶體）
+# 用戶狀態暫存（TODO: 之後可以改用 Redis）
 _STATE = {}
-_TTL_SECONDS = 600  # 10 分鐘
+_TTL_SECONDS = 600
 
-# 常用出發地（台灣主要機場）- 從統一配置載入
 from api.linebot.airports_config import TaiwanAirports, InternationalCities
 DEPARTURE_OPTIONS = TaiwanAirports.get_departure_options()
-# D 區塊：常見目的地選項（單一來源：wiki_attractions.ORDERED_SUPPORTED_CITIES）
+
 from api.linebot.wiki_attractions import ORDERED_SUPPORTED_CITIES
 TIP_DEST_OPTIONS = [(city, city) for city in ORDERED_SUPPORTED_CITIES]
-# 常見目的地（快速回應用，避免每步查 DB 造成延遲）
 POPULAR_DEST_OPTIONS = [
     ("NRT", "東京成田 (NRT)"),
     ("HND", "東京羽田 (HND)"),
@@ -40,10 +37,8 @@ POPULAR_DEST_OPTIONS = [
 ]
 
 
-# ---------- 後送推播工具（回覆「查詢中」後再推送結果） ----------
-
 def _push_in_background(target, *args, **kwargs):
-    """以背景執行 target，不阻塞回覆。"""
+    """背景執行，不阻塞 reply"""
     import threading
     t = threading.Thread(target=target, args=args, kwargs=kwargs, daemon=True)
     t.start()
@@ -51,7 +46,6 @@ def _push_in_background(target, *args, **kwargs):
 
 
 def _get_line_bot_api():
-    """取得 LineBotApi 實例（優先環境變數，其次 config）。"""
     try:
         from linebot import LineBotApi
         import os
@@ -68,7 +62,6 @@ def _get_line_bot_api():
 
 
 def _get_liff_booking_url(flight_id):
-    """取得 LIFF 訂票 URL"""
     try:
         import os
         cfg = linebot_service.load_config() or {}
@@ -84,7 +77,7 @@ def _get_liff_booking_url(flight_id):
 
 
 def _push_flight_results(user_id: str, from_id: str, to_id: str, date_value: str):
-    """背景查詢航班並以 push_message 傳回 Flex 清單。"""
+    """背景查航班，查完 push 給用戶"""
     try:
         api = _get_line_bot_api()
         if api is None:
@@ -172,14 +165,7 @@ def _push_flight_results(user_id: str, from_id: str, to_id: str, date_value: str
 
 
 def _push_tips_results(user_id: str, dest: str, month: int | None, flight_date: str | None = None):
-    """背景產生小貼士並推送 Flex Carousel。
-
-    參數：
-    - user_id: LINE 用戶 ID
-    - dest: 目的地城市名稱
-    - month: 月份（舊版參數，保留向後兼容）
-    - flight_date: 航班日期（格式：YYYY-MM-DD），用於天氣預報起始日期
-    """
+    """背景產生小貼士 Carousel"""
     try:
         api = _get_line_bot_api()
         if api is None:
@@ -197,7 +183,7 @@ def _push_tips_results(user_id: str, dest: str, month: int | None, flight_date: 
 
 
 def _push_tips_inquiry_after_text_search(user_id: str, to_id: str, date_value: str):
-    """背景推送小貼士詢問（用於文字查詢後）"""
+    """文字查詢後問要不要看小貼士"""
     try:
         api = _get_line_bot_api()
         if api is None:

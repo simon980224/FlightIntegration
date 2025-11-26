@@ -1,20 +1,8 @@
 ﻿from __future__ import annotations
 """
-api.linebot.tips
-
-旅遊小貼士服務
-
-功能：
-- 訂票後自動推播旅遊錦囊（天氣、景點、美食）
-- Rich Menu「活動&小貼士」功能
-- 支援 Carousel 輪播卡片格式
-
-整合 API：
-- Wikipedia API：真實景點資料
-- Overpass API (OpenStreetMap)：景點/餐廳資料
-- Open-Meteo API：真實天氣預報
+旅遊小貼士 - 天氣、景點、美食推薦
+用到：Wikipedia API, Overpass API, Open-Meteo API
 """
-
 import logging
 import requests
 import time
@@ -22,7 +10,6 @@ from typing import Optional, Dict, List, Tuple
 from linebot.models import FlexSendMessage
 from urllib.parse import quote
 
-# 初始化 logger
 logger = logging.getLogger(__name__)
 
 __all__ = [
@@ -33,12 +20,10 @@ __all__ = [
     "get_restaurants",
     "parse_opening_hours"
 ]
-# ============================================================================
-# 新版旅遊小貼士（Carousel 格式，彩色標題）
-# ============================================================================
+
 
 def get_multi_day_weather(city_name: str, days: int = 7) -> Optional[Dict]:
-    """取得多日天氣預報（包含溫度、降雨、風速、UV 指數）"""
+    """撈 Open-Meteo 天氣，回傳溫度、降雨、風速、UV"""
     try:
         from api.linebot.wiki_attractions import get_city_coordinates
         coord = get_city_coordinates(city_name)
@@ -71,45 +56,24 @@ def get_multi_day_weather(city_name: str, days: int = 7) -> Optional[Dict]:
 
 
 def weather_code_to_emoji(code: int) -> str:
-    """天氣代碼轉 emoji"""
-    if code == 0:
-        return "☀️"
-    elif code in [1, 2]:
-        return "⛅"
-    elif code == 3:
-        return "☁️"
-    elif code in [45, 48]:
-        return "🌫️"
-    elif code in [51, 53, 55, 56, 57]:
-        return "🌦️"
-    elif code in [61, 63, 65, 66, 67, 80, 81, 82]:
-        return "🌧️"
-    elif code in [71, 73, 75, 77, 85, 86]:
-        return "❄️"
-    elif code in [95, 96, 99]:
-        return "⛈️"
-    else:
-        return "🌤️"
+    """WMO 天氣代碼轉 emoji，用字典比 if-elif 乾淨"""
+    # 參考：https://open-meteo.com/en/docs (WMO Weather interpretation codes)
+    EMOJI_MAP = {
+        0: "☀️",   # Clear sky
+        1: "⛅", 2: "⛅",  # Partly cloudy
+        3: "☁️",   # Overcast
+        45: "🌫️", 48: "🌫️",  # Fog
+        51: "🌦️", 53: "🌦️", 55: "🌦️", 56: "🌦️", 57: "🌦️",  # Drizzle
+        61: "🌧️", 63: "🌧️", 65: "🌧️", 66: "🌧️", 67: "🌧️",  # Rain
+        80: "🌧️", 81: "🌧️", 82: "🌧️",  # Rain showers
+        71: "❄️", 73: "❄️", 75: "❄️", 77: "❄️", 85: "❄️", 86: "❄️",  # Snow
+        95: "⛈️", 96: "⛈️", 99: "⛈️",  # Thunderstorm
+    }
+    return EMOJI_MAP.get(code, "🌤️")
 
 
 def parse_opening_hours(opening_hours: str) -> str:
-    """
-    將 OpenStreetMap 的 opening_hours 格式轉換為人類可讀格式
-
-    Args:
-        opening_hours: OSM 格式的營業時間字串（例如："Mo-Fr 09:00-18:00; Sa 10:00-14:00"）
-
-    Returns:
-        str: 人類可讀的營業時間字串
-
-    Examples:
-        >>> parse_opening_hours("Mo-Fr 09:00-18:00")
-        "週一至週五 09:00-18:00"
-        >>> parse_opening_hours("Mo-Fr 09:00-18:00; Sa 10:00-14:00")
-        "週一至週五 09:00-18:00, 週六 10:00-14:00"
-        >>> parse_opening_hours("24/7")
-        "24小時營業"
-    """
+    """OSM 營業時間格式轉中文，例：Mo-Fr 09:00-18:00 → 週一至週五 09:00-18:00"""
     if not opening_hours:
         return "營業時間請洽店家"
 
@@ -175,11 +139,9 @@ def parse_opening_hours(opening_hours: str) -> str:
 
 
 def get_restaurants(city_name: str, limit: int = 5) -> List[Dict]:
-    """使用 Overpass API 取得餐廳資訊（帶重試機制）"""
-    import time
-
-    max_retries = 2  # 最多重試 2 次
-    retry_delay = 2  # 重試間隔 2 秒
+    """用 Overpass API 撈附近餐廳，會自動重試"""
+    max_retries = 2
+    retry_delay = 2
 
     for attempt in range(max_retries):
         try:
@@ -264,7 +226,7 @@ def get_restaurants(city_name: str, limit: int = 5) -> List[Dict]:
 
 
 def _build_weather_bubble(destination: str, weather_data: Dict, flight_info: Dict) -> Dict:
-    """建立天氣預報卡片（使用品牌色設計）- 返回字典格式"""
+    """天氣卡片 Flex Bubble"""
     from api.linebot.design_system import FlightBotColors, FlightBotEmojis
 
     flight_no = flight_info.get("flight_no", "")
@@ -468,7 +430,7 @@ def _build_weather_bubble(destination: str, weather_data: Dict, flight_info: Dic
 
 
 def _build_attraction_bubble(attraction: Dict, destination: str) -> Dict:
-    """建立景點卡片（使用品牌色設計）- 使用字典格式"""
+    """景點卡片 Flex Bubble"""
     from api.linebot.design_system import FlightBotColors, FlightBotEmojis
 
     name = attraction.get("name", "未知景點")
@@ -622,7 +584,7 @@ def _build_attraction_bubble(attraction: Dict, destination: str) -> Dict:
 
 
 def _build_restaurant_bubble(restaurant: Dict, destination: str) -> Dict:
-    """建立餐廳卡片（使用品牌色設計）- 使用字典格式"""
+    """餐廳卡片 Flex Bubble"""
     from api.linebot.design_system import FlightBotColors
 
     name = restaurant.get("name", "未知餐廳")
@@ -757,7 +719,7 @@ def _build_restaurant_bubble(restaurant: Dict, destination: str) -> Dict:
 
 
 def build_travel_kit_flex(destination: str, flight_info: Dict) -> FlexSendMessage:
-    """建立旅遊小貼士 Carousel Flex Message（訂票後推播）"""
+    """組天氣+景點+餐廳的 Carousel"""
     from api.linebot.wiki_attractions import get_attractions_with_fallback
 
     bubbles = []
@@ -835,23 +797,8 @@ def build_travel_kit_flex(destination: str, flight_info: Dict) -> FlexSendMessag
     )
 
 
-# ============================================================================
-# 向後兼容：讓舊的 build_tips_flex_payload 也使用新版 Carousel 格式
-# ============================================================================
-
 def build_tips_flex_payload(destination: str, month: Optional[int] = None, flight_date: Optional[str] = None) -> Tuple[str, Dict]:
-    """
-    向後兼容函數：讓 richmenu_flow.py 的舊調用也能使用新版 Carousel 格式
-
-    參數：
-    - destination: 目的地城市名稱
-    - month: 月份（舊版參數，保留向後兼容）
-    - flight_date: 航班日期（格式：YYYY-MM-DD），用於天氣預報起始日期
-
-    返回：
-    - (alt_text, carousel): 元組，包含替代文字和 Carousel 字典
-    """
-    # 構造一個假的 flight_info（因為新版需要航班資訊）
+    """給 richmenu_flow.py 呼叫的，回傳 (alt_text, carousel)"""
     flight_info = {
         "flight_no": "",  # 空字串表示沒有航班號
         "airline": "",
