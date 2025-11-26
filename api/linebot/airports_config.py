@@ -1,22 +1,13 @@
 """
-api.linebot.airports_config
-
-統一管理機場和城市資料
-- 台灣機場定義
-- 國際城市座標
-- 機場代碼映射
-- 城市別名映射
-
-設計原則：Single Source of Truth (單一真實來源)
+機場和城市資料的統一管理
+所有機場代碼、城市座標都從這邊拿，避免到處寫死
 """
 
 from typing import Dict, List, Tuple, Optional
 
 
-# ==================== 台灣機場定義 ====================
-
 class TaiwanAirports:
-    """台灣機場統一定義"""
+    """台灣四大機場的基本資料"""
     
     AIRPORTS = {
         "TPE": {
@@ -51,33 +42,19 @@ class TaiwanAirports:
     
     @classmethod
     def get_aliases_dict(cls) -> Dict[str, str]:
-        """返回別名到機場代碼的映射（用於快速查找）
-        
-        Returns:
-            Dict[str, str]: {別名: 機場代碼}
-            例如：{"桃園": "TPE", "TPE": "TPE", "Taoyuan": "TPE"}
-        """
+        """把所有別名對應到機場代碼，方便查找"""
         result = {}
         for code, data in cls.AIRPORTS.items():
-            # 機場代碼本身
             result[code] = code
             result[code.upper()] = code
-            
-            # 所有別名
             for alias in data["aliases"]:
                 result[alias] = code
                 result[alias.upper()] = code
-        
         return result
     
     @classmethod
     def get_departure_options(cls) -> List[Tuple[str, str]]:
-        """返回 QuickReply 選項格式（用於 LINE Bot）
-        
-        Returns:
-            List[Tuple[str, str]]: [(機場代碼, 顯示名稱)]
-            例如：[("TPE", "桃園 (TPE)"), ...]
-        """
+        """給 LINE QuickReply 用的選項格式"""
         return [
             (code, f"{data['name_zh']} ({code})")
             for code, data in cls.AIRPORTS.items()
@@ -85,12 +62,7 @@ class TaiwanAirports:
     
     @classmethod
     def get_simple_options(cls) -> List[Tuple[str, str]]:
-        """返回簡單選項格式（用於內部查詢）
-
-        Returns:
-            List[Tuple[str, str]]: [(機場代碼, 中文名稱)]
-            例如：[("TPE", "桃園"), ...]
-        """
+        """簡單的 (代碼, 中文名) 格式"""
         return [
             (code, data['name_zh'])
             for code, data in cls.AIRPORTS.items()
@@ -98,14 +70,7 @@ class TaiwanAirports:
 
     @classmethod
     def get_airport_name(cls, airport_code: str) -> str:
-        """取得機場名稱（用於顯示）
-
-        Args:
-            airport_code: 機場代碼（如 TPE、TSA）
-
-        Returns:
-            str: 機場名稱（如 "桃園"、"松山"），找不到則返回原代碼
-        """
+        """拿機場中文名，找不到就回傳原代碼"""
         airport_code = airport_code.upper()
         if airport_code in cls.AIRPORTS:
             return cls.AIRPORTS[airport_code]["name_zh"]
@@ -113,11 +78,7 @@ class TaiwanAirports:
     
     @classmethod
     def get_keywords(cls) -> List[str]:
-        """返回所有台灣機場關鍵字（用於判斷是否為台灣機場）
-        
-        Returns:
-            List[str]: 所有台灣機場的代碼和別名
-        """
+        """所有台灣機場的關鍵字，用來判斷用戶輸入"""
         keywords = []
         for code, data in cls.AIRPORTS.items():
             keywords.append(code)
@@ -126,14 +87,7 @@ class TaiwanAirports:
     
     @classmethod
     def is_taiwan_airport(cls, location: str) -> bool:
-        """檢查是否為台灣機場
-        
-        Args:
-            location: 地點名稱或機場代碼
-            
-        Returns:
-            bool: 是否為台灣機場
-        """
+        """判斷是不是台灣的機場"""
         location_upper = location.upper()
         for code, data in cls.AIRPORTS.items():
             if code == location_upper:
@@ -143,10 +97,11 @@ class TaiwanAirports:
         return False
 
 
-# ==================== 國際城市定義 ====================
-
 class InternationalCities:
-    """國際城市統一定義（包含座標、別名、機場代碼）"""
+    """
+    國際城市資料，主要是亞洲熱門旅遊目的地
+    TODO: 之後可以考慮從 DB 或 config 讀取
+    """
     
     CITIES = {
         # 日本
@@ -286,25 +241,15 @@ class InternationalCities:
     
     @classmethod
     def get_coordinates_dict(cls) -> Dict[str, Dict[str, float]]:
-        """返回城市座標字典
-        
-        Returns:
-            Dict[str, Dict[str, float]]: {城市名: {"lat": 緯度, "lon": 經度}}
-        """
+        """拿城市座標，給天氣 API 用"""
         return {city: data["coords"] for city, data in cls.CITIES.items()}
     
     @classmethod
     def get_aliases_dict(cls) -> Dict[str, str]:
-        """返回別名到城市名的映射
-        
-        Returns:
-            Dict[str, str]: {別名: 城市名}
-        """
+        """別名對應表，像 Tokyo -> 東京"""
         result = {}
         for city, data in cls.CITIES.items():
-            # 城市名本身
             result[city] = city
-            # 所有別名
             for alias in data["aliases"]:
                 result[alias] = city
                 result[alias.upper()] = city
@@ -312,11 +257,7 @@ class InternationalCities:
     
     @classmethod
     def get_airport_to_city_map(cls) -> Dict[str, str]:
-        """返回機場代碼到城市名的映射
-
-        Returns:
-            Dict[str, str]: {機場代碼: 城市英文名}
-        """
+        """機場代碼對應城市，例如 NRT -> Tokyo"""
         result = {}
         for city, data in cls.CITIES.items():
             for airport in data["airports"]:
@@ -326,14 +267,7 @@ class InternationalCities:
 
     @classmethod
     def get_city_name(cls, airport_code: str) -> str:
-        """取得城市名稱（用於顯示）
-
-        Args:
-            airport_code: 機場代碼（如 NRT、HND）
-
-        Returns:
-            str: 城市名稱（如 "東京"、"大阪"），找不到則返回原代碼
-        """
+        """用機場代碼找城市中文名"""
         airport_code = airport_code.upper()
         for city, data in cls.CITIES.items():
             if airport_code in data.get("airports", []):

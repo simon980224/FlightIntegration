@@ -1,38 +1,36 @@
 """
-個人化行程規劃模組
-功能：使用 Google Gemini 1.5 Flash 生成個人化旅行行程
+行程規劃功能 - 用 Gemini AI 生成旅遊行程
 """
 
 import json
 import logging
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Dict, List, Optional
 from pathlib import Path
 import google.generativeai as genai
 
 logger = logging.getLogger(__name__)
 
-# JSON 文件路徑
+# 行程資料存在這
 TRIP_PLANS_FILE = Path("data/trip_plans.json")
 TRIP_PLANS_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-# 配置 Google AI
+
 def _configure_gemini():
-    """配置 Gemini API"""
+    """設定 Gemini API key"""
     try:
         from service.linebot_service import load_config
         config = load_config()
         api_key = config.get('google_ai', {}).get('api_key')
 
+        # TODO: 正式環境要把 API key 移到環境變數
         if not api_key:
-            # 如果配置文件中沒有，使用硬編碼的 API Key（臨時方案）
             api_key = "AIzaSyBfjcbSyaQaSyrc2z7VuWVoCjUDXkUIiXk"
 
         genai.configure(api_key=api_key)
-        logger.info("✅ Gemini API 配置成功")
+        logger.info("Gemini API 配置完成")
     except Exception as e:
-        logger.error(f"❌ Gemini API 配置失敗: {e}")
-        # 使用硬編碼的 API Key 作為備用
+        logger.error(f"Gemini API 配置失敗: {e}")
         genai.configure(api_key="AIzaSyBfjcbSyaQaSyrc2z7VuWVoCjUDXkUIiXk")
 
 
@@ -43,56 +41,39 @@ def generate_trip_plan(
     departure_date: str,
     weather_data: Optional[Dict] = None
 ) -> Dict:
-    """
-    使用 Google Gemini 1.5 Flash 生成個人化行程
-    
-    參數：
-    - destination: 目的地城市
-    - days: 旅行天數
-    - trip_type: 行程類型（美食、文化、購物、自然、綜合）
-    - departure_date: 出發日期（ISO 格式）
-    - weather_data: 天氣預報資料（可選）
-    
-    返回：
-    - 行程 JSON 資料
-    """
+    """用 Gemini 產生行程，會根據天氣調整"""
     try:
         _configure_gemini()
         
-        # 準備天氣資訊
         weather_info = ""
         if weather_data:
             weather_info = _format_weather_for_prompt(weather_data)
         
-        # 構建 prompt
         prompt = _build_trip_plan_prompt(destination, days, trip_type, departure_date, weather_info)
         
-        # 調用 Gemini API（使用最新的 Flash 模型）
+        # 用 Gemini 2.5 Flash，速度快又便宜
         model = genai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content(prompt)
         
-        # 解析回應
         trip_plan = _parse_gemini_response(response.text)
         
-        # 添加元資料
         trip_plan["destination"] = destination
         trip_plan["days"] = days
         trip_plan["trip_type"] = trip_type
         trip_plan["departure_date"] = departure_date
         trip_plan["created_at"] = datetime.now().isoformat()
         
-        logger.info(f"✅ 成功生成 {destination} {days}天 {trip_type} 行程")
+        logger.info(f"生成行程: {destination} {days}天 {trip_type}")
         return trip_plan
         
     except Exception as e:
-        logger.error(f"❌ 生成行程失敗: {e}")
-        import traceback
-        logger.error(traceback.format_exc())
+        # Gemini 掛了就用預設行程
+        logger.error(f"生成行程失敗: {e}")
         return _get_fallback_plan(destination, days, trip_type)
 
 
 def _build_trip_plan_prompt(destination: str, days: int, trip_type: str, departure_date: str, weather_info: str) -> str:
-    """構建 Gemini prompt"""
+    """組 prompt 給 Gemini"""
     
     trip_type_map = {
         "food": "美食之旅",
@@ -159,7 +140,7 @@ def _build_trip_plan_prompt(destination: str, days: int, trip_type: str, departu
 
 
 def _format_weather_for_prompt(weather_data: Dict) -> str:
-    """格式化天氣資料為 prompt"""
+    """把天氣資料整理成文字給 prompt 用"""
     try:
         times = weather_data.get("time", [])
         max_temps = weather_data.get("temperature_2m_max", [])
@@ -182,9 +163,9 @@ def _format_weather_for_prompt(weather_data: Dict) -> str:
 
 
 def _parse_gemini_response(response_text: str) -> Dict:
-    """解析 Gemini 回應"""
+    """把 Gemini 回的文字轉成 JSON"""
     try:
-        # 移除可能的 markdown 代碼塊標記
+        # Gemini 有時候會包 markdown code block
         response_text = response_text.strip()
         if response_text.startswith("```json"):
             response_text = response_text[7:]
@@ -193,20 +174,15 @@ def _parse_gemini_response(response_text: str) -> Dict:
         if response_text.endswith("```"):
             response_text = response_text[:-3]
 
-        response_text = response_text.strip()
-
-        # 解析 JSON
-        trip_plan = json.loads(response_text)
-        return trip_plan
+        return json.loads(response_text.strip())
 
     except json.JSONDecodeError as e:
-        logger.error(f"JSON 解析失敗: {e}")
-        logger.error(f"原始回應: {response_text[:500]}")
+        logger.error(f"JSON 解析失敗: {e}, 回應: {response_text[:200]}")
         raise
 
 
 def _get_fallback_plan(destination: str, days: int, trip_type: str) -> Dict:
-    """備用行程（當 API 失敗時）"""
+    """Gemini 掛掉時的備用行程"""
     return {
         "destination": destination,
         "days": days,
@@ -245,46 +221,34 @@ def _get_fallback_plan(destination: str, days: int, trip_type: str) -> Dict:
 
 
 def save_trip_plan(line_user_id: str, ticket_id: int, trip_plan: Dict, push_time: str = "08:00") -> str:
-    """
-    儲存行程到 JSON 文件
-
-    參數：
-    - push_time: 每日推播時間（格式：HH:MM，例如 "08:00"）
-
-    返回：
-    - trip_plan_id: 行程 ID
-    """
+    """存行程到 JSON 檔，回傳 trip_plan_id"""
     try:
-        # 生成行程 ID
         trip_plan_id = f"{line_user_id}_{ticket_id}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
 
-        # 載入現有行程
         trip_plans = []
         if TRIP_PLANS_FILE.exists():
             with open(TRIP_PLANS_FILE, 'r', encoding='utf-8') as f:
                 trip_plans = json.load(f)
 
-        # 添加新行程
         trip_plan["trip_plan_id"] = trip_plan_id
         trip_plan["line_user_id"] = line_user_id
         trip_plan["ticket_id"] = ticket_id
-        trip_plan["push_time"] = push_time  # 儲存推播時間
+        trip_plan["push_time"] = push_time
         trip_plans.append(trip_plan)
 
-        # 儲存
         with open(TRIP_PLANS_FILE, 'w', encoding='utf-8') as f:
             json.dump(trip_plans, f, ensure_ascii=False, indent=2)
 
-        logger.info(f"✅ 行程已儲存: {trip_plan_id}, 推播時間: {push_time}")
+        logger.info(f"行程已儲存: {trip_plan_id}")
         return trip_plan_id
 
-    except Exception as e:
-        logger.error(f"❌ 儲存行程失敗: {e}")
+    except (IOError, json.JSONDecodeError) as e:
+        logger.error(f"儲存行程失敗: {e}")
         return ""
 
 
 def get_trip_plan(trip_plan_id: str) -> Optional[Dict]:
-    """取得行程資料"""
+    """用 ID 拿行程"""
     try:
         if not TRIP_PLANS_FILE.exists():
             return None
@@ -304,7 +268,7 @@ def get_trip_plan(trip_plan_id: str) -> Optional[Dict]:
 
 
 def get_user_trip_plans(line_user_id: str) -> List[Dict]:
-    """取得用戶的所有行程"""
+    """拿某用戶的所有行程"""
     try:
         if not TRIP_PLANS_FILE.exists():
             return []
@@ -320,16 +284,7 @@ def get_user_trip_plans(line_user_id: str) -> List[Dict]:
 
 
 def _build_google_maps_uri(activity: str, destination: str) -> str:
-    """
-    建立 Google Maps URI
-
-    參數：
-    - activity: 活動名稱
-    - destination: 目的地
-
-    返回：
-    - Google Maps URI
-    """
+    """組 Google Maps 搜尋連結"""
     from urllib.parse import quote
 
     # 如果活動名稱為空，使用目的地
@@ -346,17 +301,8 @@ def _build_google_maps_uri(activity: str, destination: str) -> str:
 
 
 def build_daily_trip_flex(day_plan: Dict, weather_today: Optional[Dict] = None) -> Dict:
-    """
-    建立每日行程 Flex Message（Bubble 格式）
-
-    參數：
-    - day_plan: 當日行程資料
-    - weather_today: 當日天氣資料
-
-    返回：
-    - Bubble 格式的 Flex Message
-    """
-    from api.linebot.design_system import FlightBotColors, FlightBotEmojis
+    """產生每日行程的 Flex Message bubble"""
+    from api.linebot.design_system import FlightBotColors
 
     day = day_plan.get("day", 1)
     date = day_plan.get("date", "")
@@ -458,7 +404,7 @@ def build_daily_trip_flex(day_plan: Dict, weather_today: Optional[Dict] = None) 
 
 
 def _build_activity_section(time_label: str, activity: Dict) -> Dict:
-    """建立活動區塊"""
+    """早上/下午/晚上的活動區塊"""
     from api.linebot.design_system import FlightBotColors
 
     time = activity.get("time", "")

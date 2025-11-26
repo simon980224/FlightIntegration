@@ -1,13 +1,11 @@
-# api.linebot.line_binding_repository
-# LINE 綁定服務（MSSQL / pymssql）
-# - 使用 User.User_LineId 欄位進行綁定
-# - 提供查詢與更新 User.User_LineId 的方法
+# LINE 帳號綁定功能
+# 把 LINE user_id 存到 User.User_LineId 欄位
 
 import pymssql
 from typing import Optional
-from datetime import datetime
 
-# 與 ticket_service 共用相同 DB 設定
+# DB 連線設定（跟 ticket_service 一樣）
+# FIXME: 之後應該改成從環境變數讀取
 conn_args = {
     "server": "140.131.114.241",
     "user": "adminfid",
@@ -17,7 +15,7 @@ conn_args = {
 
 
 def get_user_id_by_line(line_user_id: str) -> Optional[str]:
-    """用 LINE user_id 查綁定的網站 User_Id；查不到回 None"""
+    """用 LINE user_id 查綁定的網站帳號，沒綁定就回 None"""
     conn = None
     cursor = None
     try:
@@ -26,23 +24,19 @@ def get_user_id_by_line(line_user_id: str) -> Optional[str]:
         cursor.execute("SELECT User_Id FROM [User] WHERE User_LineId = %s", (line_user_id,))
         row = cursor.fetchone()
         return row[0] if row else None
-    except Exception:
+    except pymssql.Error:
         return None
     finally:
-        try:
-            if cursor: cursor.close()
-        finally:
-            if conn: conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
 def bind_line_user(user_id: str, line_user_id: str) -> dict:
-    """建立或更新綁定：更新 User.User_LineId 欄位
-
-    確保一對一關係：
-    - 先檢查該 LINE ID 是否已被其他帳號綁定
-    - 更新指定 User_Id 的 User_LineId 欄位
-
-    回傳 {success: bool, error?: str, message?: str}
+    """
+    綁定 LINE 帳號到網站帳號
+    一個 LINE 只能綁一個網站帳號，要先檢查有沒有重複
     """
     conn = None
     cursor = None
@@ -50,49 +44,42 @@ def bind_line_user(user_id: str, line_user_id: str) -> dict:
         conn = pymssql.connect(**conn_args)
         cursor = conn.cursor()
 
-        # 檢查該 LINE ID 是否已被其他帳號綁定
+        # 先看這個 LINE 有沒有被別人綁走
         cursor.execute(
             "SELECT User_Id FROM [User] WHERE User_LineId = %s AND User_Id != %s",
             (line_user_id, user_id)
         )
-        existing = cursor.fetchone()
-        if existing:
+        if cursor.fetchone():
             return {
                 "success": False,
                 "error": "此 LINE 帳號已綁定其他使用者",
                 "message": "此 LINE 帳號已綁定其他使用者，請先解除綁定"
             }
 
-        # 更新 User.User_LineId
         cursor.execute(
             "UPDATE [User] SET User_LineId = %s, Modify_At = GETDATE() WHERE User_Id = %s",
             (line_user_id, user_id)
         )
 
         if cursor.rowcount == 0:
-            return {
-                "success": False,
-                "error": "使用者不存在",
-                "message": "找不到該使用者"
-            }
+            return {"success": False, "error": "使用者不存在", "message": "找不到該使用者"}
 
         conn.commit()
         return {"success": True, "message": "綁定成功"}
 
-    except Exception as e:
-        try:
-            if conn: conn.rollback()
-        finally:
-            return {"success": False, "error": str(e)}
+    except pymssql.Error as e:
+        if conn:
+            conn.rollback()
+        return {"success": False, "error": str(e)}
     finally:
-        try:
-            if cursor: cursor.close()
-        finally:
-            if conn: conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
 def unbind_by_user(user_id: str) -> dict:
-    """依網站 User_Id 解除綁定（將 User_LineId 設為 NULL）"""
+    """用網站帳號解除綁定"""
     conn = None
     cursor = None
     try:
@@ -104,20 +91,19 @@ def unbind_by_user(user_id: str) -> dict:
         )
         conn.commit()
         return {"success": True, "message": "解除綁定成功"}
-    except Exception as e:
-        try:
-            if conn: conn.rollback()
-        finally:
-            return {"success": False, "error": str(e)}
+    except pymssql.Error as e:
+        if conn:
+            conn.rollback()
+        return {"success": False, "error": str(e)}
     finally:
-        try:
-            if cursor: cursor.close()
-        finally:
-            if conn: conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 
 
 def unbind_by_line(line_user_id: str) -> dict:
-    """依 LINE user_id 解除綁定（將 User_LineId 設為 NULL）"""
+    """用 LINE ID 解除綁定"""
     conn = None
     cursor = None
     try:
@@ -129,14 +115,13 @@ def unbind_by_line(line_user_id: str) -> dict:
         )
         conn.commit()
         return {"success": True, "message": "解除綁定成功"}
-    except Exception as e:
-        try:
-            if conn: conn.rollback()
-        finally:
-            return {"success": False, "error": str(e)}
+    except pymssql.Error as e:
+        if conn:
+            conn.rollback()
+        return {"success": False, "error": str(e)}
     finally:
-        try:
-            if cursor: cursor.close()
-        finally:
-            if conn: conn.close()
+        if cursor:
+            cursor.close()
+        if conn:
+            conn.close()
 

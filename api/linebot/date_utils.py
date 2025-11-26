@@ -1,10 +1,6 @@
 """
-api.linebot.date_utils
-
-統一的日期解析工具模組
-提供日期解析、格式化等功能
-
-設計原則：DRY (Don't Repeat Yourself)
+日期解析工具
+處理用戶輸入的各種日期格式，像是「明天」「8/7」「8月7日」
 """
 
 import re
@@ -13,24 +9,9 @@ from typing import Tuple, Optional
 
 
 def extract_date_from_message(message: str) -> Tuple[Optional[str], str]:
-    """從訊息中提取日期（支援多種格式）
-    
-    支援格式：
-    - "8月7日"、"8/7"
-    - "明天"、"後天"、"下週一"
-    - "下個月"、"下月"
-    
-    Args:
-        message: 用戶輸入的訊息
-        
-    Returns:
-        Tuple[Optional[str], str]: (解析的日期 YYYY-MM-DD, 移除日期後的訊息)
-        
-    Example:
-        >>> extract_date_from_message("8月7日桃園到東京")
-        ('2025-08-07', '桃園到東京')
-        >>> extract_date_from_message("明天台北到首爾")
-        ('2025-01-16', '台北到首爾')
+    """
+    從用戶訊息裡把日期抓出來
+    回傳 (日期字串, 剩下的訊息)
     """
     parsed_date = None
     message_without_date = message
@@ -101,26 +82,9 @@ def extract_date_from_message(message: str) -> Tuple[Optional[str], str]:
 
 
 def parse_month_from_text(text: str) -> Optional[int]:
-    """從文字中解析月份
-
-    支援格式：
-    - "8月"、"08月"、"八月"
-    - "下下個月"、"下個月"、"下月"、"本月"、"這個月"、"今月"
-    - 數字 "8"（需伴隨月份語境詞）
-
-    Args:
-        text: 用戶輸入的文字
-
-    Returns:
-        Optional[int]: 月份（1-12），若無法解析則返回 None
-
-    Example:
-        >>> parse_month_from_text("8月")
-        8
-        >>> parse_month_from_text("下個月")
-        2  # 假設現在是1月
-        >>> parse_month_from_text("下下個月")
-        3  # 假設現在是1月
+    """
+    解析月份，支援「8月」「下個月」「八月」等格式
+    回傳 1-12，解析失敗回 None
     """
     if not text:
         return None
@@ -178,23 +142,8 @@ def parse_month_from_text(text: str) -> Optional[int]:
 
 
 def format_date_display(date_value, format_type='full') -> str:
-    """格式化日期顯示
-    
-    Args:
-        date_value: 日期值（datetime、str、或其他）
-        format_type: 格式類型
-            - 'full': 2025年01月15日
-            - 'short': 01/15
-            - 'iso': 2025-01-15
-            
-    Returns:
-        str: 格式化後的日期字串
-        
-    Example:
-        >>> format_date_display(datetime(2025, 1, 15), 'full')
-        '2025年01月15日'
-        >>> format_date_display('2025-01-15', 'short')
-        '01/15'
+    """
+    日期格式化，full=中文全格式，short=MM/DD，iso=YYYY-MM-DD
     """
     try:
         # 轉換為 datetime 物件
@@ -221,21 +170,7 @@ def format_date_display(date_value, format_type='full') -> str:
 
 
 def format_time_display(time_value, show_date=True) -> str:
-    """格式化時間顯示
-    
-    Args:
-        time_value: 時間值（datetime、str、或其他）
-        show_date: 是否顯示日期
-        
-    Returns:
-        str: 格式化後的時間字串
-        
-    Example:
-        >>> format_time_display(datetime(2025, 1, 15, 14, 30), show_date=True)
-        '2025-01-15 14:30'
-        >>> format_time_display(datetime(2025, 1, 15, 14, 30), show_date=False)
-        '14:30'
-    """
+    """時間格式化，可選是否帶日期"""
     try:
         # 轉換為 datetime 物件
         if isinstance(time_value, str):
@@ -256,20 +191,7 @@ def format_time_display(time_value, show_date=True) -> str:
 
 
 def is_valid_date(date_str: str) -> bool:
-    """檢查日期字串是否有效
-    
-    Args:
-        date_str: 日期字串（YYYY-MM-DD 格式）
-        
-    Returns:
-        bool: 是否為有效日期
-        
-    Example:
-        >>> is_valid_date('2025-01-15')
-        True
-        >>> is_valid_date('2025-13-01')
-        False
-    """
+    """檢查 YYYY-MM-DD 格式是否合法"""
     try:
         datetime.fromisoformat(date_str)
         return True
@@ -278,19 +200,7 @@ def is_valid_date(date_str: str) -> bool:
 
 
 def get_date_range(start_date: str, days: int) -> list:
-    """取得日期範圍
-    
-    Args:
-        start_date: 起始日期（YYYY-MM-DD 格式）
-        days: 天數
-        
-    Returns:
-        list: 日期列表（YYYY-MM-DD 格式）
-        
-    Example:
-        >>> get_date_range('2025-01-15', 3)
-        ['2025-01-15', '2025-01-16', '2025-01-17']
-    """
+    """產生連續日期列表"""
     try:
         start = datetime.fromisoformat(start_date)
         return [

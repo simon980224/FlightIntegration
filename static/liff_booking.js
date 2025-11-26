@@ -1,4 +1,4 @@
-// LIFF 訂票頁面邏輯
+// LIFF 訂票頁面
 let liffId = null;
 let lineUserId = null;
 let flightData = null;
@@ -7,143 +7,90 @@ let selectedCabinPrice = 0;
 let selectedSeats = [];
 let currentStep = 1;
 
-// 費用常數（與 ticket_service.py 一致）
+// 費用（要跟 ticket_service.py 一致）
 const fees = {
     airportTax: 500,
     fuelSurcharge: 800,
     serviceFee: 200
 };
 
-// 艙等價格（假票價）
+// 艙等票價
 const cabinPrices = {
     economy: 5000,
     business: 12500,
     first: 20000
 };
 
-// ===== LIFF 初始化 =====
 async function initializeLIFF() {
     try {
-        console.log('🚀 [LIFF] 開始初始化...');
+        console.log('[LIFF] 初始化開始');
 
-        // 從後端取得 LIFF ID
-        console.log('📡 [LIFF] 正在取得 LIFF 配置...');
+        // 拿 LIFF ID
         const configResponse = await fetch('/api/liff/config');
-        console.log('📡 [LIFF] 配置回應狀態:', configResponse.status);
-
         const config = await configResponse.json();
         liffId = config.liff_id;
-        console.log('✅ [LIFF] LIFF ID:', liffId);
 
         if (!liffId || liffId.includes('請在')) {
-            console.error('❌ [LIFF] LIFF ID 未設定');
             alert('LIFF 尚未設定，請聯絡管理員');
             return;
         }
 
-        // 初始化 LIFF
-        console.log('🔧 [LIFF] 正在初始化 LIFF SDK...');
         await liff.init({ liffId: liffId });
-        console.log('✅ [LIFF] LIFF SDK 初始化成功');
 
         if (!liff.isLoggedIn()) {
-            console.log('🔐 [LIFF] 用戶未登入，跳轉到登入頁面');
             liff.login();
             return;
         }
 
-        // 取得 LINE 使用者資訊
-        console.log('👤 [LIFF] 正在取得用戶資訊...');
         const profile = await liff.getProfile();
         lineUserId = profile.userId;
-        console.log('✅ [LIFF] 用戶 ID:', lineUserId);
+        console.log('[LIFF] user:', lineUserId);
 
-        // 從 URL 參數取得 flight_id（LIFF 會把參數包在 liff.state 裡）
-        let flightId = null;
-
-        // 方法 1：從 liff.state 取得（LIFF 會自動處理）
+        // 從 URL 拿 flight_id（LIFF 會包在 liff.state 裡）
         const urlParams = new URLSearchParams(window.location.search);
         const liffState = urlParams.get('liff.state');
+        let flightId = null;
 
         if (liffState) {
-            // liff.state 格式：?flight_id=XXX 或 flight_id=XXX
             const stateParams = new URLSearchParams(liffState.startsWith('?') ? liffState.substring(1) : liffState);
             flightId = stateParams.get('flight_id');
         }
-
-        // 方法 2：直接從 URL 參數取得（備用）
         if (!flightId) {
             flightId = urlParams.get('flight_id');
         }
 
-        console.log('🔍 [LIFF] liffState:', liffState);
-        console.log('🔍 [LIFF] flightId:', flightId);
-
         if (!flightId) {
-            console.error('❌ [LIFF] 缺少航班 ID');
             alert('缺少航班資訊');
             return;
         }
 
-        // 載入航班資訊
-        console.log('✈️ [LIFF] 正在載入航班資訊...');
         await loadFlightData(flightId);
-        console.log('✅ [LIFF] 航班資訊載入完成');
 
-        // 隱藏 loading，顯示主內容
-        console.log('🎨 [LIFF] 顯示主內容');
         document.getElementById('loading').style.display = 'none';
         document.getElementById('main-content').style.display = 'block';
-
-        // 初始化艙等選項
-        console.log('🎫 [LIFF] 初始化艙等選項');
         initializeCabinOptions();
-        console.log('✅ [LIFF] 初始化完成！');
 
     } catch (error) {
-        console.error('❌ [LIFF] 初始化失敗:', error);
-        console.error('❌ [LIFF] 錯誤堆疊:', error.stack);
-        alert('載入失敗：' + error.message + '\n請稍後再試');
+        console.error('[LIFF] 初始化失敗:', error);
+        alert('載入失敗：' + error.message);
     }
 }
 
-// ===== 載入航班資訊 =====
 async function loadFlightData(flightId) {
-    try {
-        console.log('📡 [API] 正在載入航班資訊，flight_id:', flightId);
-        const apiUrl = `/api/flight/${flightId}`;
-        console.log('📡 [API] 請求 URL:', apiUrl);
-
-        const response = await fetch(apiUrl);
-        console.log('📡 [API] 回應狀態:', response.status);
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-
-        const result = await response.json();
-        console.log('📡 [API] API 回應:', result);
-
-        if (!result.success) {
-            throw new Error(result.message || '載入航班資訊失敗');
-        }
-
-        flightData = result.data;
-        console.log('✅ [API] 航班資料:', flightData);
-
-        console.log('🎨 [UI] 正在顯示航班資訊...');
-        displayFlightInfo();
-        console.log('✅ [UI] 航班資訊顯示完成');
-
-    } catch (error) {
-        console.error('❌ [API] 載入航班資訊失敗:', error);
-        console.error('❌ [API] 錯誤堆疊:', error.stack);
-        alert('載入航班資訊失敗: ' + error.message);
-        throw error;
+    const response = await fetch(`/api/flight/${flightId}`);
+    if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
     }
+
+    const result = await response.json();
+    if (!result.success) {
+        throw new Error(result.message || '載入航班失敗');
+    }
+
+    flightData = result.data;
+    displayFlightInfo();
 }
 
-// ===== 顯示航班資訊 =====
 function displayFlightInfo() {
     const container = document.getElementById('flight-info');
     container.innerHTML = `
@@ -171,7 +118,6 @@ function displayFlightInfo() {
     `;
 }
 
-// ===== 初始化艙等選項 =====
 function initializeCabinOptions() {
     const container = document.getElementById('cabin-options');
     const cabins = [
@@ -193,7 +139,6 @@ function initializeCabinOptions() {
     `).join('');
 }
 
-// ===== 選擇艙等 =====
 function selectCabin(cabin, price) {
     selectedCabin = cabin;
     selectedCabinPrice = price;
@@ -205,14 +150,12 @@ function selectCabin(cabin, price) {
     document.querySelector(`[data-cabin="${cabin}"]`).classList.add('selected');
 }
 
-// ===== 格式化時間 =====
 function formatTime(timeStr) {
     if (!timeStr) return 'N/A';
     const date = new Date(timeStr);
     return date.toLocaleTimeString('zh-TW', { hour: '2-digit', minute: '2-digit' });
 }
 
-// ===== 步驟切換 =====
 function nextStep(step) {
     if (step === 2 && !selectedCabin) {
         alert('請先選擇艙等');
@@ -250,7 +193,6 @@ function prevStep(step) {
     currentStep = step;
 }
 
-// ===== 初始化座位圖 =====
 function initializeSeatMap() {
     const container = document.getElementById('seat-map');
     const rows = 10; // 10排座位
@@ -277,7 +219,6 @@ function initializeSeatMap() {
     container.innerHTML = html;
 }
 
-// ===== 選擇/取消座位 =====
 function toggleSeat(seatId, isOccupied) {
     if (isOccupied) {
         alert('此座位已被佔用');
@@ -305,7 +246,6 @@ function toggleSeat(seatId, isOccupied) {
     document.getElementById('seat-count').textContent = selectedSeats.length || 1;
 }
 
-// ===== 初始化乘客表單 =====
 function initializePassengerForms() {
     const container = document.getElementById('passenger-forms');
     const count = selectedSeats.length;
@@ -335,7 +275,6 @@ function initializePassengerForms() {
     generatePriceBreakdown();
 }
 
-// ===== 生成費用明細 =====
 function generatePriceBreakdown() {
     const ticketCount = selectedSeats.length;
     const baseFare = selectedCabinPrice * ticketCount;
@@ -375,9 +314,8 @@ function generatePriceBreakdown() {
     if (container4) container4.innerHTML = html;
 }
 
-// ===== 初始化付款表單（第4步）=====
 function initializePaymentForm() {
-    // 創建 3D 信用卡
+    // 3D 信用卡動畫
     const cardContainer = document.getElementById('credit-card-container');
     cardContainer.innerHTML = `
         <div class="credit-card-3d" id="credit-card-3d">
@@ -413,7 +351,6 @@ function initializePaymentForm() {
     generatePriceBreakdown();
 }
 
-// ===== 設置信用卡輸入處理器 =====
 function setupCardInputHandlers() {
     const card3D = document.getElementById('credit-card-3d');
     const cardNumberInput = document.getElementById('card-number');
@@ -421,7 +358,7 @@ function setupCardInputHandlers() {
     const cardExpiryInput = document.getElementById('card-expiry');
     const cardCvvInput = document.getElementById('card-cvv');
 
-    // 卡號輸入
+    // 卡號（自動加空格）
     cardNumberInput.addEventListener('input', function(e) {
         let value = e.target.value.replace(/\s/g, '').replace(/\D/g, '');
         let formattedValue = value.match(/.{1,4}/g)?.join(' ') || value;
@@ -438,7 +375,7 @@ function setupCardInputHandlers() {
         if (card3D) card3D.classList.remove('flipped');
     });
 
-    // 持卡人姓名輸入
+    // 持卡人
     cardHolderInput.addEventListener('input', function(e) {
         const value = e.target.value.toUpperCase();
         const display = document.getElementById('card-holder-display');
@@ -451,7 +388,7 @@ function setupCardInputHandlers() {
         if (card3D) card3D.classList.remove('flipped');
     });
 
-    // 有效期限輸入
+    // 有效期限
     cardExpiryInput.addEventListener('input', function(e) {
         let value = e.target.value.replace(/\D/g, '');
         if (value.length >= 2) {
@@ -469,7 +406,7 @@ function setupCardInputHandlers() {
         if (card3D) card3D.classList.remove('flipped');
     });
 
-    // CVV 輸入（翻轉卡片）
+    // CVV（會翻轉卡片）
     cardCvvInput.addEventListener('input', function(e) {
         let value = e.target.value.replace(/\D/g, '').slice(0, 3);
         e.target.value = value;
@@ -489,9 +426,8 @@ function setupCardInputHandlers() {
     });
 }
 
-// ===== 確認訂票 =====
 async function confirmBooking() {
-    // 驗證信用卡資訊
+    // 驗證信用卡
     const cardNumber = document.getElementById('card-number').value.trim();
     const cardHolder = document.getElementById('card-holder').value.trim();
     const cardExpiry = document.getElementById('card-expiry').value.trim();
@@ -502,26 +438,22 @@ async function confirmBooking() {
         return;
     }
 
-    // 驗證卡號格式（16碼數字）
+    // 基本驗證
     const cardNumberDigits = cardNumber.replace(/\s/g, '');
     if (!/^\d{16}$/.test(cardNumberDigits)) {
         alert('卡號必須為16碼數字');
         return;
     }
-
-    // 驗證有效期限格式（MM/YY）
     if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
         alert('有效期限格式錯誤（例：12/25）');
         return;
     }
-
-    // 驗證 CVV 格式（3碼數字）
     if (!/^\d{3}$/.test(cardCvv)) {
         alert('安全碼必須為3碼數字');
         return;
     }
 
-    // 驗證乘客資訊
+    // 乘客資訊
     const passengers = [];
     for (let i = 0; i < selectedSeats.length; i++) {
         const name = document.getElementById(`passenger-name-${i}`).value.trim();
@@ -532,25 +464,22 @@ async function confirmBooking() {
             return;
         }
 
-        // 驗證電話格式
-        const phoneRegex = /^[0-9]{10}$/;
-        if (!phoneRegex.test(phone)) {
-            alert(`乘客 ${i + 1} 的電話必須為10碼數字（例：0912345678）`);
+        if (!/^[0-9]{10}$/.test(phone)) {
+            alert(`乘客 ${i + 1} 的電話必須為10碼數字`);
             return;
         }
 
         passengers.push({ name, phone, seat: selectedSeats[i] });
     }
 
-    // 計算總金額
+    // 算錢
     const ticketCount = selectedSeats.length;
     const baseFare = selectedCabinPrice * ticketCount;
     const totalAmount = baseFare + (fees.airportTax * ticketCount) +
                         (fees.fuelSurcharge * ticketCount) + (fees.serviceFee * ticketCount);
 
-    // 準備訂票資料
     const bookingData = {
-        Flight_Id: flightData.Flight_Id,  // 修正：使用 Flight_Id 而非 Id
+        Flight_Id: flightData.Flight_Id,
         Cabin: selectedCabin,
         Price: totalAmount,
         Holder_Name: passengers[0].name,
@@ -558,43 +487,30 @@ async function confirmBooking() {
         line_user_id: lineUserId
     };
 
-    console.log('🎫 [訂票] 訂票資料:', bookingData);
-    console.log('🎫 [訂票] LINE User ID:', lineUserId);
-    console.log('🎫 [訂票] LINE User ID 類型:', typeof lineUserId);
-    console.log('🎫 [訂票] LINE User ID 長度:', lineUserId ? lineUserId.length : 0);
-
     try {
-        // 顯示處理中訊息
-        if (confirm(`確認付款並訂購 ${flightData.No} 航班？\n總金額：NT$ ${totalAmount.toLocaleString()}\n\n信用卡：${cardNumber}\n持卡人：${cardHolder}`)) {
-            console.log('📡 [訂票] 正在發送訂票請求...');
+        if (!confirm(`確認訂購 ${flightData.No}？\n總金額：NT$ ${totalAmount.toLocaleString()}`)) {
+            return;
+        }
 
-            const response = await fetch('/api/ticket/insert_liff', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(bookingData)
-            });
+        const response = await fetch('/api/ticket/insert_liff', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(bookingData)
+        });
 
-            console.log('📡 [訂票] 回應狀態:', response.status);
-            const result = await response.json();
-            console.log('📡 [訂票] 回應結果:', result);
+        const result = await response.json();
 
-            if (result.success) {
-                console.log('✅ [訂票] 訂票成功！');
-                alert('✅ 付款成功！訂票完成！');
-                // 關閉 LIFF 視窗
-                liff.closeWindow();
-            } else {
-                console.error('❌ [訂票] 訂票失敗:', result.message);
-                alert(`❌ 訂票失敗：${result.message || '未知錯誤'}`);
-            }
+        if (result.success) {
+            alert('✅ 訂票成功！');
+            liff.closeWindow();
+        } else {
+            alert(`❌ 訂票失敗：${result.message || '未知錯誤'}`);
         }
     } catch (error) {
-        console.error('❌ [訂票] 訂票異常:', error);
-        console.error('❌ [訂票] 錯誤堆疊:', error.stack);
+        console.error('[訂票] 錯誤:', error);
         alert('❌ 訂票失敗，請稍後再試');
     }
 }
 
-// 頁面載入時初始化 LIFF
 window.addEventListener('DOMContentLoaded', initializeLIFF);
 
