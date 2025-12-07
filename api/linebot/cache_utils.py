@@ -41,12 +41,8 @@ def cache_clear_expired(cache: Dict[str, Tuple[float, Any]], ttl_seconds: int) -
     return len(expired_keys)
 
 
-def cache_size(cache: Dict[str, Tuple[float, Any]]) -> int:
-    """快取裡有幾筆資料"""
-    return len(cache)
 
 
-def cache_keys(cache: Dict[str, Tuple[float, Any]]) -> list:
-    """列出所有快取的 key"""
-    return list(cache.keys())
+
+
 

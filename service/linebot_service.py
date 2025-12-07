@@ -16,7 +16,7 @@ from api.linebot.constants import (
     ERROR_SEARCH_FAILED, ERROR_INVALID_INPUT, ERROR_SYSTEM_ERROR,
     GUIDE_SEARCH_FORMAT, CACHE_CLEANUP_INTERVAL, LOG_WORKER_SHUTDOWN_TIMEOUT
 )
-from api.linebot.cache_utils import cache_clear_expired
+from api.linebot.cache_utils import cache_get, cache_set, cache_clear_expired
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +44,6 @@ _log_worker_shutdown = False
 # 航班快取 (5分鐘)
 _flight_cache = {}
 _flight_cache_timeout = 300
-_last_cache_cleanup = time.time()
-_cache_cleanup_interval = 600
 
 from api.linebot.airports_config import TaiwanAirports, InternationalCities
 TAIWAN_AIRPORT_ALIASES = TaiwanAirports.get_aliases_dict()
@@ -103,20 +101,10 @@ def shutdown_log_worker():
 
 
 def _cleanup_expired_cache():
-    global _last_cache_cleanup, _flight_cache
-    current_time = time.time()
-    if current_time - _last_cache_cleanup < _cache_cleanup_interval:
-        return
-    
-    # 清掉過期的
-    expired_keys = [k for k, (ts, _) in _flight_cache.items() 
-                    if current_time - ts > _flight_cache_timeout]
-    for key in expired_keys:
-        del _flight_cache[key]
-    
-    _last_cache_cleanup = current_time
-    if expired_keys:
-        print(f"[Cache] 清了 {len(expired_keys)} 筆")
+    """定期清理過期快取"""
+    cleared = cache_clear_expired(_flight_cache, _flight_cache_timeout)
+    if cleared:
+        print(f"[Cache] 清了 {cleared} 筆")
 
 def _insert_api_log_db_sync(line_id: str, req: str, resp: str, err: str, status: str) -> None:
     conn = None
@@ -218,19 +206,16 @@ def get_cached_flight_data(from_id, to_id, dep_time):
     global _flight_cache
     
     cache_key = f"{from_id}_{to_id}_{dep_time}"
-    current_time = time.time()
     
     # 檢查快取
-    if cache_key in _flight_cache:
-        cached_data, cached_time = _flight_cache[cache_key]
-        if current_time - cached_time < _flight_cache_timeout:
-            return cached_data
-        del _flight_cache[cache_key]
+    cached_data = cache_get(_flight_cache, cache_key, _flight_cache_timeout)
+    if cached_data is not None:
+        return cached_data
     
     # 查 DB
     result = search_service.get_flight_data(from_id=from_id, to_id=to_id, dep_time=dep_time)
     if result.get("success"):
-        _flight_cache[cache_key] = (result, current_time)
+        cache_set(_flight_cache, cache_key, result)
     return result
 
 def format_flight_info(flight):

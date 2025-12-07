@@ -72,12 +72,7 @@ TOURISM_CATEGORIES = [
     "海灘", "島嶼", "山", "湖", "河",
 ]
 
-# 快取
-from api.linebot.cache_utils import cache_get, cache_set, cache_clear_expired
-_attractions_cache = {}
-_CACHE_TTL_SEC = 3600
-
-# 重用 session 比較快
+# HTTP session 重用，降低延遲
 _session = requests.Session()
 
 # 城市座標（從 airports_config 拿 + 一些額外的）
