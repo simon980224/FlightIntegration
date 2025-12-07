@@ -237,6 +237,86 @@ class InternationalCities:
             "airports": ["MFM"],
             "english_name": "Macau"
         },
+        
+        # 歐洲
+        "倫敦": {
+            "coords": {"lat": 51.4700, "lon": -0.4543},
+            "aliases": ["London", "LONDON", "伦敦"],
+            "airports": ["LHR", "LGW"],
+            "english_name": "London"
+        },
+        "巴黎": {
+            "coords": {"lat": 49.0097, "lon": 2.5479},
+            "aliases": ["Paris", "PARIS", "巴黎"],
+            "airports": ["CDG", "ORY"],
+            "english_name": "Paris"
+        },
+        "法蘭克福": {
+            "coords": {"lat": 50.1109, "lon": 8.6821},
+            "aliases": ["Frankfurt", "FRANKFURT", "法兰克福"],
+            "airports": ["FRA"],
+            "english_name": "Frankfurt"
+        },
+        "阿姆斯特丹": {
+            "coords": {"lat": 52.3676, "lon": 4.9041},
+            "aliases": ["Amsterdam", "AMSTERDAM", "阿姆斯特丹"],
+            "airports": ["AMS"],
+            "english_name": "Amsterdam"
+        },
+        
+        # 美洲
+        "洛杉磯": {
+            "coords": {"lat": 33.9425, "lon": -118.4081},
+            "aliases": ["Los Angeles", "LA", "洛杉矶"],
+            "airports": ["LAX"],
+            "english_name": "Los Angeles"
+        },
+        "紐約": {
+            "coords": {"lat": 40.6413, "lon": -73.7781},
+            "aliases": ["New York", "NYC", "纽约"],
+            "airports": ["JFK", "LGA", "EWR"],
+            "english_name": "New York"
+        },
+        "舊金山": {
+            "coords": {"lat": 37.6213, "lon": -122.3790},
+            "aliases": ["San Francisco", "SF", "旧金山"],
+            "airports": ["SFO"],
+            "english_name": "San Francisco"
+        },
+        "溫哥華": {
+            "coords": {"lat": 49.1967, "lon": -123.1815},
+            "aliases": ["Vancouver", "VANCOUVER", "温哥华"],
+            "airports": ["YVR"],
+            "english_name": "Vancouver"
+        },
+        
+        # 澳洲
+        "雪梨": {
+            "coords": {"lat": -33.9399, "lon": 151.1753},
+            "aliases": ["Sydney", "SYDNEY", "悉尼"],
+            "airports": ["SYD"],
+            "english_name": "Sydney"
+        },
+        "墨爾本": {
+            "coords": {"lat": -37.6690, "lon": 144.8410},
+            "aliases": ["Melbourne", "MELBOURNE", "墨尔本"],
+            "airports": ["MEL"],
+            "english_name": "Melbourne"
+        },
+        
+        # 中東
+        "杜拜": {
+            "coords": {"lat": 25.2532, "lon": 55.3657},
+            "aliases": ["Dubai", "DUBAI", "迪拜"],
+            "airports": ["DXB"],
+            "english_name": "Dubai"
+        },
+        "多哈": {
+            "coords": {"lat": 25.2731, "lon": 51.6081},
+            "aliases": ["Doha", "DOHA", "多哈"],
+            "airports": ["DOH"],
+            "english_name": "Doha"
+        },
     }
     
     @classmethod

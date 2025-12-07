@@ -555,12 +555,20 @@ def find_locations_in_cache(message):
 
     # 3. 國家/城市別名匹配
     country_aliases = {
-        '美國': ['LAX', 'JFK', 'SFO'],  # 主要美國機場
+        '美國': ['LAX', 'JFK', 'SFO', 'EWR', 'LGA'],  # 主要美國機場
         '日本': ['NRT', 'HND', 'KIX'],  # 主要日本機場
         '韓國': ['ICN', 'GMP'],         # 主要韓國機場
         '泰國': ['BKK', 'DMK'],         # 主要泰國機場
         '新加坡': ['SIN'],              # 新加坡機場
         '馬來西亞': ['KUL'],            # 馬來西亞機場
+        '英國': ['LHR', 'LGW'],         # 主要英國機場
+        '法國': ['CDG', 'ORY'],         # 主要法國機場
+        '德國': ['FRA', 'MUC'],         # 主要德國機場
+        '荷蘭': ['AMS'],               # 荷蘭機場
+        '澳洲': ['SYD', 'MEL'],         # 主要澳洲機場
+        '加拿大': ['YVR', 'YYZ'],       # 主要加拿大機場
+        '阿聯酋': ['DXB'],             # 杜拜機場
+        '卡達': ['DOH'],               # 多哈機場
     }
 
     for country, airport_codes in country_aliases.items():
@@ -602,7 +610,9 @@ def match_country_to_airport(location):
     mapping = {
         '美國': 'LAX', '日本': 'NRT', '韓國': 'ICN', '泰國': 'BKK',
         '新加坡': 'SIN', '馬來西亞': 'KUL', '印尼': 'CGK', '菲律賓': 'MNL',
-        '越南': 'SGN', '香港': 'HKG', '澳門': 'MFM'
+        '越南': 'SGN', '香港': 'HKG', '澳門': 'MFM',
+        '英國': 'LHR', '法國': 'CDG', '德國': 'FRA', '荷蘭': 'AMS',
+        '澳洲': 'SYD', '加拿大': 'YVR', '阿聯酋': 'DXB', '卡達': 'DOH'
     }
     return mapping.get(location)
 
