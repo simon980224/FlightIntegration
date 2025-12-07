@@ -10,12 +10,7 @@ import pymssql
 import threading
 from queue import Queue
 
-from api.linebot.constants import (
-    CACHE_TTL_FLIGHT, ERROR_GENERAL, ERROR_NO_FLIGHTS,
-    LOADING_FLIGHTS, DB_CONNECT_TIMEOUT,
-    ERROR_SEARCH_FAILED, ERROR_INVALID_INPUT, ERROR_SYSTEM_ERROR,
-    GUIDE_SEARCH_FORMAT, CACHE_CLEANUP_INTERVAL, LOG_WORKER_SHUTDOWN_TIMEOUT
-)
+
 from api.linebot.cache_utils import cache_get, cache_set, cache_clear_expired
 
 logger = logging.getLogger(__name__)
